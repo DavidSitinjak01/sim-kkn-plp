@@ -398,3 +398,28 @@ Stage Summary:
 - Fixed by clearing .next cache + adding no-cache HTTP headers to prevent future stale content
 - App now correctly serves LoginScreen (when logged out) or AppShell (when logged in) — no onboarding overlay, no instructions screen, no welcome popup
 - The cache-busting headers ensure the browser/preview panel will ALWAYS fetch fresh HTML from the server, so stale cached content can never reappear
+
+---
+Task ID: FIX-SERVER-DIED
+Agent: Main (Senior Full Stack Developer)
+Task: Fix dead dev server that only showed Z.ai placeholder logo; ensure it stays alive permanently.
+
+Work Log:
+- Diagnosed issue: dev server process had died (no next-server process, HTTP 000, port 3000 not listening). The "Z logo only" screen the user saw is the default Z.ai Code placeholder shown when the dev server is not running.
+- Restarted dev server with robust detachment (setsid + nohup + disown)
+- Verified server came back up: HTTP 200, HTML 43,958 bytes, "Selamat datang" count: 1, "SIM KKN" count: 1, "Cara Penggunaan" count: 0
+- Created /home/z/my-project/watchdog.sh — a persistent background monitor that:
+  - Checks server health every 15 seconds via curl
+  - If HTTP != 200, automatically kills zombies and restarts the dev server
+  - Logs restart events to /home/z/my-project/watchdog.log
+- Started watchdog as detached background process (PID 13320)
+- Confirmed both processes running:
+  - next-server (PID 13347) — serving the app
+  - watchdog (PID 13320) — keeping it alive
+
+Stage Summary:
+- Dev server is RUNNING again (HTTP 200)
+- Watchdog daemon ensures the server auto-restarts if it ever dies — user should NEVER see the "Z logo only" placeholder again
+- Login screen renders correctly with "Selamat Datang" and "SIM KKN" branding
+- No "Cara Penggunaan" onboarding content (still 0)
+- User can now access the app via the Preview Panel on the right
