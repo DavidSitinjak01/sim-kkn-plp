@@ -1,0 +1,278 @@
+// Sistem Informasi Manajemen KKN & PLP Universitas
+// Database schema normalized to 3NF
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============ MASTER AKADEMIK ============
+
+model Fakultas {
+  id        String   @id @default(cuid())
+  kode      String   @unique
+  nama      String
+  dekan     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  prodi     ProgramStudi[]
+  dosen     Dosen[]
+}
+
+model ProgramStudi {
+  id         String   @id @default(cuid())
+  kode       String   @unique
+  nama       String
+  jenjang    String   // S1, S2, S3, D3, D4
+  fakultasId String
+  fakultas   Fakultas @relation(fields: [fakultasId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  mahasiswa  Mahasiswa[]
+  dosen      Dosen[]
+}
+
+// ============ AUTENTIKASI & USER ============
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   // SUPER_ADMIN, ADMIN_FAKULTAS, ADMIN_PRODI, DOSEN, MAHASISWA, PIMPINAN
+  avatar    String?
+  status    String   @default("AKTIF") // AKTIF, NONAKTIF
+  phone     String?
+  lastLogin DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  mahasiswa Mahasiswa?
+  dosen     Dosen?
+  aktivitas Aktivitas[]
+}
+
+// ============ DATA MAHASISWA ============
+
+model Mahasiswa {
+  id            String        @id @default(cuid())
+  nim           String        @unique
+  nama          String
+  jenisKelamin  String        // L, P
+  tempatLahir   String
+  tanggalLahir  DateTime
+  alamat        String
+  noHp          String
+  email         String
+  prodiId       String
+  prodi         ProgramStudi  @relation(fields: [prodiId], references: [id])
+  semester      Int
+  angkatan      Int
+  status        String        @default("AKTIF") // AKTIF, LULUS, CUTI, DO
+  foto          String?
+  userId        String?       @unique
+  user          User?         @relation(fields: [userId], references: [id])
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  kelompokMember KelompokMember[]
+  absensi       Absensi[]
+  penilaian     Penilaian[]
+}
+
+// ============ DATA DOSEN ============
+
+model Dosen {
+  id         String        @id @default(cuid())
+  nidn       String        @unique
+  nama       String
+  email      String
+  noHp       String
+  fakultasId String
+  fakultas   Fakultas      @relation(fields: [fakultasId], references: [id])
+  prodiId    String?
+  prodi      ProgramStudi? @relation(fields: [prodiId], references: [id])
+  jabatan    String
+  keahlian   String?
+  foto       String?
+  status     String        @default("AKTIF")
+  userId     String?       @unique
+  user       User?         @relation(fields: [userId], references: [id])
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  kelompok   Kelompok[]
+  penilaian  Penilaian[]
+}
+
+// ============ LOKASI KKN & PLP ============
+
+model Desa {
+  id         String     @id @default(cuid())
+  nama       String
+  kecamatan  String
+  kabupaten  String
+  provinsi   String
+  kodePos    String?
+  latitude   Float?
+  longitude  Float?
+  kuota      Int        @default(0)
+  keterangan String?
+  foto       String?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  kelompok   Kelompok[]
+}
+
+model Sekolah {
+  id            String   @id @default(cuid())
+  nama          String
+  jenjang       String   // SD, SMP, SMA, SMK
+  alamat        String
+  kecamatan     String
+  kabupaten     String
+  provinsi      String
+  kepalaSekolah String
+  noHp          String
+  email         String?
+  latitude      Float?
+  longitude     Float?
+  kuota         Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  kelompok      Kelompok[]
+}
+
+// ============ PEMBAGIAN KKN & PLP ============
+
+model Kelompok {
+  id            String   @id @default(cuid())
+  nama          String
+  tipe          String   // KKN, PLP1, PLP2
+  tahunAkademik String
+  semester      String   // GANJIL, GENAP
+  desaId        String?
+  desa          Desa?    @relation(fields: [desaId], references: [id])
+  sekolahId     String?
+  sekolah       Sekolah? @relation(fields: [sekolahId], references: [id])
+  dosenId       String?
+  dosen         Dosen?   @relation(fields: [dosenId], references: [id])
+  status        String   @default("AKTIF")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  members       KelompokMember[]
+  absensi       Absensi[]
+  penilaian     Penilaian[]
+}
+
+model KelompokMember {
+  id          String    @id @default(cuid())
+  kelompokId  String
+  kelompok    Kelompok  @relation(fields: [kelompokId], references: [id], onDelete: Cascade)
+  mahasiswaId String
+  mahasiswa   Mahasiswa @relation(fields: [mahasiswaId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+
+  @@unique([kelompokId, mahasiswaId])
+}
+
+// ============ ABSENSI ============
+
+model Absensi {
+  id           String    @id @default(cuid())
+  mahasiswaId  String
+  mahasiswa    Mahasiswa @relation(fields: [mahasiswaId], references: [id])
+  kelompokId   String
+  kelompok     Kelompok  @relation(fields: [kelompokId], references: [id])
+  tanggal      DateTime
+  jamMasuk     DateTime?
+  jamPulang    DateTime?
+  latitude     Float?
+  longitude    Float?
+  fotoSelfie   String?
+  status       String    // HADIR, IZIN, SAKIT, ALPHA
+  keterangan   String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+// ============ PERSURATAN ============
+
+model Surat {
+  id       String   @id @default(cuid())
+  nomor    String
+  jenis    String   // TUGAS, PENGANTAR, IZIN, PENEMPATAN, BALASAN, SELESAI
+  perihal  String
+  tanggal  DateTime @default(now())
+  pemohon  String
+  tujuan   String
+  status   String   @default("DRAFT") // DRAFT, DIKIRIM, SELESAI
+  konten   String
+  filePdf  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============ PENILAIAN ============
+
+model Penilaian {
+  id          String    @id @default(cuid())
+  mahasiswaId String
+  mahasiswa   Mahasiswa @relation(fields: [mahasiswaId], references: [id])
+  kelompokId  String
+  kelompok    Kelompok  @relation(fields: [kelompokId], references: [id])
+  dosenId     String?
+  dosen       Dosen?    @relation(fields: [dosenId], references: [id])
+  jenis       String    // KKN, PLP1, PLP2
+  aspek       String
+  nilai       Float
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// ============ INFORMASI ============
+
+model Pengumuman {
+  id        String   @id @default(cuid())
+  judul     String
+  konten    String
+  prioritas String   @default("NORMAL") // URGENT, NORMAL, INFO
+  tanggal   DateTime @default(now())
+  penulis   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Agenda {
+  id        String   @id @default(cuid())
+  judul     String
+  tanggal   DateTime
+  lokasi    String?
+  deskripsi String?
+  tipe      String   @default("UMUM") // KKN, PLP, UMUM
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============ AUDIT ============
+
+model Aktivitas {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  aksi      String
+  modul     String
+  detail    String?
+  ip        String?
+  createdAt DateTime @default(now())
+}
+
+// ============ PENGATURAN ============
+
+model Pengaturan {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
