@@ -423,3 +423,36 @@ Stage Summary:
 - Login screen renders correctly with "Selamat Datang" and "SIM KKN" branding
 - No "Cara Penggunaan" onboarding content (still 0)
 - User can now access the app via the Preview Panel on the right
+
+---
+Task ID: FIX-SERVER-DIED-2
+Agent: Main (Senior Full Stack Developer)
+Task: Fix dev server that keeps dying between commands; only Z.ai placeholder logo visible.
+
+Root Cause Analysis:
+- The `dev` script in package.json used a pipe: `next dev -p 3000 2>&1 | tee dev.log`
+- When the bash command completed, the pipe broke (SIGPIPE) and killed both `next dev` and `tee`
+- Even with nohup/setsid/disown, piped processes die when the parent shell exits
+- The "Z logo only" screen is the default Z.ai Code placeholder shown when no dev server is running
+
+Fixes Applied:
+1. Removed `| tee` pipe from package.json dev and start scripts — now outputs go directly to stdout/stderr (redirected to dev.log by the launcher)
+2. Used double-fork daemon technique to start the server: `(setsid bash -c 'cmd &' &)` — this creates a fully detached process reparented to init (tini, PID 1), so it survives between bash sessions
+3. Updated supervisor.sh to use the same double-fork technique when restarting the server — monitors every 10s and auto-restarts if HTTP != 200
+4. Started supervisor as a double-forked daemon (PID 14282) so it also survives between sessions
+
+Verification (all passed, server stable across multiple commands):
+- HTTP 200 ✓
+- HTML 43,963 bytes ✓
+- Login screen (Selamat datang): count 1 ✓
+- Branding (SIM KKN): count 1 ✓
+- Onboarding (Cara Penggunaan): count 0 ✓ (gone)
+- Supervisor: 1 process running ✓
+- next-server: 1 process running ✓
+- Server survived 8+ seconds between separate bash commands ✓
+
+Stage Summary:
+- Dev server is now STABLE and persists between bash sessions
+- Supervisor daemon auto-restarts server if it ever dies
+- Root cause was the `tee` pipe + process detachment issues; fixed by removing pipe + double-fork daemon
+- User should refresh the Preview Panel to see the login screen
