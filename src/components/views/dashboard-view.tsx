@@ -17,6 +17,33 @@ import { Skeleton } from '@/components/ui/skeleton'
 
 const COLORS = ['oklch(0.55 0.2 255)', 'oklch(0.65 0.16 180)', 'oklch(0.7 0.18 145)', 'oklch(0.75 0.18 70)', 'oklch(0.6 0.22 300)']
 
+// Safe default structure — used when API fails or returns malformed data
+// so the dashboard renders empty states instead of crashing.
+const EMPTY_DASHBOARD = {
+  stats: {
+    mahasiswa: 0, dosen: 0, desa: 0, sekolah: 0, kelompok: 0,
+    surat: 0, pengumuman: 0, agenda: 0, absensiToday: 0,
+  },
+  charts: {
+    pesertaPerProdi: [],
+    kelompokByTipe: [
+      { name: 'KKN', value: 0 },
+      { name: 'PLP 1', value: 0 },
+      { name: 'PLP 2', value: 0 },
+    ],
+    absensiTrend: [],
+    mhsPerAngkatan: [],
+    distribusi: [
+      { name: 'KKN', value: 0 },
+      { name: 'PLP 1', value: 0 },
+      { name: 'PLP 2', value: 0 },
+    ],
+  },
+  recentPengumuman: [],
+  upcomingAgenda: [],
+  recentAktivitas: [],
+}
+
 const STAT_CARDS = [
   { key: 'mahasiswa', label: 'Total Mahasiswa', icon: Users, color: 'from-blue-500 to-blue-600', trend: '+12%' },
   { key: 'dosen', label: 'Dosen Pendamping', icon: GraduationCap, color: 'from-emerald-500 to-emerald-600', trend: '+5%' },
@@ -34,9 +61,36 @@ export function DashboardView() {
 
   useEffect(() => {
     fetch('/api/dashboard')
-      .then(r => r.json())
-      .then(d => setData(d))
-      .catch(() => {})
+      .then(async (r) => {
+        // Validate HTTP status first — a 500 response body is `{ error: ... }`
+        // which does NOT contain the `stats` field the UI expects.
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        const d = await r.json()
+        // Defensive: ensure the response has the expected `stats` shape.
+        // If not, fall back to empty dashboard so the UI renders zeros
+        // instead of crashing on `stats.mahasiswa`.
+        if (!d || typeof d !== 'object' || !d.stats) {
+          return EMPTY_DASHBOARD
+        }
+        // Deep-merge with EMPTY_DASHBOARD so any missing sub-field
+        // (e.g. `charts.distribusi`) is filled with a safe default
+        // rather than `undefined` (which would crash `.map()` calls).
+        return {
+          stats: { ...EMPTY_DASHBOARD.stats, ...d.stats },
+          charts: {
+            pesertaPerProdi: d.charts?.pesertaPerProdi ?? EMPTY_DASHBOARD.charts.pesertaPerProdi,
+            kelompokByTipe: d.charts?.kelompokByTipe ?? EMPTY_DASHBOARD.charts.kelompokByTipe,
+            absensiTrend: d.charts?.absensiTrend ?? EMPTY_DASHBOARD.charts.absensiTrend,
+            mhsPerAngkatan: d.charts?.mhsPerAngkatan ?? EMPTY_DASHBOARD.charts.mhsPerAngkatan,
+            distribusi: d.charts?.distribusi ?? EMPTY_DASHBOARD.charts.distribusi,
+          },
+          recentPengumuman: Array.isArray(d.recentPengumuman) ? d.recentPengumuman : [],
+          upcomingAgenda: Array.isArray(d.upcomingAgenda) ? d.upcomingAgenda : [],
+          recentAktivitas: Array.isArray(d.recentAktivitas) ? d.recentAktivitas : [],
+        }
+      })
+      .catch(() => EMPTY_DASHBOARD)
+      .then((d) => setData(d))
       .finally(() => setLoading(false))
   }, [])
 
@@ -54,7 +108,15 @@ export function DashboardView() {
     )
   }
 
-  const { stats, charts, recentPengumuman, upcomingAgenda, recentAktivitas } = data
+  // Merge with EMPTY_DASHBOARD so destructured fields are never undefined
+  // even if the API returns a partial payload.
+  const {
+    stats = EMPTY_DASHBOARD.stats,
+    charts = EMPTY_DASHBOARD.charts,
+    recentPengumuman = EMPTY_DASHBOARD.recentPengumuman,
+    upcomingAgenda = EMPTY_DASHBOARD.upcomingAgenda,
+    recentAktivitas = EMPTY_DASHBOARD.recentAktivitas,
+  } = data ?? EMPTY_DASHBOARD
 
   return (
     <div className="space-y-6">
