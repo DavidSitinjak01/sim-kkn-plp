@@ -1,0 +1,961 @@
+     1→'use client'
+     2→
+     3→import { useEffect, useState, useMemo, useCallback } from 'react'
+     4→import { motion } from 'framer-motion'
+     5→import { toast } from 'sonner'
+     6→import QRCode from 'qrcode'
+     7→import {
+     8→  QrCode, CalendarDays, CalendarRange, ScanLine, FileSpreadsheet, FileText,
+     9→  Pencil, Trash2, Loader2, MapPin, CheckCircle2, AlertCircle, Users, XCircle,
+    10→  Clock, LogIn, LogOut, Info,
+    11→} from 'lucide-react'
+    12→
+    13→import { PageHeader } from '@/components/shared/page-header'
+    14→import { DataTable, type Column } from '@/components/shared/data-table'
+    15→import {
+    16→  exportToCSV, exportToPDF, generateTableHTML, formatDate, formatDateShort,
+    17→} from '@/lib/export-utils'
+    18→
+    19→import { Button } from '@/components/ui/button'
+    20→import { Input } from '@/components/ui/input'
+    21→import { Label } from '@/components/ui/label'
+    22→import { Card, CardContent } from '@/components/ui/card'
+    23→import { Badge } from '@/components/ui/badge'
+    24→import { Skeleton } from '@/components/ui/skeleton'
+    25→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    26→import { Progress } from '@/components/ui/progress'
+    27→import {
+    28→  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+    29→} from '@/components/ui/dialog'
+    30→import {
+    31→  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+    32→  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+    33→} from '@/components/ui/alert-dialog'
+    34→import {
+    35→  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+    36→} from '@/components/ui/select'
+    37→
+    38→// ============ Types ============
+    39→interface Prodi { id: string; kode: string; nama: string }
+    40→interface Mahasiswa {
+    41→  id: string; nim: string; nama: string; jenisKelamin: string
+    42→  prodi: Prodi | null
+    43→}
+    44→interface Kelompok {
+    45→  id: string; nama: string; tipe: string; tahunAkademik: string
+    46→  semester: string; status: string
+    47→}
+    48→interface Absensi {
+    49→  id: string
+    50→  mahasiswaId: string
+    51→  kelompokId: string
+    52→  tanggal: string
+    53→  jamMasuk: string | null
+    54→  jamPulang: string | null
+    55→  latitude: number | null
+    56→  longitude: number | null
+    57→  fotoSelfie: string | null
+    58→  status: 'HADIR' | 'IZIN' | 'SAKIT' | 'ALPHA'
+    59→  keterangan: string | null
+    60→  createdAt: string
+    61→  updatedAt: string
+    62→  mahasiswa: Mahasiswa
+    63→  kelompok: Kelompok
+    64→}
+    65→interface RekapRow {
+    66→  mahasiswaId: string
+    67→  nim: string
+    68→  nama: string
+    69→  prodi: string
+    70→  kelompokNama: string
+    71→  hadir: number
+    72→  izin: number
+    73→  sakit: number
+    74→  alpha: number
+    75→  total: number
+    76→}
+    77→
+    78→const STATUS_OPTIONS = [
+    79→  { value: 'HADIR', label: 'Hadir' },
+    80→  { value: 'IZIN', label: 'Izin' },
+    81→  { value: 'SAKIT', label: 'Sakit' },
+    82→  { value: 'ALPHA', label: 'Alpha' },
+    83→]
+    84→
+    85→function statusBadge(s: string) {
+    86→  const map: Record<string, { cls: string; label: string }> = {
+    87→    HADIR: { cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800', label: 'Hadir' },
+    88→    IZIN: { cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border-amber-200 dark:border-amber-800', label: 'Izin' },
+    89→    SAKIT: { cls: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300 border-sky-200 dark:border-sky-800', label: 'Sakit' },
+    90→    ALPHA: { cls: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 border-rose-200 dark:border-rose-800', label: 'Alpha' },
+    91→  }
+    92→  const m = map[s] ?? map.ALPHA
+    93→  return (
+    94→    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-xs font-semibold ${m.cls}`}>
+    95→      {m.label}
+    96→    </span>
+    97→  )
+    98→}
+    99→
+   100→function formatTime(d: string | null) {
+   101→  if (!d) return '-'
+   102→  return new Date(d).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+   103→}
+   104→
+   105→function todayStr() {
+   106→  const d = new Date()
+   107→  const yyyy = d.getFullYear()
+   108→  const mm = String(d.getMonth() + 1).padStart(2, '0')
+   109→  const dd = String(d.getDate()).padStart(2, '0')
+   110→  return `${yyyy}-${mm}-${dd}`
+   111→}
+   112→
+   113→function currentMonthStr() {
+   114→  const d = new Date()
+   115→  const yyyy = d.getFullYear()
+   116→  const mm = String(d.getMonth() + 1).padStart(2, '0')
+   117→  return `${yyyy}-${mm}`
+   118→}
+   119→
+   120→// ============ Main View ============
+   121→export function AbsensiView() {
+   122→  const [tab, setTab] = useState('harian')
+   123→
+   124→  return (
+   125→    <div className="space-y-6">
+   126→      <PageHeader
+   127→        title="Absensi Mahasiswa"
+   128→        description="Catat dan pantau kehadiran mahasiswa KKN & PLP dengan QR Code"
+   129→        icon={QrCode}
+   130→        breadcrumb={['Operasional', 'Absensi']}
+   131→      />
+   132→
+   133→      <Tabs value={tab} onValueChange={setTab}>
+   134→        <TabsList className="w-full sm:w-auto grid grid-cols-3 sm:flex">
+   135→          <TabsTrigger value="harian" className="gap-1.5">
+   136→            <CalendarDays className="w-4 h-4" /> Rekap Harian
+   137→          </TabsTrigger>
+   138→          <TabsTrigger value="bulanan" className="gap-1.5">
+   139→            <CalendarRange className="w-4 h-4" /> Rekap Bulanan
+   140→          </TabsTrigger>
+   141→          <TabsTrigger value="scanner" className="gap-1.5">
+   142→            <ScanLine className="w-4 h-4" /> QR Scanner
+   143→          </TabsTrigger>
+   144→        </TabsList>
+   145→
+   146→        <TabsContent value="harian">
+   147→          <RekapHarianTab />
+   148→        </TabsContent>
+   149→        <TabsContent value="bulanan">
+   150→          <RekapBulananTab />
+   151→        </TabsContent>
+   152→        <TabsContent value="scanner">
+   153→          <QrScannerTab />
+   154→        </TabsContent>
+   155→      </Tabs>
+   156→    </div>
+   157→  )
+   158→}
+   159→
+   160→// ============ Shared kelompok loader hook ============
+   161→function useKelompokList() {
+   162→  const [list, setList] = useState<Kelompok[]>([])
+   163→  const [loading, setLoading] = useState(true)
+   164→  useEffect(() => {
+   165→    (async () => {
+   166→      try {
+   167→        const res = await fetch('/api/kelompok')
+   168→        if (!res.ok) throw new Error('Gagal')
+   169→        const json = await res.json()
+   170→        setList(json)
+   171→      } catch {
+   172→        toast.error('Gagal memuat daftar kelompok')
+   173→      } finally {
+   174→        setLoading(false)
+   175→      }
+   176→    })()
+   177→  }, [])
+   178→  return { list, loading }
+   179→}
+   180→
+   181→// ============ TAB 1: Rekap Harian ============
+   182→function RekapHarianTab() {
+   183→  const { list: kelompokList, loading: kelompokLoading } = useKelompokList()
+   184→  const [data, setData] = useState<Absensi[]>([])
+   185→  const [loading, setLoading] = useState(true)
+   186→  const [tanggal, setTanggal] = useState(todayStr())
+   187→  const [kelompokId, setKelompokId] = useState('ALL')
+   188→  const [statusFilter, setStatusFilter] = useState('ALL')
+   189→
+   190→  const [editTarget, setEditTarget] = useState<Absensi | null>(null)
+   191→  const [editStatus, setEditStatus] = useState<string>('HADIR')
+   192→  const [editKeterangan, setEditKeterangan] = useState('')
+   193→  const [saving, setSaving] = useState(false)
+   194→
+   195→  const [deleteTarget, setDeleteTarget] = useState<Absensi | null>(null)
+   196→  const [deleting, setDeleting] = useState(false)
+   197→
+   198→  const fetchData = useCallback(async () => {
+   199→    setLoading(true)
+   200→    try {
+   201→      const params = new URLSearchParams()
+   202→      params.set('tanggal', tanggal)
+   203→      if (kelompokId !== 'ALL') params.set('kelompokId', kelompokId)
+   204→      if (statusFilter !== 'ALL') params.set('status', statusFilter)
+   205→      const res = await fetch(`/api/absensi?${params.toString()}`)
+   206→      if (!res.ok) throw new Error('Gagal')
+   207→      const json = await res.json()
+   208→      setData(json)
+   209→    } catch {
+   210→      toast.error('Gagal memuat absensi harian')
+   211→    } finally {
+   212→      setLoading(false)
+   213→    }
+   214→  }, [tanggal, kelompokId, statusFilter])
+   215→
+   216→  useEffect(() => { fetchData() }, [fetchData])
+   217→
+   218→  // Stats
+   219→  const stats = useMemo(() => {
+   220→    const total = data.length
+   221→    const hadir = data.filter((d) => d.status === 'HADIR').length
+   222→    const izinSakit = data.filter((d) => d.status === 'IZIN' || d.status === 'SAKIT').length
+   223→    const alpha = data.filter((d) => d.status === 'ALPHA').length
+   224→    return { total, hadir, izinSakit, alpha }
+   225→  }, [data])
+   226→
+   227→  const openEdit = (a: Absensi) => {
+   228→    setEditTarget(a)
+   229→    setEditStatus(a.status)
+   230→    setEditKeterangan(a.keterangan ?? '')
+   231→  }
+   232→
+   233→  const handleEditSubmit = async (e: React.FormEvent) => {
+   234→    e.preventDefault()
+   235→    if (!editTarget) return
+   236→    setSaving(true)
+   237→    try {
+   238→      const res = await fetch(`/api/absensi/${editTarget.id}`, {
+   239→        method: 'PUT',
+   240→        headers: { 'Content-Type': 'application/json' },
+   241→        body: JSON.stringify({ status: editStatus, keterangan: editKeterangan }),
+   242→      })
+   243→      const json = await res.json()
+   244→      if (!res.ok) throw new Error(json?.error || 'Gagal menyimpan')
+   245→      toast.success('Status absensi diperbarui')
+   246→      setEditTarget(null)
+   247→      fetchData()
+   248→    } catch (err: any) {
+   249→      toast.error(err?.message || 'Gagal menyimpan')
+   250→    } finally {
+   251→      setSaving(false)
+   252→    }
+   253→  }
+   254→
+   255→  const handleDelete = async () => {
+   256→    if (!deleteTarget) return
+   257→    setDeleting(true)
+   258→    try {
+   259→      const res = await fetch(`/api/absensi/${deleteTarget.id}`, { method: 'DELETE' })
+   260→      const json = await res.json()
+   261→      if (!res.ok) throw new Error(json?.error || 'Gagal menghapus')
+   262→      toast.success('Absensi berhasil dihapus')
+   263→      setDeleteTarget(null)
+   264→      fetchData()
+   265→    } catch (err: any) {
+   266→      toast.error(err?.message || 'Gagal menghapus')
+   267→    } finally {
+   268→      setDeleting(false)
+   269→    }
+   270→  }
+   271→
+   272→  // Export
+   273→  const handleExportCSV = () => {
+   274→    if (!data.length) { toast.error('Tidak ada data untuk diexport'); return }
+   275→    const headers = ['Tanggal', 'NIM', 'Nama Mahasiswa', 'Kelompok', 'Jam Masuk', 'Jam Pulang', 'Status', 'Keterangan', 'Latitude', 'Longitude']
+   276→    const rows = data.map((d) => [
+   277→      formatDateShort(d.tanggal), d.mahasiswa.nim, d.mahasiswa.nama, d.kelompok?.nama ?? '-',
+   278→      formatTime(d.jamMasuk), formatTime(d.jamPulang), d.status, d.keterangan ?? '-',
+   279→      d.latitude ?? '-', d.longitude ?? '-',
+   280→    ])
+   281→    exportToCSV(`absensi-harian-${tanggal}`, headers, rows)
+   282→  }
+   283→  const handleExportPDF = () => {
+   284→    if (!data.length) { toast.error('Tidak ada data untuk diexport'); return }
+   285→    const headers = ['Tanggal', 'NIM', 'Nama', 'Kelompok', 'Jam Masuk', 'Jam Pulang', 'Status', 'Keterangan']
+   286→    const rows = data.map((d) => [
+   287→      formatDateShort(d.tanggal), d.mahasiswa.nim, d.mahasiswa.nama, d.kelompok?.nama ?? '-',
+   288→      formatTime(d.jamMasuk), formatTime(d.jamPulang), d.status, d.keterangan ?? '-',
+   289→    ])
+   290→    exportToPDF(`Absensi Harian - ${formatDateShort(tanggal)}`, generateTableHTML(`Rekap Absensi Harian - ${formatDate(tanggal)}`, headers, rows))
+   291→  }
+   292→
+   293→  const columns: Column<Absensi>[] = useMemo(() => [
+   294→    {
+   295→      key: 'mahasiswa', header: 'Mahasiswa', sortable: true, sortValue: (a) => a.mahasiswa.nama,
+   296→      render: (a) => (
+   297→        <div className="flex items-center gap-2.5 min-w-0">
+   298→          <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-primary text-xs font-semibold">
+   299→            {a.mahasiswa.nama.charAt(0)}
+   300→          </div>
+   301→          <div className="min-w-0">
+   302→            <p className="font-medium truncate">{a.mahasiswa.nama}</p>
+   303→            <p className="text-xs text-muted-foreground font-mono">{a.mahasiswa.nim}</p>
+   304→          </div>
+   305→        </div>
+   306→      ),
+   307→    },
+   308→    {
+   309→      key: 'kelompok', header: 'Kelompok', sortable: true, sortValue: (a) => a.kelompok?.nama ?? '',
+   310→      render: (a) => (
+   311→        <div className="min-w-0">
+   312→          <p className="text-sm truncate">{a.kelompok?.nama ?? '-'}</p>
+   313→          <p className="text-xs text-muted-foreground">{a.kelompok?.tipe ?? '-'}</p>
+   314→        </div>
+   315→      ),
+   316→    },
+   317→    {
+   318→      key: 'jamMasuk', header: 'Jam Masuk', sortable: false, className: 'text-center',
+   319→      render: (a) => (
+   320→        <span className="inline-flex items-center gap-1 text-xs">
+   321→          <LogIn className="w-3 h-3 text-emerald-600" />
+   322→          {formatTime(a.jamMasuk)}
+   323→        </span>
+   324→      ),
+   325→    },
+   326→    {
+   327→      key: 'jamPulang', header: 'Jam Pulang', sortable: false, className: 'text-center',
+   328→      render: (a) => (
+   329→        <span className="inline-flex items-center gap-1 text-xs">
+   330→          <LogOut className="w-3 h-3 text-rose-600" />
+   331→          {formatTime(a.jamPulang)}
+   332→        </span>
+   333→      ),
+   334→    },
+   335→    {
+   336→      key: 'status', header: 'Status', sortable: true, sortValue: (a) => a.status, className: 'text-center',
+   337→      render: (a) => statusBadge(a.status),
+   338→    },
+   339→    {
+   340→      key: 'lokasi', header: 'Lokasi', sortable: false,
+   341→      render: (a) => (
+   342→        a.latitude != null && a.longitude != null ? (
+   343→          <a
+   344→            href={`https://www.google.com/maps?q=${a.latitude},${a.longitude}`}
+   345→            target="_blank"
+   346→            rel="noopener noreferrer"
+   347→            className="inline-flex items-center gap-1 text-xs text-sky-600 hover:text-sky-700 hover:underline"
+   348→            title="Lihat di Google Maps"
+   349→          >
+   350→            <MapPin className="w-3 h-3" />
+   351→            {a.latitude.toFixed(3)}, {a.longitude.toFixed(3)}
+   352→          </a>
+   353→        ) : <span className="text-xs text-muted-foreground">Tidak ada</span>
+   354→      ),
+   355→    },
+   356→    {
+   357→      key: 'aksi', header: 'Aksi', sortable: false, className: 'text-right',
+   358→      render: (a) => (
+   359→        <div className="flex items-center justify-end gap-1">
+   360→          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(a)} title="Ubah Status">
+   361→            <Pencil className="w-4 h-4" />
+   362→          </Button>
+   363→          <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-900/20" onClick={() => setDeleteTarget(a)} title="Hapus">
+   364→            <Trash2 className="w-4 h-4" />
+   365→          </Button>
+   366→        </div>
+   367→      ),
+   368→    },
+   369→  ], [])
+   370→
+   371→  const statCards = [
+   372→    { label: 'Total Hari Ini', value: stats.total, icon: Users, color: 'from-slate-500 to-slate-600' },
+   373→    { label: 'Hadir', value: stats.hadir, icon: CheckCircle2, color: 'from-emerald-500 to-emerald-600' },
+   374→    { label: 'Izin / Sakit', value: stats.izinSakit, icon: AlertCircle, color: 'from-amber-500 to-orange-500' },
+   375→    { label: 'Alpha', value: stats.alpha, icon: XCircle, color: 'from-rose-500 to-rose-600' },
+   376→  ]
+   377→
+   378→  return (
+   379→    <div className="space-y-4">
+   380→      {/* Filter row */}
+   381→      <Card>
+   382→        <CardContent className="p-4">
+   383→          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+   384→            <div className="space-y-1.5">
+   385→              <Label className="text-xs">Tanggal</Label>
+   386→              <Input type="date" value={tanggal} onChange={(e) => setTanggal(e.target.value)} />
+   387→            </div>
+   388→            <div className="space-y-1.5">
+   389→              <Label className="text-xs">Kelompok</Label>
+   390→              <Select value={kelompokId} onValueChange={setKelompokId}>
+   391→                <SelectTrigger><SelectValue placeholder="Semua Kelompok" /></SelectTrigger>
+   392→                <SelectContent>
+   393→                  <SelectItem value="ALL">Semua Kelompok</SelectItem>
+   394→                  {kelompokList.map((k) => (
+   395→                    <SelectItem key={k.id} value={k.id}>{k.nama}</SelectItem>
+   396→                  ))}
+   397→                </SelectContent>
+   398→              </Select>
+   399→            </div>
+   400→            <div className="space-y-1.5">
+   401→              <Label className="text-xs">Status</Label>
+   402→              <Select value={statusFilter} onValueChange={setStatusFilter}>
+   403→                <SelectTrigger><SelectValue placeholder="Semua Status" /></SelectTrigger>
+   404→                <SelectContent>
+   405→                  <SelectItem value="ALL">Semua Status</SelectItem>
+   406→                  {STATUS_OPTIONS.map((s) => (
+   407→                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+   408→                  ))}
+   409→                </SelectContent>
+   410→              </Select>
+   411→            </div>
+   412→            <div className="space-y-1.5">
+   413→              <Label className="text-xs">Aksi Cetak</Label>
+   414→              <div className="flex gap-2">
+   415→                <Button variant="outline" size="sm" onClick={handleExportCSV} className="flex-1">
+   416→                  <FileSpreadsheet className="w-4 h-4" /> Excel
+   417→                </Button>
+   418→                <Button variant="outline" size="sm" onClick={handleExportPDF} className="flex-1">
+   419→                  <FileText className="w-4 h-4" /> PDF
+   420→                </Button>
+   421→              </div>
+   422→            </div>
+   423→          </div>
+   424→        </CardContent>
+   425→      </Card>
+   426→
+   427→      {/* Stat cards */}
+   428→      {loading ? (
+   429→        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+   430→          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
+   431→        </div>
+   432→      ) : (
+   433→        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+   434→          {statCards.map((c, i) => (
+   435→            <motion.div key={c.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>
+   436→              <Card>
+   437→                <CardContent className="p-4 flex items-center gap-3">
+   438→                  <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${c.color} flex items-center justify-center text-white shrink-0`}>
+   439→                    <c.icon className="w-5 h-5" />
+   440→                  </div>
+   441→                  <div className="min-w-0">
+   442→                    <p className="text-xs text-muted-foreground font-medium">{c.label}</p>
+   443→                    <p className="text-2xl font-bold">{c.value}</p>
+   444→                  </div>
+   445→                </CardContent>
+   446→              </Card>
+   447→            </motion.div>
+   448→          ))}
+   449→        </div>
+   450→      )}
+   451→
+   452→      {loading || kelompokLoading ? (
+   453→        <Skeleton className="h-96 rounded-xl" />
+   454→      ) : (
+   455→        <DataTable
+   456→          data={data}
+   457→          columns={columns}
+   458→          searchable
+   459→          searchKeys={['mahasiswa']}
+   460→          pageSize={10}
+   461→          emptyMessage="Belum ada data absensi untuk filter yang dipilih"
+   462→          getRowId={(a) => a.id}
+   463→        />
+   464→      )}
+   465→
+   466→      {/* Edit dialog */}
+   467→      <Dialog open={!!editTarget} onOpenChange={(o) => { if (!o) setEditTarget(null) }}>
+   468→        <DialogContent className="sm:max-w-md">
+   469→          <DialogHeader>
+   470→            <DialogTitle className="flex items-center gap-2">
+   471→              <Pencil className="w-5 h-5 text-primary" /> Ubah Status Absensi
+   472→            </DialogTitle>
+   473→            <DialogDescription>
+   474→              {editTarget && (
+   475→                <>Perbarui status kehadiran untuk <strong>{editTarget.mahasiswa.nama}</strong> ({editTarget.mahasiswa.nim})</>
+   476→              )}
+   477→            </DialogDescription>
+   478→          </DialogHeader>
+   479→          <form onSubmit={handleEditSubmit} className="space-y-4">
+   480→            <div className="space-y-1.5">
+   481→              <Label>Status <span className="text-rose-500">*</span></Label>
+   482→              <Select value={editStatus} onValueChange={setEditStatus}>
+   483→                <SelectTrigger><SelectValue placeholder="Pilih status" /></SelectTrigger>
+   484→                <SelectContent>
+   485→                  {STATUS_OPTIONS.map((s) => (
+   486→                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+   487→                  ))}
+   488→                </SelectContent>
+   489→              </Select>
+   490→            </div>
+   491→            <div className="space-y-1.5">
+   492→              <Label htmlFor="ket">Keterangan</Label>
+   493→              <Input id="ket" value={editKeterangan} onChange={(e) => setEditKeterangan(e.target.value)} placeholder="Keterangan tambahan (opsional)" />
+   494→            </div>
+   495→            <DialogFooter>
+   496→              <Button type="button" variant="outline" onClick={() => setEditTarget(null)} disabled={saving}>Batal</Button>
+   497→              <Button type="submit" disabled={saving}>
+   498→                {saving && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
+   499→                Simpan
+   500→              </Button>
+   501→            </DialogFooter>
+   502→          </form>
+   503→        </DialogContent>
+   504→      </Dialog>
+   505→
+   506→      {/* Delete confirm */}
+   507→      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null) }}>
+   508→        <AlertDialogContent>
+   509→          <AlertDialogHeader>
+   510→            <AlertDialogTitle>Hapus Absensi</AlertDialogTitle>
+   511→            <AlertDialogDescription>
+   512→              Apakah Anda yakin ingin menghapus record absensi <strong>{deleteTarget?.mahasiswa.nama}</strong> pada <strong>{deleteTarget && formatDateShort(deleteTarget.tanggal)}</strong>?
+   513→              Tindakan ini tidak dapat dibatalkan.
+   514→            </AlertDialogDescription>
+   515→          </AlertDialogHeader>
+   516→          <AlertDialogFooter>
+   517→            <AlertDialogCancel disabled={deleting}>Batal</AlertDialogCancel>
+   518→            <AlertDialogAction
+   519→              onClick={handleDelete}
+   520→              disabled={deleting}
+   521→              className="bg-rose-600 hover:bg-rose-700 text-white"
+   522→            >
+   523→              {deleting && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
+   524→              Hapus
+   525→            </AlertDialogAction>
+   526→          </AlertDialogFooter>
+   527→        </AlertDialogContent>
+   528→      </AlertDialog>
+   529→    </div>
+   530→  )
+   531→}
+   532→
+   533→// ============ TAB 2: Rekap Bulanan ============
+   534→function RekapBulananTab() {
+   535→  const { list: kelompokList, loading: kelompokLoading } = useKelompokList()
+   536→  const [data, setData] = useState<RekapRow[]>([])
+   537→  const [loading, setLoading] = useState(true)
+   538→  const [bulan, setBulan] = useState(currentMonthStr())
+   539→  const [kelompokId, setKelompokId] = useState('ALL')
+   540→
+   541→  const fetchData = useCallback(async () => {
+   542→    setLoading(true)
+   543→    try {
+   544→      const params = new URLSearchParams()
+   545→      params.set('bulan', bulan)
+   546→      if (kelompokId !== 'ALL') params.set('kelompokId', kelompokId)
+   547→      const res = await fetch(`/api/absensi/rekap?${params.toString()}`)
+   548→      if (!res.ok) throw new Error('Gagal')
+   549→      const json = await res.json()
+   550→      setData(json)
+   551→    } catch {
+   552→      toast.error('Gagal memuat rekap bulanan')
+   553→    } finally {
+   554→      setLoading(false)
+   555→    }
+   556→  }, [bulan, kelompokId])
+   557→
+   558→  useEffect(() => { fetchData() }, [fetchData])
+   559→
+   560→  const stats = useMemo(() => {
+   561→    const totalMhs = data.length
+   562→    const totalHadir = data.reduce((s, r) => s + r.hadir, 0)
+   563→    const totalRecords = data.reduce((s, r) => s + r.total, 0)
+   564→    const avgKehadiran = totalRecords > 0 ? Math.round((totalHadir / totalRecords) * 100) : 0
+   565→    const totalAlpha = data.reduce((s, r) => s + r.alpha, 0)
+   566→    return { totalMhs, totalHadir, avgKehadiran, totalAlpha }
+   567→  }, [data])
+   568→
+   569→  const handleExportCSV = () => {
+   570→    if (!data.length) { toast.error('Tidak ada data untuk diexport'); return }
+   571→    const headers = ['NIM', 'Nama', 'Prodi', 'Kelompok', 'Hadir', 'Izin', 'Sakit', 'Alpha', 'Total', 'Persentase %']
+   572→    const rows = data.map((r) => {
+   573→      const pct = r.total > 0 ? Math.round((r.hadir / r.total) * 100) : 0
+   574→      return [r.nim, r.nama, r.prodi, r.kelompokNama, r.hadir, r.izin, r.sakit, r.alpha, r.total, pct]
+   575→    })
+   576→    exportToCSV(`rekap-bulanan-${bulan}`, headers, rows)
+   577→  }
+   578→  const handleExportPDF = () => {
+   579→    if (!data.length) { toast.error('Tidak ada data untuk diexport'); return }
+   580→    const headers = ['NIM', 'Nama', 'Hadir', 'Izin', 'Sakit', 'Alpha', 'Total', '%']
+   581→    const rows = data.map((r) => {
+   582→      const pct = r.total > 0 ? Math.round((r.hadir / r.total) * 100) : 0
+   583→      return [r.nim, r.nama, r.hadir, r.izin, r.sakit, r.alpha, r.total, pct + '%']
+   584→    })
+   585→    exportToPDF(`Rekap Bulanan ${bulan}`, generateTableHTML(`Rekap Kehadiran Bulanan ${bulan}`, headers, rows))
+   586→  }
+   587→
+   588→  const columns: Column<RekapRow>[] = useMemo(() => [
+   589→    {
+   590→      key: 'nama', header: 'Mahasiswa', sortable: true, sortValue: (r) => r.nama,
+   591→      render: (r) => (
+   592→        <div className="flex items-center gap-2.5 min-w-0">
+   593→          <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-primary text-xs font-semibold">
+   594→            {r.nama.charAt(0)}
+   595→          </div>
+   596→          <div className="min-w-0">
+   597→            <p className="font-medium truncate">{r.nama}</p>
+   598→            <p className="text-xs text-muted-foreground font-mono">{r.nim}</p>
+   599→          </div>
+   600→        </div>
+   601→      ),
+   602→    },
+   603→    { key: 'prodi', header: 'Prodi', sortable: true, render: (r) => <span className="text-xs">{r.prodi}</span> },
+   604→    { key: 'kelompokNama', header: 'Kelompok', sortable: true, render: (r) => <span className="text-xs">{r.kelompokNama}</span> },
+   605→    { key: 'hadir', header: 'Hadir', sortable: true, sortValue: (r) => r.hadir, className: 'text-center', render: (r) => <span className="font-semibold text-emerald-600">{r.hadir}</span> },
+   606→    { key: 'izin', header: 'Izin', sortable: true, sortValue: (r) => r.izin, className: 'text-center', render: (r) => <span className="text-amber-600">{r.izin}</span> },
+   607→    { key: 'sakit', header: 'Sakit', sortable: true, sortValue: (r) => r.sakit, className: 'text-center', render: (r) => <span className="text-sky-600">{r.sakit}</span> },
+   608→    { key: 'alpha', header: 'Alpha', sortable: true, sortValue: (r) => r.alpha, className: 'text-center', render: (r) => <span className="text-rose-600">{r.alpha}</span> },
+   609→    { key: 'total', header: 'Total', sortable: true, sortValue: (r) => r.total, className: 'text-center', render: (r) => <span className="font-semibold">{r.total}</span> },
+   610→    {
+   611→      key: 'persentase', header: 'Persentase Kehadiran', sortable: true, sortValue: (r) => r.total > 0 ? r.hadir / r.total : 0,
+   612→      render: (r) => {
+   613→        const pct = r.total > 0 ? Math.round((r.hadir / r.total) * 100) : 0
+   614→        const color = pct >= 80 ? 'text-emerald-600' : pct >= 60 ? 'text-amber-600' : 'text-rose-600'
+   615→        const barClass = pct >= 80 ? '[&>[data-slot=progress-indicator]]:bg-emerald-500' : pct >= 60 ? '[&>[data-slot=progress-indicator]]:bg-amber-500' : '[&>[data-slot=progress-indicator]]:bg-rose-500'
+   616→        return (
+   617→          <div className="flex items-center gap-2 min-w-[140px]">
+   618→            <Progress value={pct} className={`flex-1 h-2 ${barClass}`} />
+   619→            <span className={`text-xs font-semibold ${color} w-9 text-right`}>{pct}%</span>
+   620→          </div>
+   621→        )
+   622→      },
+   623→    },
+   624→  ], [])
+   625→
+   626→  const statCards = [
+   627→    { label: 'Mahasiswa', value: stats.totalMhs, icon: Users, color: 'from-slate-500 to-slate-600' },
+   628→    { label: 'Total Hadir', value: stats.totalHadir, icon: CheckCircle2, color: 'from-emerald-500 to-emerald-600' },
+   629→    { label: 'Rata-rata Kehadiran', value: stats.avgKehadiran + '%', icon: CalendarRange, color: 'from-violet-500 to-purple-500' },
+   630→    { label: 'Total Alpha', value: stats.totalAlpha, icon: XCircle, color: 'from-rose-500 to-rose-600' },
+   631→  ]
+   632→
+   633→  return (
+   634→    <div className="space-y-4">
+   635→      <Card>
+   636→        <CardContent className="p-4">
+   637→          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+   638→            <div className="space-y-1.5">
+   639→              <Label className="text-xs">Bulan</Label>
+   640→              <Input type="month" value={bulan} onChange={(e) => setBulan(e.target.value)} />
+   641→            </div>
+   642→            <div className="space-y-1.5">
+   643→              <Label className="text-xs">Kelompok</Label>
+   644→              <Select value={kelompokId} onValueChange={setKelompokId}>
+   645→                <SelectTrigger><SelectValue placeholder="Semua Kelompok" /></SelectTrigger>
+   646→                <SelectContent>
+   647→                  <SelectItem value="ALL">Semua Kelompok</SelectItem>
+   648→                  {kelompokList.map((k) => (
+   649→                    <SelectItem key={k.id} value={k.id}>{k.nama}</SelectItem>
+   650→                  ))}
+   651→                </SelectContent>
+   652→              </Select>
+   653→            </div>
+   654→            <div className="space-y-1.5 lg:col-span-2 flex items-end gap-2">
+   655→              <Button variant="outline" size="sm" onClick={handleExportCSV} className="flex-1">
+   656→                <FileSpreadsheet className="w-4 h-4" /> Export Excel
+   657→              </Button>
+   658→              <Button variant="outline" size="sm" onClick={handleExportPDF} className="flex-1">
+   659→                <FileText className="w-4 h-4" /> Export PDF
+   660→              </Button>
+   661→            </div>
+   662→          </div>
+   663→        </CardContent>
+   664→      </Card>
+   665→
+   666→      {loading || kelompokLoading ? (
+   667→        <>
+   668→          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+   669→            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
+   670→          </div>
+   671→          <Skeleton className="h-96 rounded-xl" />
+   672→        </>
+   673→      ) : (
+   674→        <>
+   675→          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+   676→            {statCards.map((c, i) => (
+   677→              <motion.div key={c.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>
+   678→                <Card>
+   679→                  <CardContent className="p-4 flex items-center gap-3">
+   680→                    <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${c.color} flex items-center justify-center text-white shrink-0`}>
+   681→                      <c.icon className="w-5 h-5" />
+   682→                    </div>
+   683→                    <div className="min-w-0">
+   684→                      <p className="text-xs text-muted-foreground font-medium">{c.label}</p>
+   685→                      <p className="text-2xl font-bold truncate">{c.value}</p>
+   686→                    </div>
+   687→                  </CardContent>
+   688→                </Card>
+   689→              </motion.div>
+   690→            ))}
+   691→          </div>
+   692→          <DataTable
+   693→            data={data}
+   694→            columns={columns}
+   695→            searchable
+   696→            searchKeys={['nama', 'nim']}
+   697→            pageSize={10}
+   698→            emptyMessage="Belum ada data rekap untuk bulan & kelompok terpilih"
+   699→            getRowId={(r) => r.mahasiswaId}
+   700→          />
+   701→        </>
+   702→      )}
+   703→    </div>
+   704→  )
+   705→}
+   706→
+   707→// ============ TAB 3: QR Scanner ============
+   708→function QrScannerTab() {
+   709→  const { list: kelompokList, loading: kelompokLoading } = useKelompokList()
+   710→  const [mhsList, setMhsList] = useState<Mahasiswa[]>([])
+   711→  const [recentScans, setRecentScans] = useState<Absensi[]>([])
+   712→  const [loadingRecent, setLoadingRecent] = useState(true)
+   713→  const [saving, setSaving] = useState(false)
+   714→
+   715→  // Form state
+   716→  const [scanInput, setScanInput] = useState('')
+   717→  const [selectedMhsId, setSelectedMhsId] = useState('')
+   718→  const [kelompokId, setKelompokId] = useState('')
+   719→  const [status, setStatus] = useState('HADIR')
+   720→  const [keterangan, setKeterangan] = useState('')
+   721→
+   722→  // QR preview state — encode a dummy mahasiswa ID
+   723→  const [qrDataUrl, setQrDataUrl] = useState<string>('')
+   724→  const dummyPayload = useMemo(() => {
+   725→    // Build a small payload that contains a mahasiswa ID
+   726→    return JSON.stringify({ type: 'KKN-PLP-ABSENSI', mhsId: selectedMhsId || 'SCAN-DEMO' })
+   727→  }, [selectedMhsId])
+   728→
+   729→  useEffect(() => {
+   730→    // Load mahasiswa list (lightweight, just nim+nama+id)
+   731→    (async () => {
+   732→      try {
+   733→        const res = await fetch('/api/mahasiswa')
+   734→        if (!res.ok) throw new Error('Gagal')
+   735→        const json = await res.json()
+   736→        setMhsList(json)
+   737→      } catch {
+   738→        // silent — toast error too noisy
+   739→      }
+   740→    })()
+   741→  }, [])
+   742→
+   743→  useEffect(() => {
+   744→    // Generate QR code as data URL
+   745→    QRCode.toDataURL(dummyPayload, { width: 256, margin: 2, color: { dark: '#0f172a', light: '#ffffff' } })
+   746→      .then(setQrDataUrl)
+   747→      .catch(() => setQrDataUrl(''))
+   748→  }, [dummyPayload])
+   749→
+   750→  const fetchRecent = useCallback(async () => {
+   751→    setLoadingRecent(true)
+   752→    try {
+   753→      // get last 10 created (no filter)
+   754→      const res = await fetch('/api/absensi?search=')
+   755→      if (!res.ok) throw new Error('Gagal')
+   756→      const json: Absensi[] = await res.json()
+   757→      // Sort by createdAt desc and take 10
+   758→      const sorted = [...json].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 10)
+   759→      setRecentScans(sorted)
+   760→    } catch {
+   761→      // silent
+   762→    } finally {
+   763→      setLoadingRecent(false)
+   764→    }
+   765→  }, [])
+   766→
+   767→  useEffect(() => { fetchRecent() }, [fetchRecent])
+   768→
+   769→  // Resolve NIM scan input → mahasiswaId
+   770→  const resolvedMhsId = useMemo(() => {
+   771→    const trimmed = scanInput.trim()
+   772→    if (!trimmed) return selectedMhsId
+   773→    // If matches an id directly
+   774→    const byId = mhsList.find((m) => m.id === trimmed)
+   775→    if (byId) return byId.id
+   776→    // By NIM
+   777→    const byNim = mhsList.find((m) => m.nim.toLowerCase() === trimmed.toLowerCase())
+   778→    if (byNim) return byNim.id
+   779→    return selectedMhsId
+   780→  }, [scanInput, selectedMhsId, mhsList])
+   781→
+   782→  const resolvedMhs = useMemo(() => mhsList.find((m) => m.id === resolvedMhsId) || null, [mhsList, resolvedMhsId])
+   783→
+   784→  const handleSubmit = async (e: React.FormEvent) => {
+   785→    e.preventDefault()
+   786→    if (!resolvedMhsId) {
+   787→      toast.error('Pilih mahasiswa atau masukkan NIM hasil scan')
+   788→      return
+   789→    }
+   790→    if (!kelompokId) {
+   791→      toast.error('Pilih kelompok terlebih dahulu')
+   792→      return
+   793→    }
+   794→    setSaving(true)
+   795→    try {
+   796→      const today = todayStr()
+   797→      const res = await fetch('/api/absensi', {
+   798→        method: 'POST',
+   799→        headers: { 'Content-Type': 'application/json' },
+   800→        body: JSON.stringify({
+   801→          mahasiswaId: resolvedMhsId,
+   802→          kelompokId,
+   803→          tanggal: today,
+   804→          status,
+   805→          keterangan: keterangan || undefined,
+   806→        }),
+   807→      })
+   808→      const json = await res.json()
+   809→      if (!res.ok) throw new Error(json?.error || 'Gagal menyimpan')
+   810→      toast.success(`Absensi ${resolvedMhs?.nama ?? ''} (${status}) berhasil dicatat`)
+   811→      setScanInput('')
+   812→      setKeterangan('')
+   813→      setSelectedMhsId('')
+   814→      setStatus('HADIR')
+   815→      fetchRecent()
+   816→    } catch (err: any) {
+   817→      toast.error(err?.message || 'Gagal menyimpan absensi')
+   818→    } finally {
+   819→      setSaving(false)
+   820→    }
+   821→  }
+   822→
+   823→  return (
+   824→    <div className="grid lg:grid-cols-3 gap-4">
+   825→      {/* LEFT: QR preview + form */}
+   826→      <div className="lg:col-span-2 space-y-4">
+   827→        <Card>
+   828→          <CardContent className="p-5 space-y-4">
+   829→            <div className="flex items-start gap-2 text-xs bg-sky-50 dark:bg-sky-900/20 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 rounded-lg p-3">
+   830→              <Info className="w-4 h-4 mt-0.5 shrink-0" />
+   831→              <p>
+   832→                <strong>Mode Simulasi QR Scanner.</strong> Pada implementasi penuh, kamera akan memindai QR Code mahasiswa.
+   833→                Di mode ini, QR Code di samping dapat dipindai (atau salin nilainya) sebagai contoh. Anda juga dapat
+   834→                memilih mahasiswa secara manual atau memasukkan NIM di kolom "Hasil Scan".
+   835→              </p>
+   836→            </div>
+   837→
+   838→            <div className="grid sm:grid-cols-2 gap-4 items-start">
+   839→              {/* QR display */}
+   840→              <div className="flex flex-col items-center justify-center bg-muted/40 rounded-xl border border-dashed p-4">
+   841→                {qrDataUrl ? (
+   842→                  <img src={qrDataUrl} alt="QR Code Absensi" className="w-44 h-44" />
+   843→                ) : (
+   844→                  <div className="w-44 h-44 flex items-center justify-center">
+   845→                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+   846→                  </div>
+   847→                )}
+   848→                <p className="text-xs text-muted-foreground mt-2 text-center">
+   849→                  Contoh QR Code untuk {resolvedMhs ? resolvedMhs.nama : 'mahasiswa'}
+   850→                </p>
+   851→              </div>
+   852→
+   853→              {/* Form */}
+   854→              <form onSubmit={handleSubmit} className="space-y-3">
+   855→                <div className="space-y-1.5">
+   856→                  <Label htmlFor="scan" className="text-xs">Hasil Scan / NIM</Label>
+   857→                  <Input
+   858→                    id="scan"
+   859→                    value={scanInput}
+   860→                    onChange={(e) => setScanInput(e.target.value)}
+   861→                    placeholder="Scan QR atau ketik NIM..."
+   862→                    className="font-mono"
+   863→                  />
+   864→                </div>
+   865→                <div className="space-y-1.5">
+   866→                  <Label className="text-xs">Atau Pilih Mahasiswa</Label>
+   867→                  <Select value={selectedMhsId} onValueChange={(v) => { setSelectedMhsId(v); setScanInput('') }}>
+   868→                    <SelectTrigger><SelectValue placeholder="Pilih mahasiswa" /></SelectTrigger>
+   869→                    <SelectContent className="max-h-72">
+   870→                      {mhsList.map((m) => (
+   871→                        <SelectItem key={m.id} value={m.id}>{m.nim} - {m.nama}</SelectItem>
+   872→                      ))}
+   873→                    </SelectContent>
+   874→                  </Select>
+   875→                </div>
+   876→                {resolvedMhs && (
+   877→                  <div className="text-xs bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-md p-2">
+   878→                    Ditemukan: <strong>{resolvedMhs.nim}</strong> - {resolvedMhs.nama}
+   879→                  </div>
+   880→                )}
+   881→                <div className="space-y-1.5">
+   882→                  <Label className="text-xs">Kelompok <span className="text-rose-500">*</span></Label>
+   883→                  <Select value={kelompokId} onValueChange={setKelompokId} disabled={kelompokLoading}>
+   884→                    <SelectTrigger><SelectValue placeholder="Pilih kelompok" /></SelectTrigger>
+   885→                    <SelectContent className="max-h-72">
+   886→                      {kelompokList.map((k) => (
+   887→                        <SelectItem key={k.id} value={k.id}>{k.nama} ({k.tipe})</SelectItem>
+   888→                      ))}
+   889→                    </SelectContent>
+   890→                  </Select>
+   891→                </div>
+   892→                <div className="space-y-1.5">
+   893→                  <Label className="text-xs">Status</Label>
+   894→                  <Select value={status} onValueChange={setStatus}>
+   895→                    <SelectTrigger><SelectValue /></SelectTrigger>
+   896→                    <SelectContent>
+   897→                      {STATUS_OPTIONS.map((s) => (
+   898→                        <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+   899→                      ))}
+   900→                    </SelectContent>
+   901→                  </Select>
+   902→                </div>
+   903→                <div className="space-y-1.5">
+   904→                  <Label htmlFor="ket" className="text-xs">Keterangan</Label>
+   905→                  <Input id="ket" value={keterangan} onChange={(e) => setKeterangan(e.target.value)} placeholder="Keterangan (opsional)" />
+   906→                </div>
+   907→                <Button type="submit" className="w-full" disabled={saving}>
+   908→                  {saving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <QrCode className="w-4 h-4 mr-1" />}
+   909→                  Catat Kehadiran
+   910→                </Button>
+   911→              </form>
+   912→            </div>
+   913→          </CardContent>
+   914→        </Card>
+   915→      </div>
+   916→
+   917→      {/* RIGHT: recent scans */}
+   918→      <div className="space-y-4">
+   919→        <Card>
+   920→          <CardContent className="p-4">
+   921→            <div className="flex items-center justify-between mb-3">
+   922→              <h3 className="text-sm font-semibold flex items-center gap-1.5">
+   923→                <Clock className="w-4 h-4 text-primary" /> Scan Terbaru
+   924→              </h3>
+   925→              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={fetchRecent} disabled={loadingRecent}>
+   926→                {loadingRecent ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Refresh'}
+   927→              </Button>
+   928→            </div>
+   929→            {loadingRecent ? (
+   930→              <div className="space-y-2">
+   931→                {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 rounded-md" />)}
+   932→              </div>
+   933→            ) : recentScans.length === 0 ? (
+   934→              <div className="text-center py-8 text-xs text-muted-foreground">
+   935→                Belum ada scan terbaru
+   936→              </div>
+   937→            ) : (
+   938→              <div className="space-y-2 max-h-[460px] overflow-y-auto pr-1">
+   939→                {recentScans.map((s) => (
+   940→                  <div key={s.id} className="flex items-center gap-2 p-2 rounded-lg border border-border hover:bg-accent/30 transition-colors">
+   941→                    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-primary text-xs font-semibold">
+   942→                      {s.mahasiswa?.nama?.charAt(0) ?? '?'}
+   943→                    </div>
+   944→                    <div className="min-w-0 flex-1">
+   945→                      <p className="text-sm font-medium truncate">{s.mahasiswa?.nama ?? '-'}</p>
+   946→                      <p className="text-xs text-muted-foreground truncate">
+   947→                        {s.mahasiswa?.nim ?? ''} · {formatDateShort(s.tanggal)} · {formatTime(s.jamMasuk)}
+   948→                      </p>
+   949→                    </div>
+   950→                    {statusBadge(s.status)}
+   951→                  </div>
+   952→                ))}
+   953→              </div>
+   954→            )}
+   955→          </CardContent>
+   956→        </Card>
+   957→      </div>
+   958→    </div>
+   959→  )
+   960→}
+   961→

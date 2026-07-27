@@ -295,7 +295,10 @@ async function main() {
     { key: 'theme', value: 'light' },
     { key: 'smtp_host', value: 'smtp.gmail.com' },
     { key: 'smtp_port', value: '587' },
-    { key: 'wa_gateway', value: 'https://api.whatsapp.com' },
+    { key: 'wa_gateway', value: 'https://api.fonnte.com/send' },
+    { key: 'wa_api_key', value: '' },
+    { key: 'wa_sender', value: '' },
+    { key: 'wa_enabled', value: 'false' },
     { key: 'maps_api_key', value: 'AIzaSyXXXXXXXXXXXXXXXXX' },
   ]
   await Promise.all(pengaturanData.map(p => db.pengaturan.create({ data: p })))

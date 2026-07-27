@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import {
   Settings, Save, Loader2, Building2, CalendarDays, Plug, Palette,
   Database, Download, Upload, ShieldCheck, Moon, Sun, Mail, MessageSquare,
-  MapPin, QrCode, Info,
+  MapPin, QrCode, Info, Send, Bell,
 } from 'lucide-react'
 
 import { PageHeader } from '@/components/shared/page-header'
@@ -42,6 +42,9 @@ const DEFAULT_SETTINGS: SettingsMap = {
   smtp_host: '',
   smtp_port: '',
   wa_gateway: '',
+  wa_api_key: '',
+  wa_sender: '',
+  wa_enabled: 'false',
   maps_api_key: '',
   qr_code_setting: 'enabled',
   theme: 'light',
@@ -51,6 +54,8 @@ export function PengaturanView() {
   const [settings, setSettings] = useState<SettingsMap>(DEFAULT_SETTINGS)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [testingWa, setTestingWa] = useState(false)
+  const [waTestNumber, setWaTestNumber] = useState('')
 
   // Theme store integration (read-only display)
   const theme = useAppStore(s => s.theme)
@@ -100,6 +105,39 @@ export function PengaturanView() {
 
   const update = (key: string, value: string) => {
     setSettings(prev => ({ ...prev, [key]: value }))
+  }
+
+  // ============ Test WhatsApp ============
+  const handleTestWa = async () => {
+    if (!waTestNumber.trim()) {
+      toast.error('Masukkan nomor WA tujuan untuk test')
+      return
+    }
+    setTestingWa(true)
+    try {
+      const res = await fetch('/api/whatsapp/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: waTestNumber.trim() }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.ok) {
+        throw new Error(json?.error || json?.detail || 'Gagal')
+      }
+      if (json.mode === 'live') {
+        toast.success(`✅ Pesan test terkirim ke ${json.recipient} (LIVE)`)
+      } else if (json.mode === 'simulasi') {
+        toast.info(`🧪 Mode SIMULASI — pesan dicatat di log server. Lihat dev.log.`, {
+          description: 'Gateway belum dikonfigurasi. Isi URL + Token untuk kirim nyata.',
+        })
+      } else {
+        toast.warning('⚠️ Notifikasi WA dinonaktifkan. Aktifkan toggle lalu coba lagi.')
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Gagal mengirim test WA')
+    } finally {
+      setTestingWa(false)
+    }
   }
 
   // ============ Backup & Restore ============
@@ -287,10 +325,91 @@ export function PengaturanView() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base"><MessageSquare className="w-5 h-5 text-primary" />WhatsApp Gateway</CardTitle>
-                <CardDescription className="text-xs">Endpoint gateway WhatsApp untuk broadcast notifikasi absensi & pengumuman.</CardDescription>
+                <CardDescription className="text-xs">
+                  Notifikasi otomatis ke dosen pembimbing saat mahasiswa check-in masuk & check-out pulang. Kompatibel dengan Fonnte.
+                </CardDescription>
               </CardHeader>
-              <CardContent>
-                <Field label="URL WA Gateway" value={settings.wa_gateway ?? ''} onChange={(v) => update('wa_gateway', v)} placeholder="https://api.whatsapp.com" />
+              <CardContent className="space-y-4">
+                {/* Toggle aktifkan */}
+                <div className="flex items-center justify-between rounded-lg border p-3 bg-muted/30">
+                  <div className="flex items-start gap-2.5">
+                    <Bell className="w-4 h-4 mt-0.5 text-primary shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium">Aktifkan Notifikasi WA</p>
+                      <p className="text-xs text-muted-foreground">
+                        Saat aktif, setiap absensi HADIR (masuk/pulang) otomatis mengirim WA ke dosen pembimbing kelompok.
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={settings.wa_enabled === 'true'}
+                    onCheckedChange={(v) => update('wa_enabled', v ? 'true' : 'false')}
+                  />
+                </div>
+
+                <Field
+                  label="URL WA Gateway"
+                  value={settings.wa_gateway ?? ''}
+                  onChange={(v) => update('wa_gateway', v)}
+                  placeholder="https://api.fonnte.com/send"
+                  description="Endpoint gateway WA. Contoh Fonnte: https://api.fonnte.com/send"
+                />
+                <Field
+                  label="Token / API Key"
+                  value={settings.wa_api_key ?? ''}
+                  onChange={(v) => update('wa_api_key', v)}
+                  placeholder="Token dari Fonnte (format: xxxxxxxx-xxxx-xxxx)"
+                  type="password"
+                  description="Token authorization dari provider gateway. Disimpan di DB, hanya tampil sebagai ••••."
+                />
+                <Field
+                  label="Nomor Pengirim (opsional)"
+                  value={settings.wa_sender ?? ''}
+                  onChange={(v) => update('wa_sender', v)}
+                  placeholder="6281xxxxxxxxx"
+                  description="Nomor pengirim terdaftar di gateway (untuk multi-device). Kosongkan jika tidak diperlukan."
+                />
+
+                {/* Status info */}
+                <div className={`text-xs rounded-lg p-3 border ${
+                  settings.wa_enabled === 'true'
+                    ? (settings.wa_gateway && settings.wa_api_key && settings.wa_gateway !== 'https://api.whatsapp.com'
+                        ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
+                        : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300')
+                    : 'bg-muted/40 border-border text-muted-foreground'
+                }`}>
+                  {settings.wa_enabled === 'true'
+                    ? (settings.wa_gateway && settings.wa_api_key && settings.wa_gateway !== 'https://api.whatsapp.com'
+                        ? '● Mode LIVE — notifikasi akan dikirim nyata ke nomor dosen.'
+                        : '● Mode SIMULASI — pesan dicatat di log server (gateway belum dikonfigurasi).')
+                    : '○ Notifikasi WA NONAKTIF — tidak ada pesan yang dikirim.'}
+                </div>
+
+                {/* Test kirim WA */}
+                <div className="border-t pt-3 space-y-2">
+                  <Label className="text-sm">Test Kirim WA</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={waTestNumber}
+                      onChange={(e) => setWaTestNumber(e.target.value)}
+                      placeholder="0812xxxxxxxx (nomor test)"
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={handleTestWa}
+                      disabled={testingWa || !waTestNumber.trim()}
+                      className="shrink-0"
+                    >
+                      {testingWa ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Send className="w-4 h-4 mr-1.5" />}
+                      Test Kirim
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Kirim pesan test ke nomor di atas untuk memverifikasi konfigurasi. Simpan pengaturan dulu sebelum test.
+                  </p>
+                </div>
               </CardContent>
             </Card>
 
@@ -315,7 +434,7 @@ export function PengaturanView() {
             </Card>
 
             <div className="lg:col-span-2 flex justify-end">
-              <Button onClick={() => saveSettings(['smtp_host', 'smtp_port', 'wa_gateway', 'maps_api_key', 'qr_code_setting'])} disabled={saving}>
+              <Button onClick={() => saveSettings(['smtp_host', 'smtp_port', 'wa_gateway', 'wa_api_key', 'wa_sender', 'wa_enabled', 'maps_api_key', 'qr_code_setting'])} disabled={saving}>
                 {saving ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Save className="w-4 h-4 mr-1.5" />}
                 Simpan Semua Integrasi
               </Button>

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { notifyDosenAbsensi } from '@/lib/whatsapp'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -99,6 +100,19 @@ export async function PUT(req: Request, { params }: Params) {
         kelompok: true,
       },
     })
+
+    // 🔔 Notifikasi WhatsApp PULANG jika jamPulang baru saja di-set (dari null ke value)
+    // dan sebelumnya memang belum ada jamPulang (check-out pertama kali)
+    const justCheckedOut =
+      body.jamPulang !== undefined &&
+      body.jamPulang !== null &&
+      body.jamPulang !== '' &&
+      !existing.jamPulang
+    if (justCheckedOut) {
+      notifyDosenAbsensi({ absensiId: updated.id, tipe: 'PULANG' }).catch((e) => {
+        console.error('[absensi PUT] WA notify PULANG error:', e)
+      })
+    }
 
     return NextResponse.json(updated)
   } catch (e) {

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { notifyDosenAbsensi } from '@/lib/whatsapp'
 
 // GET - list absensi with mahasiswa (include prodi) + kelompok
 // Support ?kelompokId=, ?status=, ?tanggal= (date-only compare), ?search= (by nim/nama mahasiswa)
@@ -119,6 +120,14 @@ export async function POST(req: Request) {
         kelompok: true,
       },
     })
+
+    // 🔔 Notifikasi WhatsApp ke dosen pembimbing (fire-and-forget)
+    // Hanya untuk status HADIR (yang set jamMasuk). Jangan block response jika WA gagal.
+    if (body.status === 'HADIR') {
+      notifyDosenAbsensi({ absensiId: created.id, tipe: 'MASUK' }).catch((e) => {
+        console.error('[absensi POST] WA notify error:', e)
+      })
+    }
 
     return NextResponse.json(created, { status: 201 })
   } catch (e: any) {

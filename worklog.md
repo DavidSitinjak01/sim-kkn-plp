@@ -456,3 +456,96 @@ Stage Summary:
 - Supervisor daemon auto-restarts server if it ever dies
 - Root cause was the `tee` pipe + process detachment issues; fixed by removing pipe + double-fork daemon
 - User should refresh the Preview Panel to see the login screen
+
+---
+Task ID: wa-notif-dosen-absensi
+Agent: Main (Senior Full Stack Developer)
+Task: Implementasi notifikasi WhatsApp otomatis ke dosen pembimbing saat mahasiswa absensi (MASUK & PULANG)
+
+Work Log:
+- User request: "saat mahasiswa absen via wajah, maka akan dikirim langsung ke wa dosen pembimbing"
+- Verifikasi kode: fitur absen via wajah (face-checkin) BELUM ada implementasinya di sistem. Yang ada: Tab "QR Scanner" (mode simulasi) + API /api/absensi POST (catat absensi manual). Field WhatsApp Gateway di Pengaturan juga belum ada implementasi pengiriman (hanya placeholder URL).
+- Keputusan: implementasi notifikasi WA di layer API absensi (agnostic metode absensi) agar langsung berfungsi untuk absensi yang ada sekarang (QR Scanner/manual) DAN siap untuk face-checkin jika nanti ditambahkan.
+
+IMPLEMENTASI:
+
+1. src/lib/whatsapp.ts (NEW) — Helper WhatsApp Gateway:
+   - sendWhatsApp({to, message}) dengan 3 mode otomatis:
+     • disabled — wa_enabled='false' → log saja, tidak kirim
+     • simulasi — wa_enabled='true' tapi gateway/token kosong → log pesan lengkap ke console (mode testing tanpa API key asli)
+     • live — wa_enabled='true' + gateway + token terisi → POST ke gateway (Fonnte-compatible: Authorization header, body {target, message, sender})
+   - normalizeWaNumber(raw) — normalisasi nomor HP ID ke format 62xxx (handle prefix 0/62/+, hapus spasi & dash)
+   - notifyDosenAbsensi({absensiId, tipe}) — query Absensi + Mahasiswa + Prodi + Kelompok + Dosen, format pesan WhatsApp lengkap (emoji 🟢 MASUK / 🟠 PULANG, nama mhs, NIM, prodi, kelompok, lokasi, tanggal, jam WIB, status), kirim ke noHp dosen pembimbing kelompok. Log audit trail ke console.
+   - Cache config 60 detik untuk hindari query DB berulang dalam satu request.
+
+2. src/app/api/absensi/route.ts — POST hook MASUK:
+   - Import notifyDosenAbsensi
+   - Setelah db.absensi.create(), jika status='HADIR' → notifyDosenAbsensi({absensiId, tipe:'MASUK'}) fire-and-forget (tidak block response, catch error ke console)
+
+3. src/app/api/absensi/[id]/route.ts — PUT hook PULANG:
+   - Import notifyDosenAbsensi
+   - Setelah db.absensi.update(), jika jamPulang baru saja di-set (dari null ke value) → notifyDosenAbsensi({absensiId, tipe:'PULANG'}) fire-and-forget
+   - Deteksi: body.jamPulang !== undefined && !== null && !== '' && !existing.jamPulang
+
+4. src/app/api/whatsapp/test/route.ts (NEW) — Test endpoint:
+   - POST {to: "0812xxx"} → kirim pesan test WA ke nomor tersebut
+   - Return {ok, mode, recipient, detail, message} agar UI bisa tampilkan toast sesuai mode
+   - Pesan test berisi: header "TES NOTIFIKASI WHATSAPP", waktu WIB, tujuan, penjelasan fungsi notifikasi
+
+5. src/components/views/pengaturan-view.tsx — UI WhatsApp Gateway diperkaya:
+   - Tambah state testingWa, waTestNumber
+   - Tambah import Send, Bell icons
+   - DEFAULT_SETTINGS: tambah wa_api_key, wa_sender, wa_enabled='false'
+   - Card "WhatsApp Gateway" di-expands:
+     • Switch "Aktifkan Notifikasi WA" (toggle wa_enabled)
+     • Field URL WA Gateway (placeholder: https://api.fonnte.com/send)
+     • Field Token/API Key (type=password)
+     • Field Nomor Pengirim (opsional)
+     • Status box dinamis (emerald=LIVE, amber=SIMULASI, muted=NONAKTIF)
+     • Section "Test Kirim WA" — input nomor test + tombol "Test Kirim" → POST /api/whatsapp/test, toast sesuai mode (success=live, info=simulasi, warning=disabled)
+   - Tombol "Simpan Semua Integrasi" sekarang include wa_enabled, wa_api_key, wa_sender
+
+6. prisma/seed.ts — tambah default pengaturan:
+   - wa_gateway: 'https://api.fonnte.com/send'
+   - wa_api_key: ''
+   - wa_sender: ''
+   - wa_enabled: 'false'
+
+7. Upsert WA settings ke DB existing (tanpa re-seed penuh).
+
+8. Watchdog improvement: fix bug EADDRINUSE dimana watchdog mencoba restart padahal server masih hidup. Watchdog baru hanya restart jika HTTP != 200 DAN tidak ada next-server process, atau setelah 10s grace period jika process ada tapi tidak respond.
+
+VERIFIKASI END-TO-END:
+
+A. Helper unit test (bun script standalone):
+   - normalizeWaNumber('08120001111') → '628120001111' ✓
+   - sendWhatsApp disabled mode: {ok:true, mode:'disabled'} ✓
+   - notifyDosenAbsensi MASUK: format pesan lengkap dengan emoji 🟢, kirim ke 6281200010001 (Dr. Suparman), mode simulasi ✓
+
+B. API endpoint test (curl):
+   - POST /api/whatsapp/test {to:'08120001111'} mode disabled → {ok:true, mode:'disabled', detail:'WhatsApp notifikasi dinonaktifkan...'} ✓
+   - PUT /api/pengaturan {settings:{wa_enabled:'true'}} → enable simulasi mode ✓
+   - POST /api/whatsapp/test (after cache expire 60s) → {ok:true, mode:'simulasi', detail:'Mode simulasi — WA Gateway belum dikonfigurasi...'} ✓
+   - POST /api/absensi {mahasiswaId, kelompokId, tanggal, status:'HADIR'} → 201 + log: [WA-NOTIF] CHECK-IN MASUK | Mhs: Ahmad Pratama (202200001) | Dosen: Dr. Suparman, M.Pd. (6281200010001) | Mode: simulasi | Status: OK ✓
+   - PUT /api/absensi/[id] {jamPulang} → 200 + log: [WA-NOTIF] CHECK-OUT PULANG | Mhs: Ahmad Pratama | Dosen: Dr. Suparman | Mode: simulasi | Status: OK ✓
+
+C. UI verification via Agent Browser (login Super Admin → Pengaturan → Integrasi):
+   - WhatsApp Gateway card menampilkan: Switch (unchecked=NONAKTIF), URL field (prefilled fonnte), Token field (password), Nomor Pengirim field, status box "○ Notifikasi WA NONAKTIF", Test Kirim section ✓
+   - Enable toggle → Simpan → status berubah ke "● Mode SIMULASI — pesan dicatat di log server" ✓
+   - Isi nomor test "08120001111" → klik "Test Kirim" → POST /api/whatsapp/test 200, log server menampilkan pesan test lengkap dengan format WhatsApp ✓
+   - Disable toggle → Simpan → status kembali "○ Notifikasi WA NONAKTIF", toast "Pengaturan berhasil disimpan" ✓
+   - Screenshots: /tmp/wa-pengaturan-disabled.png, /tmp/wa-test-simulasi.png, /tmp/wa-pengaturan-simulasi.png
+
+D. Lint: 0 errors, 0 warnings
+
+Stage Summary:
+- Notifikasi WhatsApp otomatis ke dosen pembimbing BERFUNGSI untuk SEMUA absensi (tidak hanya face-checkin yang belum ada):
+  • Saat mahasiswa check-in MASUK (POST /api/absensi status=HADIR) → WA 🟢 MASUK terkirim ke dosen pembimbing kelompok
+  • Saat mahasiswa check-out PULANG (PUT /api/absensi set jamPulang) → WA 🟠 PULANG terkirim ke dosen pembimbing
+- 3 mode operasi: disabled (default, aman untuk testing), simulasi (enabled tapi gateway kosong, pesan ke log), live (enabled + gateway + token, kirim nyata via Fonnte)
+- UI Pengaturan lengkap: toggle enable, URL gateway, token (password field), nomor pengirim, status indikator real-time, tombol Test Kirim dengan toast feedback
+- Kompatibel dengan Fonnte (Authorization: token, body {target, message, sender}) — tinggal isi token asli dari Fonnte untuk aktifkan kirim nyata
+- Format pesan WhatsApp profesional: emoji tipe (🟢/🟠), data mahasiswa (nama, NIM, prodi), data kelompok (nama, tipe, lokasi), waktu (tanggal panjang + jam WIB), status absensi
+- Fire-and-forget pattern: notifikasi WA tidak memblock response API absensi (mahasiswa tetap dapat response cepat)
+- Watchdog diperbaiki: tidak lagi konflik EADDRINUSE dengan server yang masih hidup
+- Test data dibersihkan (absensi test dihapus, wa_enabled direset ke false)
