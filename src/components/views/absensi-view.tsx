@@ -1,13 +1,13 @@
 'use client'
 
-import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import QRCode from 'qrcode'
 import {
   QrCode, CalendarDays, CalendarRange, ScanLine, FileSpreadsheet, FileText,
   Pencil, Trash2, Loader2, MapPin, CheckCircle2, AlertCircle, Users, XCircle,
-  Clock, LogIn, LogOut, Info,
+  Clock, LogIn, LogOut, Info, Camera,
 } from 'lucide-react'
 
 import { PageHeader } from '@/components/shared/page-header'
@@ -718,6 +718,10 @@ function QrScannerTab() {
   const [kelompokId, setKelompokId] = useState('')
   const [status, setStatus] = useState('HADIR')
   const [keterangan, setKeterangan] = useState('')
+  // Selfie photo captured as JPEG data URL (base64) — stored in Absensi.fotoSelfie
+  const [fotoSelfie, setFotoSelfie] = useState('')
+  // Full-size photo preview (click thumbnail in recent scans to open)
+  const [previewPhoto, setPreviewPhoto] = useState('')
 
   // QR preview state — encode a dummy mahasiswa ID
   const [qrDataUrl, setQrDataUrl] = useState<string>('')
@@ -791,6 +795,11 @@ function QrScannerTab() {
       toast.error('Pilih kelompok terlebih dahulu')
       return
     }
+    // Foto selfie wajib untuk status HADIR sebagai bukti kehadiran
+    if (status === 'HADIR' && !fotoSelfie) {
+      toast.error('Foto selfie wajib diambil untuk status Hadir')
+      return
+    }
     setSaving(true)
     try {
       const today = todayStr()
@@ -803,6 +812,7 @@ function QrScannerTab() {
           tanggal: today,
           status,
           keterangan: keterangan || undefined,
+          fotoSelfie: fotoSelfie || undefined,
         }),
       })
       const json = await res.json()
@@ -812,6 +822,7 @@ function QrScannerTab() {
       setKeterangan('')
       setSelectedMhsId('')
       setStatus('HADIR')
+      setFotoSelfie('')
       fetchRecent()
     } catch (err: any) {
       toast.error(err?.message || 'Gagal menyimpan absensi')
@@ -829,25 +840,26 @@ function QrScannerTab() {
             <div className="flex items-start gap-2 text-xs bg-sky-50 dark:bg-sky-900/20 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 rounded-lg p-3">
               <Info className="w-4 h-4 mt-0.5 shrink-0" />
               <p>
-                <strong>Mode Simulasi QR Scanner.</strong> Pada implementasi penuh, kamera akan memindai QR Code mahasiswa.
-                Di mode ini, QR Code di samping dapat dipindai (atau salin nilainya) sebagai contoh. Anda juga dapat
-                memilih mahasiswa secara manual atau memasukkan NIM di kolom "Hasil Scan".
+                <strong>Absensi dengan Foto Selfie.</strong> Pilih mahasiswa (atau ketik NIM), kelompok, dan status kehadiran.
+                Untuk status <strong>Hadir</strong>, ambil foto selfie sebagai bukti kehadiran menggunakan kamera perangkat.
+                Foto disimpan otomatis bersama data absensi.
               </p>
             </div>
 
             <div className="grid sm:grid-cols-2 gap-4 items-start">
-              {/* QR display */}
-              <div className="flex flex-col items-center justify-center bg-muted/40 rounded-xl border border-dashed p-4">
-                {qrDataUrl ? (
-                  <img src={qrDataUrl} alt="QR Code Absensi" className="w-44 h-44" />
-                ) : (
-                  <div className="w-44 h-44 flex items-center justify-center">
-                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                  </div>
+              {/* Selfie capture (replaces demo QR display) */}
+              <div className="space-y-2">
+                <Label className="text-xs flex items-center gap-1.5">
+                  <Camera className="w-3.5 h-3.5" />
+                  Foto Selfie {status === 'HADIR' && <span className="text-rose-500">*</span>}
+                  {status !== 'HADIR' && <span className="text-muted-foreground">(opsional)</span>}
+                </Label>
+                <SelfieCapture value={fotoSelfie} onChange={setFotoSelfie} />
+                {qrDataUrl && status !== 'HADIR' && (
+                  <p className="text-[10px] text-muted-foreground text-center">
+                    QR ref: <span className="font-mono">{resolvedMhs?.nim ?? 'SCAN-DEMO'}</span>
+                  </p>
                 )}
-                <p className="text-xs text-muted-foreground mt-2 text-center">
-                  Contoh QR Code untuk {resolvedMhs ? resolvedMhs.nama : 'mahasiswa'}
-                </p>
               </div>
 
               {/* Form */}
@@ -938,9 +950,19 @@ function QrScannerTab() {
               <div className="space-y-2 max-h-[460px] overflow-y-auto pr-1">
                 {recentScans.map((s) => (
                   <div key={s.id} className="flex items-center gap-2 p-2 rounded-lg border border-border hover:bg-accent/30 transition-colors">
-                    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-primary text-xs font-semibold">
-                      {s.mahasiswa?.nama?.charAt(0) ?? '?'}
-                    </div>
+                    {s.fotoSelfie ? (
+                      <img
+                        src={s.fotoSelfie}
+                        alt={`Selfie ${s.mahasiswa?.nama ?? ''}`}
+                        title="Klik untuk perbesar"
+                        onClick={() => setPreviewPhoto(s.fotoSelfie as string)}
+                        className="w-9 h-9 rounded-full object-cover shrink-0 border-2 border-primary/40 cursor-pointer hover:border-primary transition-colors"
+                      />
+                    ) : (
+                      <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center shrink-0 text-muted-foreground text-xs font-semibold">
+                        {s.mahasiswa?.nama?.charAt(0) ?? '?'}
+                      </div>
+                    )}
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium truncate">{s.mahasiswa?.nama ?? '-'}</p>
                       <p className="text-xs text-muted-foreground truncate">
@@ -955,6 +977,179 @@ function QrScannerTab() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Full-size photo preview dialog */}
+      <Dialog open={!!previewPhoto} onOpenChange={(o) => !o && setPreviewPhoto('')}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Foto Selfie Absensi</DialogTitle>
+            <DialogDescription>Bukti foto kehadiran mahasiswa</DialogDescription>
+          </DialogHeader>
+          {previewPhoto && (
+            <img src={previewPhoto} alt="Foto Selfie" className="w-full rounded-lg border border-border" />
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+// ============ Selfie Capture Component ============
+// Uses getUserMedia to access the camera, captures a frame to canvas,
+// and returns a JPEG data URL (base64) — stored in Absensi.fotoSelfie.
+// Requires HTTPS or localhost (browser security requirement for camera access).
+function SelfieCapture({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const [active, setActive] = useState(false)
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const stopCamera = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop())
+      streamRef.current = null
+    }
+    setActive(false)
+  }, [])
+
+  const startCamera = useCallback(async () => {
+    setError('')
+    setLoading(true)
+    try {
+      if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+        throw new Error('Browser tidak mendukung akses kamera')
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+        audio: false,
+      })
+      streamRef.current = stream
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        await videoRef.current.play().catch(() => {})
+      }
+      setActive(true)
+    } catch (e: any) {
+      if (e?.name === 'NotAllowedError' || e?.name === 'PermissionDeniedError') {
+        setError('Izin kamera ditolak. Aktifkan izin kamera di pengaturan browser, lalu coba lagi.')
+      } else if (e?.name === 'NotFoundError' || e?.name === 'DevicesNotFoundError') {
+        setError('Kamera tidak ditemukan pada perangkat ini.')
+      } else if (e?.name === 'NotReadableError') {
+        setError('Kamera sedang digunakan aplikasi lain. Tutup aplikasi tersebut lalu coba lagi.')
+      } else {
+        setError(e?.message || 'Gagal mengakses kamera')
+      }
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  const capturePhoto = useCallback(() => {
+    const video = videoRef.current
+    if (!video || !video.videoWidth) return
+    // Square crop centered on the face (selfie style)
+    const size = Math.min(video.videoWidth, video.videoHeight)
+    const canvas = document.createElement('canvas')
+    canvas.width = size
+    canvas.height = size
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    // Mirror horizontally to match the live preview orientation
+    ctx.translate(size, 0)
+    ctx.scale(-1, 1)
+    const sx = (video.videoWidth - size) / 2
+    const sy = (video.videoHeight - size) / 2
+    ctx.drawImage(video, sx, sy, size, size, 0, 0, size, size)
+    // JPEG 0.7 quality keeps the base64 payload ~20-40KB (reasonable for DB storage)
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.7)
+    onChange(dataUrl)
+    stopCamera()
+  }, [onChange, stopCamera])
+
+  // Release camera stream when component unmounts
+  useEffect(() => () => stopCamera(), [stopCamera])
+
+  // ----- State: photo already captured -----
+  if (value) {
+    return (
+      <div className="space-y-2">
+        <div className="relative rounded-xl overflow-hidden border border-border bg-muted/40">
+          <img src={value} alt="Foto Selfie" className="w-full aspect-square object-cover" />
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            className="absolute top-2 right-2 h-7"
+            onClick={() => onChange('')}
+          >
+            <Trash2 className="w-3.5 h-3.5 mr-1" /> Hapus
+          </Button>
+        </div>
+        <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+          <CheckCircle2 className="w-3 h-3" /> Foto selfie siap disimpan
+        </p>
+      </div>
+    )
+  }
+
+  // ----- State: camera active (live preview) -----
+  if (active) {
+    return (
+      <div className="space-y-2">
+        <div className="relative rounded-xl overflow-hidden border border-border bg-black aspect-square">
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className="w-full h-full object-cover"
+            style={{ transform: 'scaleX(-1)' }}
+          />
+          {/* Face guide overlay */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="w-32 h-40 border-2 border-white/70 rounded-[50%] shadow-[0_0_0_9999px_rgba(0,0,0,0.25)]" />
+          </div>
+          <span className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[10px] text-white/80 bg-black/40 px-2 py-0.5 rounded-full">
+            Posisikan wajah di dalam lingkaran
+          </span>
+        </div>
+        <div className="flex gap-2">
+          <Button type="button" onClick={capturePhoto} className="flex-1">
+            <Camera className="w-4 h-4 mr-1" /> Ambil Foto
+          </Button>
+          <Button type="button" variant="outline" onClick={stopCamera}>
+            Batal
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  // ----- State: idle (camera not started) -----
+  return (
+    <div className="space-y-2">
+      <button
+        type="button"
+        onClick={startCamera}
+        disabled={loading}
+        className="w-full aspect-square rounded-xl border-2 border-dashed border-border hover:border-primary hover:bg-accent/40 transition-colors flex flex-col items-center justify-center gap-2 text-muted-foreground disabled:opacity-50"
+      >
+        {loading ? (
+          <Loader2 className="w-8 h-8 animate-spin" />
+        ) : (
+          <>
+            <Camera className="w-10 h-10" />
+            <span className="text-sm font-medium">Buka Kamera</span>
+            <span className="text-xs text-center px-4">Ambil foto selfie sebagai bukti kehadiran</span>
+          </>
+        )}
+      </button>
+      {error && (
+        <p className="text-xs text-rose-600 dark:text-rose-400 flex items-start gap-1">
+          <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" /> {error}
+        </p>
+      )}
     </div>
   )
 }
