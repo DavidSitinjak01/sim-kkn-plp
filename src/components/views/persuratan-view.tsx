@@ -418,25 +418,6 @@ export function PersuratanView() {
 
   const columns: Column<Surat>[] = [
     {
-      key: 'nomor', header: 'Nomor Surat', sortable: true,
-      render: (s) => <span className="font-mono text-xs font-semibold">{s.nomor}</span>,
-    },
-    { key: 'jenis', header: 'Jenis', sortable: true, render: (s) => jenisBadge(s.jenis) },
-    { key: 'perihal', header: 'Perihal', sortable: true, render: (s) => (
-      <span className="line-clamp-1 max-w-xs" title={s.perihal}>{s.perihal}</span>
-    ) },
-    { key: 'pemohon', header: 'Pemohon', sortable: true, render: (s) => (
-      <span className="line-clamp-1 max-w-[160px]" title={s.pemohon}>{s.pemohon}</span>
-    ) },
-    { key: 'tujuan', header: 'Tujuan', sortable: true, render: (s) => (
-      <span className="line-clamp-1 max-w-[160px] text-muted-foreground" title={s.tujuan}>{s.tujuan}</span>
-    ) },
-    {
-      key: 'tanggal', header: 'Tanggal', sortable: true, sortValue: (s) => new Date(s.tanggal).getTime(),
-      render: (s) => <span className="text-xs text-muted-foreground">{formatDateShort(s.tanggal)}</span>,
-    },
-    { key: 'status', header: 'Status', sortable: true, render: (s) => statusBadge(s.status) },
-    {
       key: 'aksi', header: 'Aksi', sortable: false, width: '180px',
       render: (s) => (
         <div className="flex items-center gap-1">
@@ -455,6 +436,25 @@ export function PersuratanView() {
         </div>
       ),
     },
+    {
+      key: 'nomor', header: 'Nomor Surat', sortable: true,
+      render: (s) => <span className="font-mono text-xs font-semibold">{s.nomor}</span>,
+    },
+    { key: 'jenis', header: 'Jenis', sortable: true, render: (s) => jenisBadge(s.jenis) },
+    { key: 'perihal', header: 'Perihal', sortable: true, render: (s) => (
+      <span className="line-clamp-1 max-w-xs" title={s.perihal}>{s.perihal}</span>
+    ) },
+    { key: 'pemohon', header: 'Pemohon', sortable: true, render: (s) => (
+      <span className="line-clamp-1 max-w-[160px]" title={s.pemohon}>{s.pemohon}</span>
+    ) },
+    { key: 'tujuan', header: 'Tujuan', sortable: true, render: (s) => (
+      <span className="line-clamp-1 max-w-[160px] text-muted-foreground" title={s.tujuan}>{s.tujuan}</span>
+    ) },
+    {
+      key: 'tanggal', header: 'Tanggal', sortable: true, sortValue: (s) => new Date(s.tanggal).getTime(),
+      render: (s) => <span className="text-xs text-muted-foreground">{formatDateShort(s.tanggal)}</span>,
+    },
+    { key: 'status', header: 'Status', sortable: true, render: (s) => statusBadge(s.status) },
   ]
 
   const selectedTemplate = SURAT_TEMPLATES.find(t => t.jenis === templateOpen) || null

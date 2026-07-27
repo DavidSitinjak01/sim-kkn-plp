@@ -265,6 +265,19 @@ export function MahasiswaView() {
   // ============ Columns ============
   const columns: Column<Mahasiswa>[] = useMemo(() => [
     {
+      key: 'aksi', header: 'Aksi', sortable: false, className: 'text-left',
+      render: (m) => (
+        <div className="flex items-center justify-start gap-1">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(m)} title="Edit">
+            <Pencil className="w-4 h-4" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-900/20" onClick={() => setDeleteTarget(m)} title="Hapus">
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      ),
+    },
+    {
       key: 'nim', header: 'NIM', sortable: true, className: 'font-mono text-xs',
     },
     {
@@ -315,19 +328,6 @@ export function MahasiswaView() {
         <Badge variant="outline" className={STATUS_STYLES[m.status] ?? ''}>
           {m.status}
         </Badge>
-      ),
-    },
-    {
-      key: 'aksi', header: 'Aksi', sortable: false, className: 'text-right',
-      render: (m) => (
-        <div className="flex items-center justify-end gap-1">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(m)} title="Edit">
-            <Pencil className="w-4 h-4" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-900/20" onClick={() => setDeleteTarget(m)} title="Hapus">
-            <Trash2 className="w-4 h-4" />
-          </Button>
-        </div>
       ),
     },
   ], [])

@@ -229,19 +229,6 @@ export function PengumumanView() {
   }
 
   const columns: Column<Pengumuman>[] = [
-    { key: 'judul', header: 'Judul', sortable: true, render: (p) => (
-      <button onClick={() => setViewing(p)} className="text-left hover:underline">
-        <span className="font-medium text-sm">{p.judul}</span>
-      </button>
-    ) },
-    { key: 'prioritas', header: 'Prioritas', sortable: true, render: (p) => prioritasBadge(p.prioritas) },
-    {
-      key: 'tanggal', header: 'Tanggal', sortable: true, sortValue: (p) => new Date(p.tanggal).getTime(),
-      render: (p) => <span className="text-xs text-muted-foreground">{formatDate(p.tanggal)}</span>,
-    },
-    { key: 'penulis', header: 'Penulis', sortable: true, render: (p) => (
-      <span className="text-xs">{p.penulis ?? <span className="text-muted-foreground italic">Administrator</span>}</span>
-    ) },
     {
       key: 'aksi', header: 'Aksi', sortable: false, width: '140px',
       render: (p) => (
@@ -258,6 +245,19 @@ export function PengumumanView() {
         </div>
       ),
     },
+    { key: 'judul', header: 'Judul', sortable: true, render: (p) => (
+      <button onClick={() => setViewing(p)} className="text-left hover:underline">
+        <span className="font-medium text-sm">{p.judul}</span>
+      </button>
+    ) },
+    { key: 'prioritas', header: 'Prioritas', sortable: true, render: (p) => prioritasBadge(p.prioritas) },
+    {
+      key: 'tanggal', header: 'Tanggal', sortable: true, sortValue: (p) => new Date(p.tanggal).getTime(),
+      render: (p) => <span className="text-xs text-muted-foreground">{formatDate(p.tanggal)}</span>,
+    },
+    { key: 'penulis', header: 'Penulis', sortable: true, render: (p) => (
+      <span className="text-xs">{p.penulis ?? <span className="text-muted-foreground italic">Administrator</span>}</span>
+    ) },
   ]
 
   return (

@@ -396,7 +396,7 @@ export function PenilaianView() {
       key: 'nilaiAkhir', header: 'Nilai Akhir', sortable: true, sortValue: (r) => r.nilaiAkhir ?? -1,
       render: (r) => nilaiBadge(r.nilaiAkhir),
     })
-    cols.push({
+    cols.unshift({
       key: 'aksi', header: 'Aksi', sortable: false, width: '100px',
       render: (r) => (
         <Button size="sm" variant="ghost" className="h-8 px-2 text-amber-600" onClick={() => openEditByMahasiswaAspek(r, ASPEK_LIST[0])}>
@@ -409,17 +409,6 @@ export function PenilaianView() {
 
   // ============ Per Aspek columns ============
   const perAspekColumns: Column<Penilaian>[] = [
-    { key: 'mhs', header: 'Mahasiswa', sortable: true, sortValue: (p) => p.mahasiswa.nama, render: (p) => (
-      <div>
-        <p className="font-medium text-sm">{p.mahasiswa.nama}</p>
-        <p className="text-xs text-muted-foreground font-mono">{p.mahasiswa.nim}</p>
-      </div>
-    ) },
-    { key: 'aspek', header: 'Aspek', sortable: true, render: (p) => <span className="text-sm">{p.aspek}</span> },
-    { key: 'nilai', header: 'Nilai', sortable: true, render: (p) => nilaiBadge(p.nilai) },
-    { key: 'jenis', header: 'Jenis', sortable: true, render: (p) => jenisBadge(p.jenis) },
-    { key: 'kelompok', header: 'Kelompok', sortable: true, sortValue: (p) => p.kelompok?.nama ?? '', render: (p) => <span className="text-xs">{p.kelompok?.nama ?? '-'}</span> },
-    { key: 'dosen', header: 'Dosen', sortable: true, sortValue: (p) => p.dosen?.nama ?? '', render: (p) => <span className="text-xs">{p.dosen?.nama ?? '-'}</span> },
     {
       key: 'aksi', header: 'Aksi', sortable: false, width: '110px',
       render: (p) => (
@@ -433,6 +422,17 @@ export function PenilaianView() {
         </div>
       ),
     },
+    { key: 'mhs', header: 'Mahasiswa', sortable: true, sortValue: (p) => p.mahasiswa.nama, render: (p) => (
+      <div>
+        <p className="font-medium text-sm">{p.mahasiswa.nama}</p>
+        <p className="text-xs text-muted-foreground font-mono">{p.mahasiswa.nim}</p>
+      </div>
+    ) },
+    { key: 'aspek', header: 'Aspek', sortable: true, render: (p) => <span className="text-sm">{p.aspek}</span> },
+    { key: 'nilai', header: 'Nilai', sortable: true, render: (p) => nilaiBadge(p.nilai) },
+    { key: 'jenis', header: 'Jenis', sortable: true, render: (p) => jenisBadge(p.jenis) },
+    { key: 'kelompok', header: 'Kelompok', sortable: true, sortValue: (p) => p.kelompok?.nama ?? '', render: (p) => <span className="text-xs">{p.kelompok?.nama ?? '-'}</span> },
+    { key: 'dosen', header: 'Dosen', sortable: true, sortValue: (p) => p.dosen?.nama ?? '', render: (p) => <span className="text-xs">{p.dosen?.nama ?? '-'}</span> },
   ]
 
   // When form kelompok changes, set jenis from kelompok

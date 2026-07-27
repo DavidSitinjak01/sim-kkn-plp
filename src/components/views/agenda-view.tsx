@@ -407,6 +407,19 @@ export function AgendaView() {
   }
 
   const columns: Column<Agenda>[] = [
+    {
+      key: 'aksi', header: 'Aksi', sortable: false, width: '110px',
+      render: (a) => (
+        <div className="flex items-center gap-1">
+          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-amber-600" onClick={() => openEdit(a)} title="Edit">
+            <Pencil className="w-4 h-4" />
+          </Button>
+          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-rose-600" onClick={() => setDeleteTarget(a)} title="Hapus">
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      ),
+    },
     { key: 'judul', header: 'Judul', sortable: true, render: (a) => <span className="font-medium">{a.judul}</span> },
     {
       key: 'tanggal', header: 'Tanggal', sortable: true, sortValue: (a) => new Date(a.tanggal).getTime(),
@@ -424,19 +437,6 @@ export function AgendaView() {
     { key: 'deskripsi', header: 'Deskripsi', sortable: false, render: (a) => (
       <span className="line-clamp-1 max-w-xs text-xs text-muted-foreground" title={a.deskripsi ?? ''}>{a.deskripsi ?? '-'}</span>
     ) },
-    {
-      key: 'aksi', header: 'Aksi', sortable: false, width: '110px',
-      render: (a) => (
-        <div className="flex items-center gap-1">
-          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-amber-600" onClick={() => openEdit(a)} title="Edit">
-            <Pencil className="w-4 h-4" />
-          </Button>
-          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-rose-600" onClick={() => setDeleteTarget(a)} title="Hapus">
-            <Trash2 className="w-4 h-4" />
-          </Button>
-        </div>
-      ),
-    },
   ]
 
   return (

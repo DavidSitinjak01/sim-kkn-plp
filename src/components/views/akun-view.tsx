@@ -321,6 +321,32 @@ export function AkunView() {
   // ============ Columns ============
   const columns: Column<User>[] = [
     {
+      key: 'aksi', header: 'Aksi', sortable: false, width: '180px',
+      render: (u) => (
+        <div className="flex items-center gap-1">
+          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => openEdit(u)} title="Edit">
+            <Pencil className="w-4 h-4" />
+          </Button>
+          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20" onClick={() => setResetTarget(u)} title="Reset Password">
+            <KeyRound className="w-4 h-4" />
+          </Button>
+          <Button
+            size="sm" variant="ghost" className="h-8 w-8 p-0"
+            onClick={() => handleToggleStatus(u)}
+            disabled={togglingId === u.id}
+            title={u.status === 'AKTIF' ? 'Nonaktifkan' : 'Aktifkan'}
+          >
+            {togglingId === u.id
+              ? <Loader2 className="w-4 h-4 animate-spin" />
+              : <Power className={`w-4 h-4 ${u.status === 'AKTIF' ? 'text-emerald-600' : 'text-zinc-400'}`} />}
+          </Button>
+          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20" onClick={() => setDeleteTarget(u)} title="Hapus">
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      ),
+    },
+    {
       key: 'name', header: 'Nama', sortable: true,
       render: (u) => (
         <div className="flex items-center gap-2.5 min-w-0">
@@ -368,32 +394,6 @@ export function AkunView() {
         <span className="text-xs text-muted-foreground">
           {u.lastLogin ? formatDate(u.lastLogin, true) : <span className="italic">Belum pernah</span>}
         </span>
-      ),
-    },
-    {
-      key: 'aksi', header: 'Aksi', sortable: false, width: '180px',
-      render: (u) => (
-        <div className="flex items-center gap-1">
-          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => openEdit(u)} title="Edit">
-            <Pencil className="w-4 h-4" />
-          </Button>
-          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20" onClick={() => setResetTarget(u)} title="Reset Password">
-            <KeyRound className="w-4 h-4" />
-          </Button>
-          <Button
-            size="sm" variant="ghost" className="h-8 w-8 p-0"
-            onClick={() => handleToggleStatus(u)}
-            disabled={togglingId === u.id}
-            title={u.status === 'AKTIF' ? 'Nonaktifkan' : 'Aktifkan'}
-          >
-            {togglingId === u.id
-              ? <Loader2 className="w-4 h-4 animate-spin" />
-              : <Power className={`w-4 h-4 ${u.status === 'AKTIF' ? 'text-emerald-600' : 'text-zinc-400'}`} />}
-          </Button>
-          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20" onClick={() => setDeleteTarget(u)} title="Hapus">
-            <Trash2 className="w-4 h-4" />
-          </Button>
-        </div>
       ),
     },
   ]

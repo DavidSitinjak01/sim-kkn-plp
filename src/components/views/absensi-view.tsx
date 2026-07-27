@@ -292,6 +292,19 @@ function RekapHarianTab() {
 
   const columns: Column<Absensi>[] = useMemo(() => [
     {
+      key: 'aksi', header: 'Aksi', sortable: false, className: 'text-left',
+      render: (a) => (
+        <div className="flex items-center justify-start gap-1">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(a)} title="Ubah Status">
+            <Pencil className="w-4 h-4" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-900/20" onClick={() => setDeleteTarget(a)} title="Hapus">
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      ),
+    },
+    {
       key: 'mahasiswa', header: 'Mahasiswa', sortable: true, sortValue: (a) => a.mahasiswa.nama,
       render: (a) => (
         <div className="flex items-center gap-2.5 min-w-0">
@@ -351,19 +364,6 @@ function RekapHarianTab() {
             {a.latitude.toFixed(3)}, {a.longitude.toFixed(3)}
           </a>
         ) : <span className="text-xs text-muted-foreground">Tidak ada</span>
-      ),
-    },
-    {
-      key: 'aksi', header: 'Aksi', sortable: false, className: 'text-right',
-      render: (a) => (
-        <div className="flex items-center justify-end gap-1">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(a)} title="Ubah Status">
-            <Pencil className="w-4 h-4" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-900/20" onClick={() => setDeleteTarget(a)} title="Hapus">
-            <Trash2 className="w-4 h-4" />
-          </Button>
-        </div>
       ),
     },
   ], [])

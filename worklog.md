@@ -645,3 +645,53 @@ Stage Summary:
 - Fallback gracefully: jika logo_url kosong atau gagal load (onError), tampilkan icon GraduationCap default
 - Nama kampus default "Universitas Nusantara Jaya" sebagai fallback sebelum fetch selesai
 - User's logo Universitas Nias Raya sudah ter-set di DB dan tampil di seluruh app
+
+---
+Task ID: move-aksi-left
+Agent: Main (Senior Full Stack Developer)
+Task: Pindahkan semua kolom Aksi (edit, hapus, dll) ke posisi paling kiri di SEMUA tabel data agar memudahkan update data
+
+Work Log:
+- User request: "saya ingin semua fitur edit, hapus dan lainnya baik data mahasiswa dosen suran tanpa terkecuali buat berada di seblah kiri agar memudahkan untuk update data"
+- Investigasi struktur DataTable (src/components/shared/data-table.tsx): kolom dirender sesuai urutan array, jadi memindahkan kolom Aksi ke elemen pertama array = tampil di paling kiri
+- Identifikasi 11 file view dengan kolom Aksi tombol (sortable: false) yang perlu dipindah:
+  1. mahasiswa-view.tsx
+  2. dosen-view.tsx
+  3. persuratan-view.tsx
+  4. akun-view.tsx
+  5. desa-view.tsx
+  6. sekolah-view.tsx
+  7. pembagian-view.tsx
+  8. absensi-view.tsx
+  9. penilaian-view.tsx (2 tabel: perMhsColumns + perAspekColumns)
+  10. pengumuman-view.tsx
+  11. agenda-view.tsx
+- Catatan: aktivitas-view.tsx memiliki key:'aksi' tetapi itu kolom DATA (badge tipe aksi CREATE/UPDATE/DELETE), BUKAN tombol aksi → dibiarkan tetap
+- Untuk setiap file: pindahkan blok kolom Aksi dari posisi terakhir ke posisi pertama dalam array columns
+- Untuk kolom yang punya className:'text-right' + div justify-end → ubah ke text-left + justify-start (mahasiswa, dosen, desa, sekolah, absensi, pembagian)
+- Untuk penilaian perMhsColumns (dibangun dinamis dengan cols.push) → ubah jadi cols.unshift agar Aksi masuk paling depan
+- Lint: 0 errors, 0 warnings
+
+VERIFIKASI via Agent Browser (login Super Admin):
+- Mahasiswa: VLM konfirmasi Aksi di LEFT ✓
+- Dosen: DOM headers ["Aksi","NIDN","Nama Dosen"] ✓
+- Persuratan: DOM headers ["Aksi","Nomor Surat","Jenis",...] ✓
+- Akun (user list table): DOM headers ["Aksi","Nama","Email","Role"] ✓ (table 0 adalah matriks permission, bukan CRUD)
+- Pembagian: DOM headers ["Aksi","Nama Kelompok","Tipe"] ✓
+- Absensi: DOM headers ["Aksi","Mahasiswa","Kelompok"] ✓
+- Penilaian (perMahasiswa): DOM headers ["Aksi","NIM","Nama Mahasiswa","Keaktifan"] ✓
+- Desa: DOM headers ["Aksi","Nama Desa","Lokasi"] ✓
+- Sekolah: DOM headers ["Aksi","Nama Sekolah","Jenjang"] ✓
+- Agenda (tab Daftar): DOM headers ["Aksi","Judul","Tanggal"] ✓
+- Pengumuman: DOM headers ["Aksi","Judul","Prioritas"] ✓
+- Uji fungsionalitas: klik tombol Edit (sekarang di kolom pertama) → dialog "Edit Mahasiswa" terbuka normal ✓
+- Browser errors: 0 ✓
+- Console errors: 0 (hanya HMR/Fast Refresh logs) ✓
+- Dev.log: bersih, semua API 200 ✓
+
+Stage Summary:
+- SEMUA 11 modul data sekarang memiliki kolom Aksi (edit/hapus/tombol lainnya) di posisi PALING KIRI tabel
+- Konsisten di seluruh aplikasi: Mahasiswa, Dosen, Persuratan, Akun, Desa, Sekolah, Pembagian Kelompok, Absensi, Penilaian (2 tabel), Pengumuman, Agenda
+- Tombol rata kiri (justify-start) untuk tampilan rapi
+- Fungsionalitas CRUD tetap utuh (dialog edit/hapus terbuka normal)
+- Tidak ada error lint maupun runtime

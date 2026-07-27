@@ -211,6 +211,30 @@ export function DesaView() {
   // ============ Columns ============
   const columns: Column<Desa>[] = useMemo(() => [
     {
+      key: 'aksi', header: 'Aksi', sortable: false, className: 'text-left',
+      render: (d) => (
+        <div className="flex items-center justify-start gap-1">
+          {d.latitude != null && d.longitude != null && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-sky-600 hover:text-sky-700 hover:bg-sky-50 dark:hover:bg-sky-900/20"
+              onClick={() => window.open(`https://www.google.com/maps?q=${d.latitude},${d.longitude}`, '_blank', 'noopener,noreferrer')}
+              title="Lihat di Google Maps"
+            >
+              <ExternalLink className="w-4 h-4" />
+            </Button>
+          )}
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(d)} title="Edit">
+            <Pencil className="w-4 h-4" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-900/20" onClick={() => setDeleteTarget(d)} title="Hapus">
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      ),
+    },
+    {
       key: 'nama', header: 'Nama Desa', sortable: true,
       render: (d) => (
         <div className="flex items-center gap-2.5 min-w-0">
@@ -270,30 +294,6 @@ export function DesaView() {
           </Badge>
         )
       },
-    },
-    {
-      key: 'aksi', header: 'Aksi', sortable: false, className: 'text-right',
-      render: (d) => (
-        <div className="flex items-center justify-end gap-1">
-          {d.latitude != null && d.longitude != null && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-sky-600 hover:text-sky-700 hover:bg-sky-50 dark:hover:bg-sky-900/20"
-              onClick={() => window.open(`https://www.google.com/maps?q=${d.latitude},${d.longitude}`, '_blank', 'noopener,noreferrer')}
-              title="Lihat di Google Maps"
-            >
-              <ExternalLink className="w-4 h-4" />
-            </Button>
-          )}
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(d)} title="Edit">
-            <Pencil className="w-4 h-4" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-900/20" onClick={() => setDeleteTarget(d)} title="Hapus">
-            <Trash2 className="w-4 h-4" />
-          </Button>
-        </div>
-      ),
     },
   ], [])
 

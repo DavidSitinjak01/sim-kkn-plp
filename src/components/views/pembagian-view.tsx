@@ -374,6 +374,25 @@ export function PembagianView() {
   // Columns
   const columns: Column<Kelompok>[] = useMemo(() => [
     {
+      key: 'aksi', header: 'Aksi', sortable: false, className: 'text-left',
+      render: (k) => (
+        <div className="flex items-center justify-start gap-1">
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-violet-600 hover:text-violet-700 hover:bg-violet-50 dark:hover:bg-violet-900/20" onClick={() => setMembersTarget(k)} title="Kelola Anggota">
+            <Users className="w-4 h-4" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-sky-600 hover:text-sky-700 hover:bg-sky-50 dark:hover:bg-sky-900/20" onClick={() => handleCetakSK(k)} title="Cetak SK">
+            <Printer className="w-4 h-4" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(k)} title="Edit">
+            <Pencil className="w-4 h-4" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-900/20" onClick={() => setDeleteTarget(k)} title="Hapus">
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      ),
+    },
+    {
       key: 'nama', header: 'Nama Kelompok', sortable: true,
       render: (k) => (
         <div className="flex items-center gap-2.5 min-w-0">
@@ -460,25 +479,6 @@ export function PembagianView() {
       },
     },
     { key: 'status', header: 'Status', sortable: true, className: 'text-center', render: (k) => statusBadge(k.status) },
-    {
-      key: 'aksi', header: 'Aksi', sortable: false, className: 'text-right',
-      render: (k) => (
-        <div className="flex items-center justify-end gap-1">
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-violet-600 hover:text-violet-700 hover:bg-violet-50 dark:hover:bg-violet-900/20" onClick={() => setMembersTarget(k)} title="Kelola Anggota">
-            <Users className="w-4 h-4" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-sky-600 hover:text-sky-700 hover:bg-sky-50 dark:hover:bg-sky-900/20" onClick={() => handleCetakSK(k)} title="Cetak SK">
-            <Printer className="w-4 h-4" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(k)} title="Edit">
-            <Pencil className="w-4 h-4" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-900/20" onClick={() => setDeleteTarget(k)} title="Hapus">
-            <Trash2 className="w-4 h-4" />
-          </Button>
-        </div>
-      ),
-    },
   ], [])
 
   const isKKNForm = form.tipe === 'KKN'
