@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Search, Bell, Menu, LogOut, User, Settings, ChevronRight } from 'lucide-react'
 import { useAppStore, ROLE_LABELS, type ViewKey } from '@/lib/store'
+import { useBranding } from '@/lib/branding'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -35,6 +36,7 @@ const VIEW_TITLES: Record<ViewKey, string> = {
 
 export function Header({ onMenuClick }: { onMenuClick: () => void }) {
   const { user, currentView, logout } = useAppStore()
+  const branding = useBranding()
   const [search, setSearch] = useState('')
   const [notifOpen, setNotifOpen] = useState(false)
   const [notifications, setNotifications] = useState<any[]>([])
@@ -73,7 +75,15 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
 
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 min-w-0">
-        <span className="text-sm text-muted-foreground hidden sm:inline">SIM KKN & PLP</span>
+        {branding.logoUrl ? (
+          <img
+            src={branding.logoUrl}
+            alt="Logo"
+            className="w-7 h-7 object-contain rounded-md shrink-0 bg-white/80 dark:bg-white/10 p-0.5"
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+          />
+        ) : null}
+        <span className="text-sm text-muted-foreground hidden sm:inline">{branding.namaKampus}</span>
         <ChevronRight className="w-4 h-4 text-muted-foreground hidden sm:inline" />
         <h1 className="font-semibold text-base sm:text-lg truncate">{VIEW_TITLES[currentView]}</h1>
       </div>

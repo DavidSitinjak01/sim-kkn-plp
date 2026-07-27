@@ -9,6 +9,7 @@ import {
   GraduationCap as Logo, Menu
 } from 'lucide-react'
 import { useAppStore, MENU_ACCESS, ROLE_LABELS, type ViewKey } from '@/lib/store'
+import { useBranding } from '@/lib/branding'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -59,6 +60,7 @@ const MENU_GROUPS: { title: string; items: { key: ViewKey; label: string; icon: 
 
 export function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen: boolean; setMobileOpen: (v: boolean) => void }) {
   const { user, currentView, setView, sidebarCollapsed, toggleSidebar } = useAppStore()
+  const branding = useBranding()
   if (!user) return null
 
   const allowed = MENU_ACCESS[user.role as keyof typeof MENU_ACCESS] || []
@@ -94,13 +96,28 @@ export function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen: boolean; se
       >
         {/* Logo */}
         <div className="h-16 flex items-center gap-3 px-4 border-b border-sidebar-border shrink-0">
-          <div className="w-10 h-10 bg-gradient-primary rounded-xl flex items-center justify-center text-white shrink-0">
+          {branding.logoUrl ? (
+            <img
+              src={branding.logoUrl}
+              alt={`Logo ${branding.namaKampus}`}
+              className="w-10 h-10 object-contain rounded-xl shrink-0 bg-white/80 dark:bg-white/10 p-0.5"
+              onError={(e) => {
+                // Fallback ke icon jika logo gagal load
+                (e.currentTarget as HTMLImageElement).style.display = 'none'
+                const fallback = (e.currentTarget as HTMLImageElement).nextElementSibling as HTMLElement | null
+                if (fallback) fallback.style.display = 'flex'
+              }}
+            />
+          ) : null}
+          <div
+            className={`w-10 h-10 bg-gradient-primary rounded-xl items-center justify-center text-white shrink-0 ${branding.logoUrl ? 'hidden' : 'flex'}`}
+          >
             <Logo className="w-6 h-6" />
           </div>
           {!sidebarCollapsed && (
             <div className="overflow-hidden">
               <h1 className="font-bold text-sm leading-tight truncate">SIM KKN & PLP</h1>
-              <p className="text-[11px] text-muted-foreground truncate">Universitas Nusantara Jaya</p>
+              <p className="text-[11px] text-muted-foreground truncate">{branding.namaKampus}</p>
             </div>
           )}
           <Button

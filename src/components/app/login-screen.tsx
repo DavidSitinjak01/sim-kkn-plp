@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { GraduationCap, Mail, Lock, Eye, EyeOff, ArrowRight, ShieldCheck, Users, MapPin, BookOpen } from 'lucide-react'
 import { useAppStore } from '@/lib/store'
+import { useBranding } from '@/lib/branding'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -21,6 +22,7 @@ const DEMO_ACCOUNTS = [
 
 export function LoginScreen() {
   const setUser = useAppStore((s) => s.setUser)
+  const branding = useBranding()
   const [email, setEmail] = useState('superadmin@kknplp.ac.id')
   const [password, setPassword] = useState('password123')
   const [showPass, setShowPass] = useState(false)
@@ -73,12 +75,21 @@ export function LoginScreen() {
         </div>
         <div className="relative z-10 flex flex-col justify-between p-12 text-white w-full">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
-              <GraduationCap className="w-7 h-7" />
-            </div>
+            {branding.logoUrl ? (
+              <img
+                src={branding.logoUrl}
+                alt="Logo"
+                className="w-12 h-12 object-contain rounded-xl bg-white/90 p-1"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+              />
+            ) : (
+              <div className="w-12 h-12 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
+                <GraduationCap className="w-7 h-7" />
+              </div>
+            )}
             <div>
               <h1 className="text-xl font-bold">SIM KKN & PLP</h1>
-              <p className="text-xs text-white/80">Universitas Nusantara Jaya</p>
+              <p className="text-xs text-white/80">{branding.namaKampus}</p>
             </div>
           </div>
 
@@ -115,7 +126,7 @@ export function LoginScreen() {
             </div>
           </motion.div>
 
-          <p className="text-white/60 text-sm">© 2024 Universitas Nusantara Jaya. All rights reserved.</p>
+          <p className="text-white/60 text-sm">© 2024 {branding.namaKampus}. All rights reserved.</p>
         </div>
       </div>
 
@@ -131,12 +142,21 @@ export function LoginScreen() {
           className="w-full max-w-md"
         >
           <div className="lg:hidden flex items-center gap-3 mb-8 justify-center">
-            <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center text-primary-foreground">
-              <GraduationCap className="w-7 h-7" />
-            </div>
+            {branding.logoUrl ? (
+              <img
+                src={branding.logoUrl}
+                alt="Logo"
+                className="w-12 h-12 object-contain rounded-xl bg-muted p-1"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+              />
+            ) : (
+              <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center text-primary-foreground">
+                <GraduationCap className="w-7 h-7" />
+              </div>
+            )}
             <div>
               <h1 className="text-lg font-bold">SIM KKN & PLP</h1>
-              <p className="text-xs text-muted-foreground">Universitas Nusantara Jaya</p>
+              <p className="text-xs text-muted-foreground">{branding.namaKampus}</p>
             </div>
           </div>
 

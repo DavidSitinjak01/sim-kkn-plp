@@ -25,6 +25,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { useAppStore } from '@/lib/store'
+import { refreshBranding } from '@/lib/branding'
 
 // ============ Types ============
 type SettingsMap = Record<string, string>
@@ -96,6 +97,8 @@ export function PengaturanView() {
       // Merge returned settings
       if (json?.settings) setSettings(prev => ({ ...prev, ...json.settings }))
       toast.success('Pengaturan berhasil disimpan')
+      // Refresh branding global (logo/favicon/nama kampus) agar langsung diterapkan
+      refreshBranding()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Gagal menyimpan')
     } finally {

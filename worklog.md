@@ -549,3 +549,99 @@ Stage Summary:
 - Fire-and-forget pattern: notifikasi WA tidak memblock response API absensi (mahasiswa tetap dapat response cepat)
 - Watchdog diperbaiki: tidak lagi konflik EADDRINUSE dengan server yang masih hidup
 - Test data dibersihkan (absensi test dihapus, wa_enabled direset ke false)
+
+---
+Task ID: fix-logo-favicon-branding
+Agent: Main (Senior Full Stack Developer)
+Task: Fix logo & favicon yang di-upload di Pengaturan tidak berubah di aplikasi
+
+Work Log:
+- User report: "sudah saya upload link logo dan favicon tetapi tidak ada perubahan sama sekali" + URL logo: https://i.ibb.co.com/XkvQJ0vS/Logo-Universitas-Nias-Raya.png
+- Root cause: Field `logo_url` & `favicon_url` di UI Pengaturan DISIMPAN ke DB, tapi TIDAK PERNAH DIGUNAKAN di mana pun. Sidebar pakai icon Lucide `GraduationCap` hardcoded, header pakai text "SIM KKN & PLP", login screen pakai `GraduationCap`, layout.tsx favicon hardcoded ke `/logo.svg`, footer copyright hardcoded "Universitas Nusantara Jaya".
+
+IMPLEMENTASI:
+
+1. src/lib/branding.ts (NEW) — Branding store & hook:
+   - Interface Branding { logoUrl, faviconUrl, namaKampus, website, emailKampus, noTelepon, alamatKampus }
+   - Module-level cache (cachedBranding) + listener pattern (Set) agar seluruh app share instance sama
+   - fetchBranding(force?) — GET /api/pengaturan, parse, cache, notify listeners
+   - useBranding() — React hook dengan useState lazy init dari cache + useEffect subscribe
+   - refreshBranding() — force re-fetch (dipanggil setelah admin simpan pengaturan)
+   - DEFAULT_BRANDING.namaKampus = 'Universitas Nusantara Jaya' (fallback sebelum fetch)
+
+2. src/components/app/branding-provider.tsx (NEW) — Client component yang:
+   - Trigger fetchBranding() on mount
+   - useEffect: inject/update <link rel="icon"> di <head> dengan favicon_url (auto-detect type: png/svg/ico)
+   - useEffect: inject/update <link rel="apple-touch-icon">
+   - useEffect: update document.title = `SIM KKN & PLP — ${branding.namaKampus}`
+   - Render null (hanya side-effect)
+
+3. src/app/layout.tsx — Import & render <BrandingProvider /> di <body>:
+   - Dipasang di root agar berlaku untuk semua route (login + app-shell)
+
+4. src/components/app/sidebar.tsx — Logo area:
+   - Import useBranding, const branding = useBranding()
+   - Jika branding.logoUrl ada: render <img src={logoUrl} class="w-10 h-10 object-contain rounded-xl bg-white/80 p-0.5" /> dengan onError fallback ke icon
+   - Jika tidak ada: render div gradient + GraduationCap icon (existing)
+   - Nama kampus di bawah "SIM KKN & PLP" sekarang pakai branding.namaKampus (bukan hardcoded)
+
+5. src/components/app/header.tsx — Breadcrumb:
+   - Import useBranding, const branding = useBranding()
+   - Jika branding.logoUrl ada: render <img class="w-7 h-7 object-contain rounded-md" /> di kiri breadcrumb
+   - Text "SIM KKN & PLP" diganti dengan branding.namaKampus
+   - onError: hide img (breadcrumb tetap readable tanpa logo)
+
+6. src/components/app/login-screen.tsx — Branding section (kiri) & mobile header:
+   - Import useBranding, const branding = useBranding()
+   - Desktop (left panel): jika logoUrl ada → <img class="w-12 h-12 object-contain rounded-xl bg-white/90 p-1" />, else fallback GraduationCap. Text "Universitas Nusantara Jaya" → branding.namaKampus
+   - Mobile (top of form): sama, logo + nama kampus dinamis
+   - Footer copyright: "© 2024 Universitas Nusantara Jaya" → "© 2024 {branding.namaKampus}"
+
+7. src/components/app/app-shell.tsx — Footer:
+   - Import useBranding, const branding = useBranding()
+   - Footer copyright: "© 2024 SIM KKN & PLP — Universitas Nusantara Jaya" → "© 2024 SIM KKN & PLP — {branding.namaKampus}"
+
+8. src/components/views/pengaturan-view.tsx — Auto-refresh branding:
+   - Import refreshBranding from '@/lib/branding'
+   - Setelah saveSettings sukses → refreshBranding() agar logo/favicon/nama kampus langsung diterapkan tanpa perlu reload page
+
+9. Set DB: logo_url, favicon_url, nama_kampus di-update ke nilai user:
+   - logo_url: https://i.ibb.co.com/XkvQJ0vS/Logo-Universitas-Nias-Raya.png
+   - favicon_url: (sama dengan logo_url)
+   - nama_kampus: Universitas Nias Raya
+
+VERIFIKASI via Agent Browser:
+
+A. Login page (sebelum login):
+   - Favicon <link rel="icon">: logo Universitas Nias Raya ✓
+   - document.title: "SIM KKN & PLP — Universitas Nias Raya" ✓
+   - 2 img elements dengan logo URL ✓
+   - Body text: "Universitas Nias Raya" ✓
+
+B. Setelah login (dashboard):
+   - Sidebar logo: <img alt="Logo Universitas Nias Raya" src="..."> (w-10 h-10) ✓
+   - Header breadcrumb logo: <img alt="Logo" src="..."> (w-7 h-7) ✓
+   - Sidebar text bawah "SIM KKN & PLP": "Universitas Nias Raya" ✓
+   - Header breadcrumb text: "Universitas Nias Raya" ✓
+   - Footer copyright: "© 2024 SIM KKN & PLP — Universitas Nias Raya. Hak cipta dilindungi." ✓
+
+C. Halaman Pengaturan (tab Profil Universitas):
+   - Field "URL Logo (opsional)": https://i.ibb.co.com/XkvQJ0vS/Logo-Universitas-Nias-Raya.png ✓
+   - Field "URL Favicon (opsional)": (sama) ✓
+   - Field "Nama Kampus": "Universitas Nias Raya" ✓
+   - Setelah Simpan → refreshBranding() auto-trigger, perubahan langsung diterapkan tanpa reload
+
+D. Lint: 0 errors, 0 warnings
+
+Stage Summary:
+- Logo & favicon yang di-set di Pengaturan sekarang LANGSUNG DITERAPKAN di:
+  • Favicon browser tab (<link rel="icon"> & <link rel="apple-touch-icon">)
+  • Document title (browser tab title)
+  • Sidebar logo (desktop & mobile)
+  • Header breadcrumb logo + nama kampus
+  • Login screen — branding panel kiri (desktop) & header mobile
+  • Footer copyright (app-shell & login)
+- Perubahan di Pengaturan → Simpan → auto-refresh branding (tidak perlu reload page)
+- Fallback gracefully: jika logo_url kosong atau gagal load (onError), tampilkan icon GraduationCap default
+- Nama kampus default "Universitas Nusantara Jaya" sebagai fallback sebelum fetch selesai
+- User's logo Universitas Nias Raya sudah ter-set di DB dan tampil di seluruh app
