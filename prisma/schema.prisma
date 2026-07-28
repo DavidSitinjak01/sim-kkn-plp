@@ -51,7 +51,7 @@ model ProgramStudi {
 
 model User {
   id        String   @id @default(cuid())
-  username  String   @unique // login credential (plain name, NOT email format)
+  username  String?  @unique // login credential (plain name, NOT email format); optional in schema to allow migration on populated DBs, but enforced required at app layer. Backfilled by scripts/backfill-username.ts during build.
   email     String?  @unique // optional contact email (NOT used for login); unique when set
   password  String
   name      String
