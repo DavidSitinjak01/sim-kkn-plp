@@ -12,6 +12,20 @@ import { useBranding, fetchBranding } from '@/lib/branding'
  *
  * Komponen ini render null (tidak ada UI), hanya side-effect.
  */
+
+// Validate that a string is a usable http(s) URL.
+// Rejects HTML snippets, javascript: URLs, data: URLs (except small SVG),
+// relative paths, or anything that would break the favicon/logo display.
+function isValidImageUrl(url: string): boolean {
+  if (!url) return false
+  const s = url.trim()
+  if (!s) return false
+  // Must start with http:// or https:// (external image) — reject everything else
+  // (relative paths won't work for user-uploaded external logos, and javascript:/data:
+  // URLs are security risks in a favicon context)
+  return /^https?:\/\/[^\s"'<>\]]+/i.test(s) && !/[<>"']/.test(s)
+}
+
 export function BrandingProvider() {
   const branding = useBranding()
 
@@ -21,8 +35,8 @@ export function BrandingProvider() {
   }, [])
 
   useEffect(() => {
-    // Update favicon
-    if (branding.faviconUrl) {
+    // Update favicon — only if URL is valid (prevents broken icon if DB has bad data)
+    if (branding.faviconUrl && isValidImageUrl(branding.faviconUrl)) {
       let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
       if (!link) {
         link = document.createElement('link')
@@ -37,7 +51,7 @@ export function BrandingProvider() {
     }
 
     // Update apple-touch-icon
-    if (branding.faviconUrl) {
+    if (branding.faviconUrl && isValidImageUrl(branding.faviconUrl)) {
       let appleLink = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]')
       if (!appleLink) {
         appleLink = document.createElement('link')

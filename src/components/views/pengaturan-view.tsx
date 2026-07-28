@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import {
   Settings, Save, Loader2, Building2, CalendarDays, Plug, Palette,
   Database, Download, Upload, ShieldCheck, Moon, Sun, Mail, MessageSquare,
-  MapPin, QrCode, Info, Send, Bell,
+  MapPin, QrCode, Info, Send, Bell, AlertCircle, CheckCircle2, Link as LinkIcon,
 } from 'lucide-react'
 
 import { PageHeader } from '@/components/shared/page-header'
@@ -86,7 +86,21 @@ export function PengaturanView() {
     setSaving(true)
     try {
       const payload: SettingsMap = {}
-      for (const k of keys) payload[k] = String(settings[k] ?? '')
+      for (const k of keys) {
+        let v = String(settings[k] ?? '')
+        // Sanitize URL fields: extract clean URL from any pasted HTML/BBCode/Markdown
+        // to prevent broken logo/favicon (common mistake: paste imgbb share code)
+        if (k === 'logo_url' || k === 'favicon_url') {
+          v = v.trim()
+          // If contains HTML tags or BBCode, extract the http(s) URL
+          if (v && /<[a-z!]/i.test(v)) {
+            const m = v.match(/https?:\/\/[^\s"'<>\]]+\.(?:png|jpg|jpeg|gif|svg|webp|ico)(?:\?[^\s"'<>\]]*)?/i)
+              || v.match(/https?:\/\/[^\s"'<>\]]+/i)
+            v = m ? m[0] : ''
+          }
+        }
+        payload[k] = v
+      }
       const res = await fetch('/api/pengaturan', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -211,6 +225,82 @@ export function PengaturanView() {
     </div>
   )
 
+  // Extract a valid image URL from arbitrary user input.
+  // Handles common mistakes:
+  //  - Full imgbb/HTML snippet: '<a href="..."><img src="https://i.ibb.co/xxx/logo.png">'
+  //  - BBCode: '[img]https://.../logo.png[/img]'
+  //  - Markdown: '![alt](https://.../logo.png)'
+  //  - Plain URL: 'https://.../logo.png'
+  // Returns '' if no valid http(s) URL found.
+  const extractImageUrl = (raw: string): string => {
+    if (!raw) return ''
+    const s = raw.trim()
+    // Fast path: already a clean URL
+    if (/^https?:\/\/\S+\.(png|jpg|jpeg|gif|svg|webp|ico)$/i.test(s)) return s
+    // Try to find any http(s) URL ending with an image extension
+    const m = s.match(/https?:\/\/[^\s"'<>\]]+\.(?:png|jpg|jpeg|gif|svg|webp|ico)(?:\?[^\s"'<>\]]*)?/i)
+    if (m) return m[0]
+    // Fallback: any http(s) URL (user might link a page that serves an image)
+    const m2 = s.match(/https?:\/\/[^\s"'<>\]]+/i)
+    return m2 ? m2[0] : ''
+  }
+
+  // URL field with validation + auto-extraction from pasted HTML/BBCode/Markdown.
+  // Prevents users from accidentally saving HTML snippets (like imgbb share codes)
+  // as the logo/favicon URL, which would break the image display.
+  const UrlField = ({
+    label, value, onChange, placeholder, description,
+  }: {
+    label: string; value: string; onChange: (v: string) => void; placeholder?: string; description?: string;
+  }) => {
+    const extracted = extractImageUrl(value)
+    const isClean = !value || value === extracted
+    return (
+      <div className="space-y-1.5">
+        <Label className="text-sm flex items-center gap-1.5">
+          <LinkIcon className="w-3.5 h-3.5" /> {label}
+        </Label>
+        <Input
+          type="url"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={() => {
+            // Auto-clean on blur: if user pasted HTML/markdown, extract the URL
+            if (value && !isClean) {
+              onChange(extracted)
+              toast.success('URL otomatis dibersihkan dari format HTML/BBCode')
+            }
+          }}
+          placeholder={placeholder}
+          className={!isClean ? 'border-amber-400' : ''}
+        />
+        {description && <p className="text-xs text-muted-foreground">{description}</p>}
+        {!isClean && (
+          <div className="flex items-start gap-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md p-2">
+            <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+            <div>
+              <p className="font-medium">Tampaknya Anda mem-paste kode HTML, bukan URL gambar.</p>
+              <p className="mt-0.5">URL yang akan disimpan: <code className="font-mono bg-amber-100 dark:bg-amber-900/40 px-1 rounded">{extracted || '(tidak ditemukan URL valid)'}</code></p>
+              <p className="mt-0.5 text-muted-foreground">Klik di luar kolom untuk otomatis membersihkan, atau hapus manual.</p>
+            </div>
+          </div>
+        )}
+        {isClean && extracted && /^https?:\/\//.test(extracted) && (
+          <div className="flex items-center gap-2 text-xs">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+            <span className="text-emerald-600 dark:text-emerald-400">URL valid</span>
+            <img src={extracted} alt="Preview" className="w-8 h-8 rounded border border-border object-contain bg-muted/30" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
+          </div>
+        )}
+        {isClean && value && !extracted && (
+          <p className="flex items-center gap-1 text-xs text-rose-600 dark:text-rose-400">
+            <AlertCircle className="w-3 h-3" /> URL tidak valid — harus diawali http:// atau https://
+          </p>
+        )}
+      </div>
+    )
+  }
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -267,8 +357,8 @@ export function PengaturanView() {
                   <Label className="text-sm">Website</Label>
                   <Input value={settings.website ?? ''} onChange={(e) => update('website', e.target.value)} placeholder="https://nusantarajaya.ac.id" />
                 </div>
-                <Field label="URL Logo (opsional)" value={settings.logo_url ?? ''} onChange={(v) => update('logo_url', v)} placeholder="https://.../logo.png" description="URL gambar logo kampus (PNG/SVG)" />
-                <Field label="URL Favicon (opsional)" value={settings.favicon_url ?? ''} onChange={(v) => update('favicon_url', v)} placeholder="https://.../favicon.ico" description="URL favicon aplikasi" />
+                <UrlField label="URL Logo" value={settings.logo_url ?? ''} onChange={(v) => update('logo_url', v)} placeholder="https://.../logo.png" description="Tautan langsung ke gambar logo kampus (PNG/SVG/JPG). JANGAN paste kode HTML — cukup URL gambar saja." />
+                <UrlField label="URL Favicon" value={settings.favicon_url ?? ''} onChange={(v) => update('favicon_url', v)} placeholder="https://.../favicon.png" description="Tautan gambar favicon (PNG/ICO/SVG, ukuran kecil 32x32 atau 64x64)." />
               </CardContent>
               <CardFooter className="justify-end gap-2 border-t bg-muted/30 py-3">
                 <Button onClick={() => saveSettings(['nama_kampus', 'alamat_kampus', 'no_telepon', 'email_kampus', 'website', 'logo_url', 'favicon_url'])} disabled={saving}>
