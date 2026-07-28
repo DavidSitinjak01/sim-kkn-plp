@@ -11,20 +11,11 @@ import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { ThemeToggle } from '@/components/app/theme-toggle'
 
-const DEMO_ACCOUNTS = [
-  { username: 'superadmin', label: 'Super Admin' },
-  { username: 'admin.fkip', label: 'Admin Fakultas' },
-  { username: 'admin.prodi', label: 'Admin Prodi' },
-  { username: 'pimpinan', label: 'Pimpinan' },
-  { username: 'suparman', label: 'Dosen' },
-  { username: 'mhs1', label: 'Mahasiswa' },
-]
-
 export function LoginScreen() {
   const setUser = useAppStore((s) => s.setUser)
   const branding = useBranding()
-  const [username, setUsername] = useState('superadmin')
-  const [password, setPassword] = useState('password123')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading] = useState(false)
   const [captchaAns, setCaptchaAns] = useState('')
@@ -58,11 +49,6 @@ export function LoginScreen() {
     } finally {
       setLoading(false)
     }
-  }
-
-  const quickLogin = (un: string) => {
-    setUsername(un)
-    setPassword('password123')
   }
 
   return (
@@ -176,7 +162,7 @@ export function LoginScreen() {
                   autoComplete="username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="mis. superadmin, admin.fkip, suparman"
+                  placeholder="Masukkan username Anda"
                   className="pl-9"
                   required
                 />
@@ -243,26 +229,6 @@ export function LoginScreen() {
               )}
             </Button>
           </form>
-
-          <div className="mt-6 pt-6 border-t">
-            <p className="text-xs text-muted-foreground mb-3 text-center">Akun Demo (klik untuk isi otomatis)</p>
-            <div className="grid grid-cols-2 gap-2">
-              {DEMO_ACCOUNTS.map((acc) => (
-                <button
-                  key={acc.username}
-                  type="button"
-                  onClick={() => quickLogin(acc.username)}
-                  className="text-xs px-3 py-2 rounded-lg border border-border hover:bg-accent hover:border-primary/30 transition-colors text-left"
-                >
-                  <span className="font-medium">{acc.label}</span>
-                  <span className="block text-[10px] text-muted-foreground font-mono">{acc.username}</span>
-                </button>
-              ))}
-            </div>
-            <p className="text-[11px] text-muted-foreground/70 text-center mt-3">
-              Password semua akun: <span className="font-mono font-semibold">password123</span>
-            </p>
-          </div>
         </motion.div>
       </div>
     </div>
