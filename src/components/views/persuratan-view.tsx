@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import QRCode from 'qrcode'
 import {
   FileText, Plus, Pencil, Trash2, Loader2, Eye, Printer, FileSpreadsheet, FileText as FilePdf,
-  Mail, Send, FileCheck2, FileEdit, ClipboardList, ScrollText, FileSignature, Users,
+  Mail, Send, FileCheck2, FileEdit, ClipboardList, ScrollText, FileSignature, Users, Settings,
 } from 'lucide-react'
 
 import { PageHeader } from '@/components/shared/page-header'
@@ -14,6 +14,7 @@ import { DataTable, type Column } from '@/components/shared/data-table'
 import {
   exportToCSV, exportToPDF, generateTableHTML, formatDate, formatDateShort, printData,
 } from '@/lib/export-utils'
+import { useAppStore } from '@/lib/store'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -259,6 +260,15 @@ export function PersuratanView() {
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [deleting, setDeleting] = useState(false)
+
+  // Navigation: jump to Pengaturan > Kepanitiaan PLP tab
+  const setView = useAppStore(s => s.setView)
+  const goToKepanitiaan = () => {
+    if (typeof window !== 'undefined') {
+      window.location.hash = '#panitia'
+    }
+    setView('pengaturan')
+  }
 
   // Template dialog
   const [templateOpen, setTemplateOpen] = useState<string | null>(null)
@@ -615,14 +625,21 @@ export function PersuratanView() {
         <TabsContent value="daftar-peserta" className="space-y-4">
           <Card>
             <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-1">
-                <Users className="w-5 h-5 text-primary" />
-                <h3 className="font-semibold">Daftar Peserta PLP</h3>
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Users className="w-5 h-5 text-primary" />
+                    <h3 className="font-semibold">Daftar Peserta PLP</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Pilih kelompok PLP untuk mencetak daftar peserta sesuai format resmi panitia.
+                    Format surat mencakup kop surat dengan logo, daftar anggota kelompok, dan tanda tangan panitia.
+                  </p>
+                </div>
+                <Button variant="outline" size="sm" onClick={goToKepanitiaan} className="shrink-0">
+                  <Settings className="w-4 h-4 mr-1.5" />Edit Kepanitiaan
+                </Button>
               </div>
-              <p className="text-sm text-muted-foreground">
-                Pilih kelompok PLP untuk mencetak daftar peserta sesuai format resmi panitia.
-                Format surat mencakup kop surat dengan logo, daftar anggota kelompok, dan tanda tangan panitia.
-              </p>
             </CardContent>
           </Card>
 

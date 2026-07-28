@@ -7,6 +7,7 @@ import {
   Settings, Save, Loader2, Building2, CalendarDays, Plug, Palette,
   Database, Download, Upload, ShieldCheck, Moon, Sun, Mail, MessageSquare,
   MapPin, QrCode, Info, Send, Bell, AlertCircle, CheckCircle2, Link as LinkIcon,
+  Users, FileText, BadgeCheck,
 } from 'lucide-react'
 
 import { PageHeader } from '@/components/shared/page-header'
@@ -49,6 +50,15 @@ const DEFAULT_SETTINGS: SettingsMap = {
   maps_api_key: '',
   qr_code_setting: 'enabled',
   theme: 'light',
+  // Identitas Surat / Kepanitiaan PLP (dipakai pada format Daftar Peserta PLP)
+  yayasan: '',
+  panitia_plp: '',
+  izin_operasional: '',
+  ketua_panitia: '',
+  ketua_panitia_nidn: '',
+  sekretaris_panitia: '',
+  sekretaris_panitia_nidn: '',
+  koordinator_lapangan: '',
 }
 
 export function PengaturanView() {
@@ -325,10 +335,11 @@ export function PengaturanView() {
         breadcrumb={['Sistem', 'Pengaturan']}
       />
 
-      <Tabs defaultValue="profil" className="w-full">
+      <Tabs defaultValue={typeof window !== 'undefined' && window.location.hash === '#panitia' ? 'panitia' : 'profil'} className="w-full">
         <TabsList className="h-auto flex flex-wrap gap-1">
           <TabsTrigger value="profil"><Building2 className="w-4 h-4" />Profil Universitas</TabsTrigger>
           <TabsTrigger value="akademik"><CalendarDays className="w-4 h-4" />Tahun Akademik</TabsTrigger>
+          <TabsTrigger value="panitia"><Users className="w-4 h-4" />Kepanitiaan PLP</TabsTrigger>
           <TabsTrigger value="integrasi"><Plug className="w-4 h-4" />Integrasi</TabsTrigger>
           <TabsTrigger value="tampilan"><Palette className="w-4 h-4" />Tampilan</TabsTrigger>
           <TabsTrigger value="backup"><Database className="w-4 h-4" />Backup & Restore</TabsTrigger>
@@ -393,6 +404,105 @@ export function PengaturanView() {
               </CardContent>
               <CardFooter className="justify-end gap-2 border-t bg-muted/30 py-3">
                 <Button onClick={() => saveSettings(['tahun_akademik', 'semester'])} disabled={saving}>
+                  {saving ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Save className="w-4 h-4 mr-1.5" />}
+                  Simpan Perubahan
+                </Button>
+              </CardFooter>
+            </Card>
+          </motion.div>
+        </TabsContent>
+
+        {/* Kepanitiaan PLP */}
+        <TabsContent value="panitia">
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Users className="w-5 h-5 text-primary" />Kepanitiaan PLP &amp; Identitas Surat</CardTitle>
+                <CardDescription>
+                  Data ini dipakai pada format surat <strong>Daftar Peserta PLP</strong> (menu Persuratan).
+                  Ubah nilai di bawah jika ada perubahan kepanitiaan — surat yang dicetak selanjutnya akan otomatis menggunakan data terbaru.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* ===== Bagian Kop Surat ===== */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 pb-2 border-b">
+                    <FileText className="w-4 h-4 text-muted-foreground" />
+                    <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Kop Surat</h4>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <Label className="text-sm">Yayasan</Label>
+                      <Input value={settings.yayasan ?? ''} onChange={(e) => update('yayasan', e.target.value)} placeholder="YAYASAN PENDIDIKAN NIAS SELATAN" />
+                    </div>
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <Label className="text-sm">Nama Panitia (dicetak di kop surat)</Label>
+                      <Input value={settings.panitia_plp ?? ''} onChange={(e) => update('panitia_plp', e.target.value)} placeholder="PANITIA PENGENALAN LAPANGAN PERSEKOLAHAN II" />
+                      <p className="text-xs text-muted-foreground">Tuliskan lengkap dengan romawi (I atau II) sesuai periode PLP yang sedang berjalan.</p>
+                    </div>
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <Label className="text-sm">Izin Operasional</Label>
+                      <Input value={settings.izin_operasional ?? ''} onChange={(e) => update('izin_operasional', e.target.value)} placeholder="Kepmendikbudristek Nomor 363/E/O/2021" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* ===== Bagian Kepanitiaan ===== */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 pb-2 border-b">
+                    <BadgeCheck className="w-4 h-4 text-muted-foreground" />
+                    <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Pengurus Panitia</h4>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Ketua */}
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-medium">Nama Ketua Panitia</Label>
+                      <Input value={settings.ketua_panitia ?? ''} onChange={(e) => update('ketua_panitia', e.target.value)} placeholder="Antonius Sarumaha, M.Pd" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-medium">NIDN Ketua</Label>
+                      <Input value={settings.ketua_panitia_nidn ?? ''} onChange={(e) => update('ketua_panitia_nidn', e.target.value)} placeholder="0118058405" />
+                    </div>
+                    {/* Sekretaris */}
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-medium">Nama Sekretaris Panitia</Label>
+                      <Input value={settings.sekretaris_panitia ?? ''} onChange={(e) => update('sekretaris_panitia', e.target.value)} placeholder="Adam Smith Bago, S.Si., M.Pd" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-medium">NIDN Sekretaris</Label>
+                      <Input value={settings.sekretaris_panitia_nidn ?? ''} onChange={(e) => update('sekretaris_panitia_nidn', e.target.value)} placeholder="0101018409" />
+                    </div>
+                    {/* Koordinator Lapangan */}
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <Label className="text-sm font-medium">Koordinator Lapangan</Label>
+                      <Input value={settings.koordinator_lapangan ?? ''} onChange={(e) => update('koordinator_lapangan', e.target.value)} placeholder="Samalua Waoma, S.E., M.M., M.Ak." />
+                      <p className="text-xs text-muted-foreground">Nama dosen/staff yang ditunjuk sebagai koordinator lapangan PLP.</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Info preview */}
+                <div className="flex items-start gap-3 rounded-lg border border-sky-200 bg-sky-50 dark:border-sky-900 dark:bg-sky-950/30 p-4">
+                  <Info className="w-5 h-5 text-sky-600 dark:text-sky-300 shrink-0 mt-0.5" />
+                  <div className="text-xs text-sky-800 dark:text-sky-200">
+                    <p className="font-medium">Tips</p>
+                    <p className="mt-0.5">
+                      Setelah menyimpan, perubahan akan langsung tampil pada menu <strong>Persuratan → Daftar Peserta PLP → Cetak</strong>.
+                      Pastikan nama &amp; NIDN sudah benar sebelum mencetak surat resmi.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+              <CardFooter className="justify-end gap-2 border-t bg-muted/30 py-3">
+                <Button
+                  onClick={() => saveSettings([
+                    'yayasan', 'panitia_plp', 'izin_operasional',
+                    'ketua_panitia', 'ketua_panitia_nidn',
+                    'sekretaris_panitia', 'sekretaris_panitia_nidn',
+                    'koordinator_lapangan',
+                  ])}
+                  disabled={saving}
+                >
                   {saving ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Save className="w-4 h-4 mr-1.5" />}
                   Simpan Perubahan
                 </Button>
