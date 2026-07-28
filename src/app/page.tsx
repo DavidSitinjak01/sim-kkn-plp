@@ -6,7 +6,7 @@ import { useAppStore } from '@/lib/store'
 import { LoginScreen } from '@/components/app/login-screen'
 import { AppShell } from '@/components/app/app-shell'
 import { ThemeProvider } from '@/components/app/theme-provider'
-import { PendaftaranForm } from '@/components/pendaftaran/pendaftaran-form'
+import { PendaftaranFormDinamis } from '@/components/pendaftaran/pendaftaran-form-dinamis'
 
 function HomeContent() {
   const user = useAppStore((s) => s.user)
@@ -29,7 +29,7 @@ function HomeContent() {
   if (isDaftarMode) {
     return (
       <ThemeProvider>
-        <PendaftaranForm />
+        <PendaftaranFormDinamis />
       </ThemeProvider>
     )
   }

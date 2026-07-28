@@ -311,3 +311,31 @@ model Pendaftaran {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
+
+// ============ FORM PENDAFTARAN DINAMIS ============
+// Admin menyusun field-field form melalui form builder.
+// Satu form bisa di-publish (isDefault=true) untuk ditampilkan di link publik.
+
+model FormPendaftaran {
+  id          String   @id @default(cuid())
+  nama        String   // nama form, mis. "Pendaftaran KKN 2026"
+  deskripsi   String?  // deskripsi yang ditampilkan ke mahasiswa
+  isPublished Boolean  @default(false) // apakah form aktif
+  isDefault   Boolean  @default(false) // form yang ditampilkan di link publik (hanya satu boleh true)
+  fields      String   // JSON array berisi definisi field
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  responses   PendaftaranResponse[]
+}
+
+model PendaftaranResponse {
+  id                  String   @id @default(cuid())
+  formId              String
+  form                FormPendaftaran @relation(fields: [formId], references: [id], onDelete: Cascade)
+  data                String   // JSON berisi jawaban { [fieldKey]: value }
+  status              String   @default("PENDING") // PENDING, APPROVED, REJECTED, IMPORTED
+  catatan             String?  // catatan admin
+  importedMahasiswaId String?  // ID Mahasiswa jika sudah diimpor
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}

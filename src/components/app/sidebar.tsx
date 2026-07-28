@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, GraduationCap, MapPin, School, QrCode,
   GitBranch, FileText, ClipboardCheck, UserCog, FileBarChart,
   Settings, CalendarDays, Megaphone, History, ChevronLeft,
-  GraduationCap as Logo, Menu, ClipboardList
+  GraduationCap as Logo, Menu, ClipboardList, FileEdit
 } from 'lucide-react'
 import { useAppStore, MENU_ACCESS, ROLE_LABELS, type ViewKey } from '@/lib/store'
 import { useBranding } from '@/lib/branding'
@@ -39,6 +39,7 @@ const MENU_GROUPS: { title: string; items: { key: ViewKey; label: string; icon: 
       { key: 'persuratan', label: 'Persuratan', icon: FileText },
       { key: 'penilaian', label: 'Penilaian', icon: ClipboardCheck },
       { key: 'pendaftaran', label: 'Pendaftaran Peserta', icon: ClipboardList },
+      { key: 'formPendaftaran', label: 'Formulir Pendaftaran', icon: FileEdit },
     ],
   },
   {
