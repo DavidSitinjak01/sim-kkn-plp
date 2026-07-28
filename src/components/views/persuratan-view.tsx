@@ -524,7 +524,7 @@ export function PersuratanView() {
         <TabsList className="mb-4">
           <TabsTrigger value="daftar"><FileText className="w-4 h-4 mr-2" />Daftar Surat</TabsTrigger>
           <TabsTrigger value="template"><ClipboardList className="w-4 h-4 mr-2" />Template Surat</TabsTrigger>
-          <TabsTrigger value="daftar-peserta"><Users className="w-4 h-4 mr-2" />Daftar Peserta PLP</TabsTrigger>
+          <TabsTrigger value="daftar-peserta"><IdCard className="w-4 h-4 mr-2" />Daftar & Kartu Peserta KKN/PLP</TabsTrigger>
         </TabsList>
 
         <TabsContent value="daftar" className="space-y-4">
