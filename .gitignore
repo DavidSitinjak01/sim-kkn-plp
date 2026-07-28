@@ -55,3 +55,4 @@ next-env.d.ts
 /.zscripts/
 worklog.md
 .env*
+*.png
