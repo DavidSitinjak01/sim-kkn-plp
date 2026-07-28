@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import {
   UserCog, Plus, FileSpreadsheet, FileText as FilePdf, Pencil, Trash2, Loader2,
   Users, UserCheck, UserX, KeyRound, Power, ShieldCheck,
+  Eye, EyeOff, Dices, Info,
 } from 'lucide-react'
 
 import { PageHeader } from '@/components/shared/page-header'
@@ -31,6 +32,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
@@ -86,6 +88,26 @@ const ROLE_LABEL: Record<string, string> = ROLE_OPTIONS.reduce((acc, r) => {
   acc[r.value] = r.label
   return acc
 }, {} as Record<string, string>)
+
+// Human-readable description of what each role can access — shown as hint in the form
+const ROLE_DESCRIPTIONS: Record<string, string> = {
+  SUPER_ADMIN: 'Akses penuh ke SELURUH modul sistem, termasuk Manajemen Akun & Pengaturan.',
+  ADMIN_FAKULTAS: 'Panitia tingkat fakultas: kelola mahasiswa, dosen, desa, sekolah, absensi, pembagian, persuratan, penilaian, laporan, agenda, pengumuman, pendaftaran.',
+  ADMIN_PRODI: 'Panitia tingkat prodi: kelola mahasiswa, absensi, pembagian, persuratan, penilaian, laporan, agenda, pengumuman, pendaftaran.',
+  DOSEN: 'Dosen Pembimbing: lihat dashboard, data mahasiswa bimbingan, absensi, pembagian, penilaian, agenda, pengumuman.',
+  MAHASISWA: 'Peserta KKN/PLP: dashboard pribadi, absensi diri, agenda, pengumuman.',
+  PIMPINAN: 'Pimpinan institusi: monitor dashboard, data mahasiswa/dosen/desa/sekolah, absensi, pembagian, laporan, agenda, pengumuman.',
+}
+
+// Generate a random alphanumeric password (8 chars, easy to communicate)
+function generatePassword(): string {
+  const chars = 'abcdefghjkmnpqrstuvwxyz23456789'
+  let pwd = ''
+  for (let i = 0; i < 8; i++) {
+    pwd += chars[Math.floor(Math.random() * chars.length)]
+  }
+  return pwd
+}
 
 // ============ Role Permission Matrix ============
 const ALL_MODULES = [
@@ -150,6 +172,14 @@ export function AkunView() {
   const [resetting, setResetting] = useState(false)
   const [togglingId, setTogglingId] = useState<string | null>(null)
 
+  // Password field visibility (Add/Edit dialog)
+  const [showPassword, setShowPassword] = useState(false)
+
+  // Reset password dialog: choose default vs custom password
+  const [resetMode, setResetMode] = useState<'default' | 'custom'>('default')
+  const [resetCustomPassword, setResetCustomPassword] = useState('')
+  const [showResetPassword, setShowResetPassword] = useState(false)
+
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
@@ -190,6 +220,7 @@ export function AkunView() {
   const openCreate = () => {
     setEditing(null)
     setForm(EMPTY_FORM)
+    setShowPassword(false)
     setFormOpen(true)
   }
 
@@ -203,7 +234,16 @@ export function AkunView() {
       phone: u.phone ?? '',
       status: u.status,
     })
+    setShowPassword(false)
     setFormOpen(true)
+  }
+
+  // Open the reset password dialog for a user (resets all reset-state)
+  const openResetPassword = (u: User) => {
+    setResetTarget(u)
+    setResetMode('default')
+    setResetCustomPassword('')
+    setShowResetPassword(false)
   }
 
   const submitForm = async () => {
@@ -265,12 +305,29 @@ export function AkunView() {
 
   const handleResetPassword = async () => {
     if (!resetTarget) return
+    // Validate custom password if that mode is selected
+    if (resetMode === 'custom') {
+      if (resetCustomPassword.trim().length < 6) {
+        toast.error('Password baru minimal 6 karakter')
+        return
+      }
+    }
     setResetting(true)
     try {
-      const res = await fetch(`/api/user/${resetTarget.id}/reset-password`, { method: 'POST' })
+      const body: Record<string, string> = {}
+      if (resetMode === 'custom') body.password = resetCustomPassword.trim()
+      const res = await fetch(`/api/user/${resetTarget.id}/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
       const json = await res.json()
       if (!res.ok) throw new Error(json?.error || 'Gagal')
-      toast.success(`Password ${resetTarget.name} direset ke "password123"`)
+      toast.success(
+        resetMode === 'custom'
+          ? `Password ${resetTarget.name} berhasil diubah ke password baru`
+          : `Password ${resetTarget.name} direset ke "password123"`
+      )
       setResetTarget(null)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Gagal reset password')
@@ -327,7 +384,7 @@ export function AkunView() {
           <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => openEdit(u)} title="Edit">
             <Pencil className="w-4 h-4" />
           </Button>
-          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20" onClick={() => setResetTarget(u)} title="Reset Password">
+          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20" onClick={() => openResetPassword(u)} title="Reset Password">
             <KeyRound className="w-4 h-4" />
           </Button>
           <Button
@@ -580,13 +637,44 @@ export function AkunView() {
             </div>
             <div className="space-y-1.5">
               <Label>Password {!editing && <span className="text-rose-500">*</span>}</Label>
-              <Input
-                type="password"
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                placeholder={editing ? 'Kosongkan jika tidak diubah (min 6 karakter)' : 'Min 6 karakter'}
-              />
-              {editing && <p className="text-[11px] text-muted-foreground">Kosongkan untuk mempertahankan password lama.</p>}
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Input
+                    type={showPassword ? 'text' : 'password'}
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    placeholder={editing ? 'Kosongkan jika tidak diubah (min 6 karakter)' : 'Min 6 karakter'}
+                    className="pr-9"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    title={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0 gap-1.5"
+                  onClick={() => {
+                    const pwd = generatePassword()
+                    setForm((prev) => ({ ...prev, password: pwd }))
+                    setShowPassword(true)
+                    toast.success(`Password dihasilkan: ${pwd}`, { description: 'Pesan password ini ke user yang bersangkutan.' })
+                  }}
+                  title="Buat password acak"
+                >
+                  <Dices className="w-4 h-4" /> Acak
+                </Button>
+              </div>
+              {editing
+                ? <p className="text-[11px] text-muted-foreground">Kosongkan untuk mempertahankan password lama. Isi untuk mengganti password user.</p>
+                : <p className="text-[11px] text-muted-foreground">Minimal 6 karakter. Klik "Acak" untuk membuat password otomatis.</p>}
             </div>
             <div className="space-y-1.5">
               <Label>Role <span className="text-rose-500">*</span></Label>
@@ -596,6 +684,12 @@ export function AkunView() {
                   {ROLE_OPTIONS.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
                 </SelectContent>
               </Select>
+              {ROLE_DESCRIPTIONS[form.role] && (
+                <div className="flex items-start gap-1.5 text-[11px] text-muted-foreground bg-muted/40 border border-border rounded-md p-2">
+                  <Info className="w-3.5 h-3.5 mt-0.5 shrink-0 text-primary" />
+                  <span>{ROLE_DESCRIPTIONS[form.role]}</span>
+                </div>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>Status</Label>
@@ -619,24 +713,96 @@ export function AkunView() {
         </DialogContent>
       </Dialog>
 
-      {/* Reset Password confirmation */}
+      {/* Reset Password dialog — choose default vs custom password */}
       <AlertDialog open={!!resetTarget} onOpenChange={(o) => { if (!o) setResetTarget(null) }}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle>Reset Password User?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Password user <strong>{resetTarget?.name}</strong> ({resetTarget?.email}) akan direset ke default <code className="bg-muted px-1.5 py-0.5 rounded text-xs">password123</code>. User dapat login kembali dengan password default dan disarankan menggantinya segera.
+            <AlertDialogTitle>Reset Password User</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <span>
+                Pilih metode reset password untuk <strong>{resetTarget?.name}</strong> ({resetTarget?.email}).
+              </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          <div className="space-y-3 py-1">
+            <RadioGroup
+              value={resetMode}
+              onValueChange={(v) => setResetMode(v as 'default' | 'custom')}
+              className="space-y-2"
+            >
+              <label htmlFor="reset-default" className="flex items-start gap-3 rounded-lg border border-border p-3 cursor-pointer hover:bg-muted/40 transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+                <RadioGroupItem value="default" id="reset-default" className="mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">Reset ke password default</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Password akan direset ke <code className="bg-muted px-1 py-0.5 rounded text-[11px]">password123</code>. User disarankan menggantinya setelah login.
+                  </p>
+                </div>
+              </label>
+              <label htmlFor="reset-custom" className="flex items-start gap-3 rounded-lg border border-border p-3 cursor-pointer hover:bg-muted/40 transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+                <RadioGroupItem value="custom" id="reset-custom" className="mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">Atur password baru</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Masukkan password baru (minimal 6 karakter). Cocok untuk memberi password sementara yang mudah diingat.
+                  </p>
+                </div>
+              </label>
+            </RadioGroup>
+
+            {resetMode === 'custom' && (
+              <div className="space-y-1.5 pl-1">
+                <Label className="text-xs">Password Baru</Label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Input
+                      type={showResetPassword ? 'text' : 'password'}
+                      value={resetCustomPassword}
+                      onChange={(e) => setResetCustomPassword(e.target.value)}
+                      placeholder="Min 6 karakter"
+                      className="pr-9"
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowResetPassword((v) => !v)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      title={showResetPassword ? 'Sembunyikan' : 'Tampilkan'}
+                      tabIndex={-1}
+                    >
+                      {showResetPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 gap-1.5"
+                    onClick={() => {
+                      const pwd = generatePassword()
+                      setResetCustomPassword(pwd)
+                      setShowResetPassword(true)
+                      toast.success(`Password dihasilkan: ${pwd}`)
+                    }}
+                    title="Buat password acak"
+                  >
+                    <Dices className="w-4 h-4" /> Acak
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+
           <AlertDialogFooter>
             <AlertDialogCancel disabled={resetting}>Batal</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleResetPassword}
-              disabled={resetting}
+              disabled={resetting || (resetMode === 'custom' && resetCustomPassword.trim().length < 6)}
               className="bg-amber-600 hover:bg-amber-700 focus:ring-amber-600"
             >
               {resetting ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <KeyRound className="w-4 h-4 mr-1.5" />}
-              Reset Password
+              {resetMode === 'custom' ? 'Atur Password Baru' : 'Reset Password'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
