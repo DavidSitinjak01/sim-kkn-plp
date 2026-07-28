@@ -36,7 +36,7 @@ export async function GET() {
     const kelompokPLP2 = await db.kelompok.count({ where: { tipe: 'PLP2' } })
 
     // 3. Absensi last 7 days
-    const absensiTrend = []
+    const absensiTrend: { name: string; Hadir: number; Izin: number; Sakit: number; Alpha: number }[] = []
     for (let i = 6; i >= 0; i--) {
       const date = new Date()
       date.setDate(date.getDate() - i)

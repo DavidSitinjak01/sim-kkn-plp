@@ -53,7 +53,7 @@ async function main() {
     { nidn: '0020102', nama: 'Dr. Dewi Lestari, M.T.', email: 'dewi.lestari@kknplp.ac.id', noHp: '081200010007', fakultasId: fakultas[1].id, prodiId: prodi[6].id, jabatan: 'Lektor', keahlian: 'Teknik Sipil, Infrastruktur' },
     { nidn: '0050101', nama: 'Dr. Rudi Hartono, S.H., M.H.', email: 'rudi.hartono@kknplp.ac.id', noHp: '081200010008', fakultasId: fakultas[4].id, prodiId: prodi[11].id, jabatan: 'Lektor Kepala', keahlian: 'Hukum Tata Negara' },
   ]
-  const dosen = []
+  const dosen: any[] = []
   for (const d of dosenData) {
     const u = await db.user.create({ data: { email: d.email, password: defaultPass, name: d.nama, role: 'DOSEN', phone: d.noHp } })
     const dos = await db.dosen.create({ data: { ...d, userId: u.id } })
@@ -119,7 +119,7 @@ async function main() {
   const sekolah = await Promise.all(sekolahData.map(s => db.sekolah.create({ data: s })))
 
   // ============ KELOMPOK ============
-  const kelompokKKN = []
+  const kelompokKKN: any[] = []
   for (let i = 0; i < 6; i++) {
     const k = await db.kelompok.create({
       data: {
@@ -133,7 +133,7 @@ async function main() {
     })
     kelompokKKN.push(k)
   }
-  const kelompokPLP1 = []
+  const kelompokPLP1: any[] = []
   for (let i = 0; i < 3; i++) {
     const k = await db.kelompok.create({
       data: {
@@ -147,7 +147,7 @@ async function main() {
     })
     kelompokPLP1.push(k)
   }
-  const kelompokPLP2 = []
+  const kelompokPLP2: any[] = []
   for (let i = 0; i < 3; i++) {
     const k = await db.kelompok.create({
       data: {
