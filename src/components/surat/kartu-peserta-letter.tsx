@@ -19,10 +19,11 @@
  *  - /api/pengaturan     → identitas instansi, logo_url
  */
 
-import { useEffect, useState, useCallback } from 'react'
-import { Loader2, Printer, IdCard } from 'lucide-react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
+import { Loader2, Printer, IdCard, Search, X, User } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 
 // ============ Types ============
 interface Prodi { id: string; kode: string; nama: string; jenjang: string }
@@ -131,7 +132,9 @@ export function KartuPesertaLetter({ kelompokId }: Props) {
   const [merdekaBase64, setMerdekaBase64] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [printing, setPrinting] = useState(false)
+  const [printingFiltered, setPrintingFiltered] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
 
   const fetchData = useCallback(async () => {
     if (!kelompokId) {
@@ -185,7 +188,21 @@ export function KartuPesertaLetter({ kelompokId }: Props) {
 
   useEffect(() => { fetchData() }, [fetchData])
 
-  // ============ Print handler ============
+  // ============ Filtered members by search query (name or NIM) ============
+  const filteredMembers = useMemo(() => {
+    if (!kelompok) return []
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) return kelompok.members
+    return kelompok.members.filter((m) => {
+      const nama = (m.mahasiswa?.nama ?? '').toLowerCase()
+      const nim = (m.mahasiswa?.nim ?? '').toLowerCase()
+      return nama.includes(q) || nim.includes(q)
+    })
+  }, [kelompok, searchQuery])
+
+  const isFiltering = searchQuery.trim().length > 0
+
+  // ============ Print handler (all members) ============
   const handlePrint = async () => {
     if (!kelompok) return
     setPrinting(true)
@@ -204,11 +221,65 @@ export function KartuPesertaLetter({ kelompokId }: Props) {
       win.document.write(html)
       win.document.close()
       setTimeout(() => win.print(), 800)
-      toast.success('Membuka dialog cetak...')
+      toast.success(`Mencetak ${kelompok.members.length} kartu peserta...`)
     } catch {
       toast.error('Gagal mencetak kartu')
     } finally {
       setPrinting(false)
+    }
+  }
+
+  // ============ Print handler (filtered members only) ============
+  const handlePrintFiltered = async () => {
+    if (!kelompok || filteredMembers.length === 0) return
+    setPrintingFiltered(true)
+    try {
+      const logos = {
+        kampus: logoBase64 ?? '',
+        tutWuri: tutWuriBase64 ?? '',
+        merdeka: merdekaBase64 ?? '',
+      }
+      // Build a temp kelompok object containing only filtered members
+      const subsetKelompok: Kelompok = { ...kelompok, members: filteredMembers }
+      const html = buildPrintHtml(subsetKelompok, pengaturan, logos)
+      const win = window.open('', '_blank', 'width=900,height=700')
+      if (!win) {
+        toast.error('Popup diblokir. Izinkan popup untuk mencetak.')
+        return
+      }
+      win.document.write(html)
+      win.document.close()
+      setTimeout(() => win.print(), 800)
+      toast.success(`Mencetak ${filteredMembers.length} kartu hasil pencarian...`)
+    } catch {
+      toast.error('Gagal mencetak kartu')
+    } finally {
+      setPrintingFiltered(false)
+    }
+  }
+
+  // ============ Print single member (reprint one card) ============
+  const handlePrintOne = async (member: Member) => {
+    if (!kelompok) return
+    try {
+      const logos = {
+        kampus: logoBase64 ?? '',
+        tutWuri: tutWuriBase64 ?? '',
+        merdeka: merdekaBase64 ?? '',
+      }
+      const subsetKelompok: Kelompok = { ...kelompok, members: [member] }
+      const html = buildPrintHtml(subsetKelompok, pengaturan, logos)
+      const win = window.open('', '_blank', 'width=900,height=700')
+      if (!win) {
+        toast.error('Popup diblokir. Izinkan popup untuk mencetak.')
+        return
+      }
+      win.document.write(html)
+      win.document.close()
+      setTimeout(() => win.print(), 800)
+      toast.success(`Mencetak kartu: ${member.mahasiswa.nama}`)
+    } catch {
+      toast.error('Gagal mencetak kartu')
     }
   }
 
@@ -248,33 +319,94 @@ export function KartuPesertaLetter({ kelompokId }: Props) {
 
   return (
     <div className="space-y-4">
-      {/* Action buttons + info */}
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <p className="text-sm text-muted-foreground">
-          {kelompok.members.length} kartu peserta &middot; {kelompok.nama}
-        </p>
-        <Button onClick={handlePrint} disabled={printing}>
-          {printing ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Printer className="w-4 h-4 mr-1.5" />}
-          Cetak Semua Kartu
-        </Button>
+      {/* Action buttons + info + search */}
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <p className="text-sm text-muted-foreground">
+            {isFiltering ? (
+              <>
+                Menampilkan <span className="font-semibold text-foreground">{filteredMembers.length}</span> dari{' '}
+                {kelompok.members.length} kartu &middot; {kelompok.nama}
+              </>
+            ) : (
+              <>{kelompok.members.length} kartu peserta &middot; {kelompok.nama}</>
+            )}
+          </p>
+          <div className="flex items-center gap-2 flex-wrap">
+            {isFiltering && filteredMembers.length > 0 && (
+              <Button
+                onClick={handlePrintFiltered}
+                disabled={printingFiltered}
+                variant="secondary"
+                size="sm"
+              >
+                {printingFiltered ? (
+                  <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                ) : (
+                  <Printer className="w-4 h-4 mr-1.5" />
+                )}
+                Cetak {filteredMembers.length} Hasil Pencarian
+              </Button>
+            )}
+            <Button onClick={handlePrint} disabled={printing} size="sm">
+              {printing ? (
+                <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+              ) : (
+                <Printer className="w-4 h-4 mr-1.5" />
+              )}
+              Cetak Semua Kartu
+            </Button>
+          </div>
+        </div>
+
+        {/* Search box */}
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+          <Input
+            type="text"
+            placeholder="Cari nama atau NIM untuk cetak ulang kartu tertentu..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 pr-9"
+            aria-label="Cari peserta berdasarkan nama atau NIM"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              aria-label="Hapus pencarian"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Card grid preview */}
       <div className="bg-muted/30 rounded-lg border p-4 overflow-auto" style={{ maxHeight: '70vh' }}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 justify-items-center">
-          {kelompok.members.map((m) => (
-            <CardPreview
-              key={m.id}
-              member={m}
-              kelompok={kelompok}
-              pengaturan={pengaturan}
-              logoUrl={logoUrl}
-              tutWuriSrc={tutWuriSrc}
-              merdekaSrc={merdekaSrc}
-              theme={theme}
-            />
-          ))}
-        </div>
+        {isFiltering && filteredMembers.length === 0 ? (
+          <div className="py-12 text-center text-muted-foreground">
+            <User className="w-10 h-10 mx-auto mb-3 opacity-40" />
+            <p>Tidak ada peserta yang cocok dengan pencarian &quot;{searchQuery}&quot;.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 justify-items-center">
+            {filteredMembers.map((m) => (
+              <CardPreview
+                key={m.id}
+                member={m}
+                kelompok={kelompok}
+                pengaturan={pengaturan}
+                logoUrl={logoUrl}
+                tutWuriSrc={tutWuriSrc}
+                merdekaSrc={merdekaSrc}
+                theme={theme}
+                onPrintOne={handlePrintOne}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -289,9 +421,10 @@ interface CardPreviewProps {
   tutWuriSrc: string
   merdekaSrc: string
   theme: ReturnType<typeof cardTheme>
+  onPrintOne?: (member: Member) => void
 }
 
-function CardPreview({ member, kelompok, pengaturan, logoUrl, tutWuriSrc, merdekaSrc, theme }: CardPreviewProps) {
+function CardPreview({ member, kelompok, pengaturan, logoUrl, tutWuriSrc, merdekaSrc, theme, onPrintOne }: CardPreviewProps) {
   const m = member.mahasiswa
   const lokasi = kelompok.tipe === 'KKN'
     ? (kelompok.desa?.nama ?? '-')
@@ -302,16 +435,17 @@ function CardPreview({ member, kelompok, pengaturan, logoUrl, tutWuriSrc, merdek
   const kelompokNum = kelompok.nama.match(/\d+(-\d+)?$/)?.[0] || kelompok.nama
 
   return (
-    <div
-      className="bg-white shadow-lg overflow-hidden flex flex-col"
-      style={{
-        width: '300px',
-        height: '480px',
-        borderRadius: '18px',
-        fontFamily: 'Arial, Helvetica, sans-serif',
-        position: 'relative',
-      }}
-    >
+    <div className="relative group">
+      <div
+        className="bg-white shadow-lg overflow-hidden flex flex-col"
+        style={{
+          width: '300px',
+          height: '480px',
+          borderRadius: '18px',
+          fontFamily: 'Arial, Helvetica, sans-serif',
+          position: 'relative',
+        }}
+      >
       {/* ===== TOP SECTION (gray with rounded bottom) ===== */}
       <div
         style={{
@@ -474,6 +608,21 @@ function CardPreview({ member, kelompok, pengaturan, logoUrl, tutWuriSrc, merdek
           {pengaturan.nama_kampus}
         </div>
       </div>
+      </div>
+
+      {/* Print-one overlay button — appears on hover */}
+      {onPrintOne && (
+        <button
+          type="button"
+          onClick={() => onPrintOne(member)}
+          className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity bg-white/95 hover:bg-white text-foreground shadow-md rounded-md px-2.5 py-1.5 text-xs font-medium flex items-center gap-1.5 border border-border backdrop-blur-sm"
+          title={`Cetak kartu ${m.nama}`}
+          aria-label={`Cetak kartu ${m.nama}`}
+        >
+          <Printer className="w-3.5 h-3.5" />
+          Cetak Kartu Ini
+        </button>
+      )}
     </div>
   )
 }
