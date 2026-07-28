@@ -122,6 +122,8 @@ export function KartuPesertaLetter({ kelompokId }: Props) {
   const [kelompok, setKelompok] = useState<Kelompok | null>(null)
   const [pengaturan, setPengaturan] = useState<Pengaturan>(DEFAULT_PENGATURAN)
   const [logoBase64, setLogoBase64] = useState<string | null>(null)
+  const [tutWuriBase64, setTutWuriBase64] = useState<string | null>(null)
+  const [merdekaBase64, setMerdekaBase64] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [printing, setPrinting] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
@@ -162,10 +164,12 @@ export function KartuPesertaLetter({ kelompokId }: Props) {
     }
   }, [kelompokId])
 
-  // Fetch logo as base64
+  // Fetch all 3 logos as base64 (for print window embedding)
   useEffect(() => {
     const logoUrl = pengaturan.logo_url || '/logo.png'
     imageUrlToBase64(logoUrl).then(setLogoBase64)
+    imageUrlToBase64('/logo-tut-wuri.svg').then(setTutWuriBase64)
+    imageUrlToBase64('/logo-kampus-merdeka.svg').then(setMerdekaBase64)
   }, [pengaturan.logo_url])
 
   useEffect(() => { fetchData() }, [fetchData])
@@ -175,8 +179,12 @@ export function KartuPesertaLetter({ kelompokId }: Props) {
     if (!kelompok) return
     setPrinting(true)
     try {
-      const logo = logoBase64 ?? ''
-      const html = buildPrintHtml(kelompok, pengaturan, logo)
+      const logos = {
+        kampus: logoBase64 ?? '',
+        tutWuri: tutWuriBase64 ?? '',
+        merdeka: merdekaBase64 ?? '',
+      }
+      const html = buildPrintHtml(kelompok, pengaturan, logos)
       const win = window.open('', '_blank', 'width=900,height=700')
       if (!win) {
         toast.error('Popup diblokir. Izinkan popup untuk mencetak.')
@@ -303,22 +311,15 @@ function CardPreview({ member, kelompok, pengaturan, logoUrl, theme }: CardPrevi
         }}
       >
         {/* 3 Logos row */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '0 14px' }}>
-          {/* Left: Tut Wuri Handayani badge */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '52px' }}>
-            <div style={{
-              width: '40px', height: '40px', borderRadius: '50%',
-              background: '#1e40af', color: '#fff',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '16px', fontWeight: 'bold',
-              border: '2px solid #fff',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-            }}>
-              📖
-            </div>
-            <span style={{ fontSize: '5.5px', color: '#475569', marginTop: '2px', textAlign: 'center', lineHeight: 1, fontWeight: 600 }}>
-              TUT WURI<br />HANDAYANI
-            </span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', padding: '0 10px' }}>
+          {/* Left: Tut Wuri Handayani (SVG logo) */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '56px' }}>
+            <img
+              src="/logo-tut-wuri.svg"
+              alt="Tut Wuri Handayani"
+              style={{ width: '48px', height: '48px', objectFit: 'contain' }}
+              onError={(e) => { (e.currentTarget.style.display = 'none') }}
+            />
           </div>
 
           {/* Center: University logo */}
@@ -336,24 +337,14 @@ function CardPreview({ member, kelompok, pengaturan, logoUrl, theme }: CardPrevi
             </span>
           </div>
 
-          {/* Right: Kampus Merdeka badge */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '52px' }}>
-            <div style={{
-              width: '40px', height: '40px', borderRadius: '50%',
-              background: '#fff', border: '2px solid #2563eb',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-              lineHeight: 1,
-              boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-            }}>
-              <span style={{ fontSize: '7px', color: '#2563eb', fontWeight: 800 }}>KAMPUS</span>
-              <span style={{ fontSize: '7px', color: '#2563eb', fontWeight: 800 }}>MERDEKA</span>
-            </div>
-            <span style={{
-              fontSize: '5.5px', color: '#000', marginTop: '2px', fontWeight: 700,
-              background: '#facc15', padding: '1px 4px', borderRadius: '2px',
-            }}>
-              INDONESIA JAYA
-            </span>
+          {/* Right: Kampus Merdeka (SVG logo) */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '56px' }}>
+            <img
+              src="/logo-kampus-merdeka.svg"
+              alt="Kampus Merdeka"
+              style={{ width: '48px', height: '56px', objectFit: 'contain' }}
+              onError={(e) => { (e.currentTarget.style.display = 'none') }}
+            />
           </div>
         </div>
 
@@ -475,10 +466,22 @@ function CardPreview({ member, kelompok, pengaturan, logoUrl, theme }: CardPrevi
 }
 
 // ============ Print HTML Builder ============
-function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logoBase64: string): string {
+interface PrintLogos {
+  kampus: string
+  tutWuri: string
+  merdeka: string
+}
+
+function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logos: PrintLogos): string {
   const theme = cardTheme(kelompok.tipe)
-  const logoImg = logoBase64
-    ? `<img src="${logoBase64}" alt="Logo" style="width:54px;height:54px;object-fit:contain;" />`
+  const kampusImg = logos.kampus
+    ? `<img src="${logos.kampus}" alt="Logo Kampus" style="width:54px;height:54px;object-fit:contain;" />`
+    : ''
+  const tutWuriImg = logos.tutWuri
+    ? `<img src="${logos.tutWuri}" alt="Tut Wuri Handayani" style="width:48px;height:48px;object-fit:contain;" />`
+    : ''
+  const merdekaImg = logos.merdeka
+    ? `<img src="${logos.merdeka}" alt="Kampus Merdeka" style="width:48px;height:56px;object-fit:contain;" />`
     : ''
 
   // Extract trailing number (e.g. "1" or "1-1") from kelompok nama
@@ -500,18 +503,14 @@ function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logoBase64: string): 
       <div class="top">
         <div class="logos">
           <div class="logo-side">
-            <div class="badge-blue">📖</div>
-            <span class="logo-cap">TUT WURI<br>HANDAYANI</span>
+            ${tutWuriImg}
           </div>
           <div class="logo-center">
-            ${logoImg}
+            ${kampusImg}
             <span class="logo-cap">${escapeHtml(p.nama_kampus)}</span>
           </div>
           <div class="logo-side">
-            <div class="badge-merdeka">
-              <span>KAMPUS</span><span>MERDEKA</span>
-            </div>
-            <span class="indonesia-jaya">INDONESIA JAYA</span>
+            ${merdekaImg}
           </div>
         </div>
         <!-- Photo -->
@@ -579,7 +578,7 @@ function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logoBase64: string): 
   .logos {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     width: 100%;
     padding: 0 4mm;
   }
@@ -587,25 +586,7 @@ function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logoBase64: string): 
     display: flex;
     flex-direction: column;
     align-items: center;
-    width: 14mm;
-  }
-  .badge-blue {
-    width: 10mm; height: 10mm; border-radius: 50%;
-    background: #1e40af; color: #fff;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 5mm; font-weight: bold;
-    border: 0.5mm solid #fff;
-    box-shadow: 0 0.5mm 1mm rgba(0,0,0,0.2);
-  }
-  .badge-merdeka {
-    width: 10mm; height: 10mm; border-radius: 50%;
-    background: #fff; border: 0.5mm solid #2563eb;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    line-height: 1;
-    box-shadow: 0 0.5mm 1mm rgba(0,0,0,0.2);
-  }
-  .badge-merdeka span {
-    font-size: 2mm; color: #2563eb; font-weight: 800;
+    width: 16mm;
   }
   .logo-center {
     display: flex; flex-direction: column; align-items: center;
@@ -613,10 +594,6 @@ function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logoBase64: string): 
   .logo-cap {
     font-size: 1.8mm; color: #475569; margin-top: 0.5mm;
     text-align: center; line-height: 1.1; font-weight: 700; text-transform: uppercase;
-  }
-  .indonesia-jaya {
-    font-size: 1.8mm; color: #000; margin-top: 0.5mm; font-weight: 700;
-    background: #facc15; padding: 0.3mm 1mm; border-radius: 0.5mm;
   }
   .photo-wrap {
     position: absolute;

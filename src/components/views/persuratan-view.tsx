@@ -693,11 +693,9 @@ export function PersuratanView() {
                         <Button size="sm" className="w-full" onClick={() => setKartuKelompokId(k.id)}>
                           <IdCard className="w-4 h-4 mr-1.5" />Cetak Kartu Peserta
                         </Button>
-                        {!isKkn && (
-                          <Button size="sm" variant="outline" className="w-full" onClick={() => setLetterKelompokId(k.id)}>
-                            <Printer className="w-4 h-4 mr-1.5" />Cetak Daftar Peserta
-                          </Button>
-                        )}
+                        <Button size="sm" variant="outline" className="w-full" onClick={() => setLetterKelompokId(k.id)}>
+                          <Printer className="w-4 h-4 mr-1.5" />Cetak Daftar Peserta
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -855,7 +853,7 @@ export function PersuratanView() {
       <Dialog open={!!letterKelompokId} onOpenChange={(o) => { if (!o) setLetterKelompokId(null) }}>
         <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Daftar Peserta PLP</DialogTitle>
+            <DialogTitle>Daftar Peserta KKN/PLP</DialogTitle>
             <DialogDescription>
               Pratinjau daftar peserta sesuai format resmi panitia. Klik &quot;Cetak / PDF&quot; untuk mencetak atau menyimpan sebagai PDF.
             </DialogDescription>

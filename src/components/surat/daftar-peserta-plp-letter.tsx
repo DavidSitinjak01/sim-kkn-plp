@@ -32,9 +32,10 @@ interface Mahasiswa {
 interface Member { id: string; mahasiswa: Mahasiswa }
 interface Dosen { id: string; nidn: string; nama: string; noHp: string }
 interface Sekolah { id: string; nama: string; jenjang: string; alamat: string }
+interface Desa { id: string; nama: string; kecamatan: string; kabupaten: string }
 interface Kelompok {
   id: string; nama: string; tipe: string; tahunAkademik: string; semester: string
-  dosen: Dosen | null; sekolah: Sekolah | null; desa: null
+  dosen: Dosen | null; sekolah: Sekolah | null; desa: Desa | null
   members: Member[]
   _count?: { members: number }
 }
@@ -52,6 +53,7 @@ const DEFAULT_PENGATURAN: Record<string, string> = {
   logo_url: '/logo.png',
   yayasan: 'YAYASAN PENDIDIKAN NIAS SELATAN',
   panitia_plp: 'PANITIA PENGENALAN LAPANGAN PERSEKOLAHAN II',
+  panitia_kkn: 'PANITIA KULIAH KERJA NYATA',
   izin_operasional: 'Kepmendikbudristek Nomor 363/E/O/2021',
   ketua_panitia: 'Antonius Sarumaha, M.Pd',
   ketua_panitia_nidn: '0118058405',
@@ -75,30 +77,60 @@ function tipeLabel(tipe: string): string {
   }
 }
 
-function fullTipeLabel(tipe: string): string {
+/**
+ * Build the surat title (3 lines) based on kelompok tipe.
+ * KKN  -> "DAFTAR PESERTA / KULIAH KERJA NYATA (KKN) / FKIP <KAMPUS>"
+ * PLP1 -> "DAFTAR PESERTA / PENGENALAN LINGKUNGAN PERSEKOLAHAN (PLP) I / FKIP <KAMPUS>"
+ * PLP2 -> "DAFTAR PESERTA / PENGENALAN LINGKUNGAN PERSEKOLAHAN (PLP) II / FKIP <KAMPUS>"
+ */
+function judulSurat(tipe: string, namaKampus: string): { line1: string; line2: string; line3: string } {
+  const fkip = `FKIP ${namaKampus}`
   switch (tipe) {
-    case 'PLP1': return 'Pengenalan Lapangan Persekolahan I'
-    case 'PLP2': return 'Pengenalan Lapangan Persekolahan II'
-    default: return 'Pengenalan Lapangan Persekolahan'
+    case 'KKN':
+      return {
+        line1: 'DAFTAR PESERTA',
+        line2: 'KULIAH KERJA NYATA (KKN)',
+        line3: fkip,
+      }
+    case 'PLP1':
+    case 'PLP2':
+      return {
+        line1: 'DAFTAR PESERTA',
+        line2: `PENGENALAN LINGKUNGAN PERSEKOLAHAN (PLP) ${tipeLabel(tipe)}`,
+        line3: fkip,
+      }
+    default:
+      return {
+        line1: 'DAFTAR PESERTA',
+        line2: 'KULIAH KERJA NYATA / PLP',
+        line3: fkip,
+      }
   }
 }
 
 /**
- * Build the panitia label with the correct Roman numeral (I / II) based on
- * the kelompok's tipe. Strips any trailing Roman numeral from the stored
- * `panitia_plp` setting and re-appends the correct one.
- *
- * Examples:
- *   ('PANITIA PENGENALAN LAPANGAN PERSEKOLAHAN II', 'PLP1') -> '...PERSEKOLAHAN I'
- *   ('PANITIA PENGENALAN LAPANGAN PERSEKOLAHAN II', 'PLP2') -> '...PERSEKOLAHAN II'
- *   ('PANITIA PLP', 'PLP1')                              -> 'PANITIA PLP I'
+ * Resolve the panitia (committee) label based on tipe.
+ *  - KKN  -> use panitia_kkn setting (fallback to "PANITIA KULIAH KERJA NYATA")
+ *  - PLP* -> use panitia_plp setting with correct Roman numeral appended
  */
-function panitiaLabel(panitiaPlp: string, tipe: string): string {
+function panitiaLabelFor(tipe: string, p: Pengaturan): string {
+  if (tipe === 'KKN') {
+    return p.panitia_kkn || 'PANITIA KULIAH KERJA NYATA'
+  }
   const roman = tipeLabel(tipe)
-  if (!roman) return panitiaPlp
-  // Remove any trailing Roman numeral (I, II, III, ...) and surrounding whitespace
-  const stripped = panitiaPlp.replace(/\s+I+\s*$/i, '').trimEnd()
+  const base = p.panitia_plp || 'PANITIA PENGENALAN LAPANGAN PERSEKOLAHAN'
+  if (!roman) return base
+  // Remove any trailing Roman numeral (I, II, III, ...) and re-append correct one
+  const stripped = base.replace(/\s+I+\s*$/i, '').trimEnd()
   return `${stripped} ${roman}`
+}
+
+/** Lokasi label + nama based on tipe (KKN -> Desa, PLP -> Sekolah) */
+function lokasiInfo(tipe: string, kelompok: Kelompok): { label: string; nama: string } {
+  if (tipe === 'KKN') {
+    return { label: 'Desa Mitra', nama: kelompok.desa?.nama ?? '-' }
+  }
+  return { label: 'Sekolah Mitra', nama: kelompok.sekolah?.nama ?? '-' }
 }
 
 /**
@@ -128,22 +160,39 @@ export function DaftarPesertaPLPLetter({ kelompokId }: Props) {
   const [logoBase64, setLogoBase64] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [printing, setPrinting] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   const fetchData = useCallback(async () => {
+    if (!kelompokId) {
+      setErrorMsg('ID Kelompok tidak valid.')
+      setLoading(false)
+      return
+    }
     setLoading(true)
+    setErrorMsg(null)
     try {
       const [kelRes, setRes] = await Promise.all([
-        fetch(`/api/kelompok/${kelompokId}`),
-        fetch('/api/pengaturan'),
+        fetch(`/api/kelompok/${kelompokId}`, { cache: 'no-store' }),
+        fetch('/api/pengaturan', { cache: 'no-store' }),
       ])
-      if (!kelRes.ok) throw new Error('Gagal memuat kelompok')
+      if (!kelRes.ok) {
+        const errBody = await kelRes.json().catch(() => ({}))
+        throw new Error(errBody?.error || `Gagal memuat kelompok (HTTP ${kelRes.status})`)
+      }
       const kel = await kelRes.json() as Kelompok
+      if (Array.isArray(kel.members)) {
+        kel.members.sort((a, b) => (a.mahasiswa?.nim ?? '').localeCompare(b.mahasiswa?.nim ?? ''))
+      } else {
+        kel.members = []
+      }
       setKelompok(kel)
       const setJson = await setRes.json() as Pengaturan
       // Merge with defaults so missing keys still have values
       setPengaturan({ ...DEFAULT_PENGATURAN, ...setJson })
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Gagal memuat data')
+      const msg = e instanceof Error ? e.message : 'Gagal memuat data'
+      setErrorMsg(msg)
+      toast.error(msg)
     } finally {
       setLoading(false)
     }
@@ -192,11 +241,20 @@ export function DaftarPesertaPLPLetter({ kelompokId }: Props) {
   }
 
   if (!kelompok) {
-    return <div className="py-12 text-center text-muted-foreground">Data kelompok tidak ditemukan.</div>
+    return (
+      <div className="py-12 text-center text-muted-foreground space-y-3">
+        <Printer className="w-10 h-10 mx-auto opacity-40" />
+        <p>{errorMsg || 'Data kelompok tidak ditemukan.'}</p>
+        <Button size="sm" variant="outline" onClick={() => fetchData()}>
+          <Loader2 className="w-4 h-4 mr-1.5" />Coba Lagi
+        </Button>
+      </div>
+    )
   }
 
-  const plpRoman = tipeLabel(kelompok.tipe)
-  const panitiaText = panitiaLabel(pengaturan.panitia_plp, kelompok.tipe)
+  const judul = judulSurat(kelompok.tipe, pengaturan.nama_kampus)
+  const panitiaText = panitiaLabelFor(kelompok.tipe, pengaturan)
+  const lokasi = lokasiInfo(kelompok.tipe, kelompok)
   const logoUrl = pengaturan.logo_url || '/logo.png'
 
   return (
@@ -233,15 +291,15 @@ export function DaftarPesertaPLPLetter({ kelompokId }: Props) {
 
           {/* ===== JUDUL SURAT ===== (jarak lebar dari kop sesuai PDF) */}
           <div style={{ textAlign: 'center', margin: '28px 0 18px' }}>
-            <div style={{ fontSize: '14px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>DAFTAR PESERTA</div>
-            <div style={{ fontSize: '14px', fontWeight: 'bold', textTransform: 'uppercase' }}>PENGENALAN LINGKUNGAN PERSEKOLAHAN (PLP) {plpRoman}</div>
-            <div style={{ fontSize: '13px', fontWeight: 'bold', textTransform: 'uppercase' }}>FKIP {pengaturan.nama_kampus}</div>
+            <div style={{ fontSize: '14px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{judul.line1}</div>
+            <div style={{ fontSize: '14px', fontWeight: 'bold', textTransform: 'uppercase' }}>{judul.line2}</div>
+            <div style={{ fontSize: '13px', fontWeight: 'bold', textTransform: 'uppercase' }}>{judul.line3}</div>
           </div>
 
           {/* ===== INFO KELOMPOK ===== */}
           <div style={{ fontSize: '12px', marginBottom: '14px', lineHeight: '1.7' }}>
             <div><span style={{ display: 'inline-block', width: '180px' }}>Kelompok</span>: {kelompok.nama}</div>
-            <div><span style={{ display: 'inline-block', width: '180px' }}>Sekolah Mitra</span>: {kelompok.sekolah?.nama ?? '-'}</div>
+            <div><span style={{ display: 'inline-block', width: '180px' }}>{lokasi.label}</span>: {lokasi.nama}</div>
             <div><span style={{ display: 'inline-block', width: '180px' }}>DPL/WA</span>: {kelompok.dosen ? `${kelompok.dosen.nama}/${kelompok.dosen.noHp}` : '-'}</div>
             <div><span style={{ display: 'inline-block', width: '180px' }}>Koordinator Lapangan</span>: {pengaturan.koordinator_lapangan}</div>
           </div>
@@ -304,8 +362,9 @@ export function DaftarPesertaPLPLetter({ kelompokId }: Props) {
 
 // ============ Print HTML Builder ============
 function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logoBase64: string): string {
-  const plpRoman = tipeLabel(kelompok.tipe)
-  const panitiaText = panitiaLabel(p.panitia_plp, kelompok.tipe)
+  const judul = judulSurat(kelompok.tipe, p.nama_kampus)
+  const panitiaText = panitiaLabelFor(kelompok.tipe, p)
+  const lokasi = lokasiInfo(kelompok.tipe, kelompok)
   const logoImg = logoBase64
     ? `<img src="${logoBase64}" alt="Logo" style="width:85px;height:85px;object-fit:contain;flex-shrink:0;" />`
     : ''
@@ -325,7 +384,7 @@ function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logoBase64: string): 
 <html lang="id">
 <head>
 <meta charset="UTF-8" />
-<title>Daftar Peserta PLP ${plpRoman} — ${escapeHtml(kelompok.nama)}</title>
+<title>${judul.line1} ${judul.line2} — ${escapeHtml(kelompok.nama)}</title>
 <style>
   @page { size: A4; margin: 15mm; }
   * { box-sizing: border-box; }
@@ -396,15 +455,15 @@ function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logoBase64: string): 
 
   <!-- JUDUL -->
   <div class="judul">
-    <div class="line1">DAFTAR PESERTA</div>
-    <div class="line2">PENGENALAN LINGKUNGAN PERSEKOLAHAN (PLP) ${plpRoman}</div>
-    <div class="line3">FKIP ${escapeHtml(p.nama_kampus)}</div>
+    <div class="line1">${escapeHtml(judul.line1)}</div>
+    <div class="line2">${escapeHtml(judul.line2)}</div>
+    <div class="line3">${escapeHtml(judul.line3)}</div>
   </div>
 
   <!-- INFO -->
   <div class="info">
     <div><span class="label">Kelompok</span>: ${escapeHtml(kelompok.nama)}</div>
-    <div><span class="label">Sekolah Mitra</span>: ${escapeHtml(kelompok.sekolah?.nama ?? '-')}</div>
+    <div><span class="label">${escapeHtml(lokasi.label)}</span>: ${escapeHtml(lokasi.nama)}</div>
     <div><span class="label">DPL/WA</span>: ${kelompok.dosen ? escapeHtml(kelompok.dosen.nama) + '/' + escapeHtml(kelompok.dosen.noHp) : '-'}</div>
     <div><span class="label">Koordinator Lapangan</span>: ${escapeHtml(p.koordinator_lapangan)}</div>
   </div>

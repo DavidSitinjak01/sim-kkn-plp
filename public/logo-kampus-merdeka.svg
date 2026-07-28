@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-label="Kampus Merdeka">
+  <defs>
+    <linearGradient id="kmShield" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1d4ed8"/>
+      <stop offset="1" stop-color="#1e3a8a"/>
+    </linearGradient>
+    <linearGradient id="kmCap" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e0e7ff"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Pentagon shield (Kampus Merdeka official shape) -->
+  <path d="M 60 8 L 108 26 L 108 64 C 108 88 86 104 60 112 C 34 104 12 88 12 64 L 12 26 Z"
+        fill="url(#kmShield)" stroke="#1e3a8a" stroke-width="2" stroke-linejoin="round"/>
+
+  <!-- Inner border (subtle highlight) -->
+  <path d="M 60 14 L 102 30 L 102 63 C 102 84 83 99 60 106 C 37 99 18 84 18 63 L 18 30 Z"
+        fill="none" stroke="#3b82f6" stroke-width="0.8" opacity="0.5"/>
+
+  <!-- Graduation cap (mortarboard) - centered in shield -->
+  <g>
+    <!-- Cap top (diamond/mortarboard) -->
+    <path d="M 36 56 L 60 46 L 84 56 L 60 66 Z" fill="url(#kmCap)" stroke="#1e3a8a" stroke-width="1"/>
+    <!-- Cap base (under mortarboard) -->
+    <path d="M 44 60 L 44 70 C 44 74 52 78 60 78 C 68 78 76 74 76 70 L 76 60 L 60 66 Z"
+          fill="url(#kmCap)" stroke="#1e3a8a" stroke-width="1"/>
+    <!-- Tassel string -->
+    <path d="M 84 56 L 84 68" fill="none" stroke="#fbbf24" stroke-width="1.5"/>
+    <!-- Tassel knot -->
+    <circle cx="84" cy="68" r="2.2" fill="#fbbf24" stroke="#92400e" stroke-width="0.5"/>
+    <!-- Tassel strands -->
+    <line x1="84" y1="70" x2="82" y2="76" stroke="#fbbf24" stroke-width="0.8"/>
+    <line x1="84" y1="70" x2="84" y2="77" stroke="#fbbf24" stroke-width="0.8"/>
+    <line x1="84" y1="70" x2="86" y2="76" stroke="#fbbf24" stroke-width="0.8"/>
+    <!-- Center button on cap -->
+    <circle cx="60" cy="56" r="2" fill="#1e3a8a"/>
+  </g>
+
+  <!-- "KAMPUS" text -->
+  <text x="60" y="93" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="bold" fill="#ffffff" letter-spacing="1.5">KAMPUS</text>
+  <!-- "MERDEKA" text -->
+  <text x="60" y="106" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="bold" fill="#ffffff" letter-spacing="1.5">MERDEKA</text>
+</svg>

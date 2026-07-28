@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-label="Tut Wuri Handayani">
+  <defs>
+    <linearGradient id="twhBook" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fde047"/>
+      <stop offset="1" stop-color="#f59e0b"/>
+    </linearGradient>
+    <linearGradient id="twhWing" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fbbf24"/>
+      <stop offset="1" stop-color="#d97706"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Outer ring (subtle) -->
+  <circle cx="60" cy="52" r="50" fill="#fef3c7" stroke="#1e3a8a" stroke-width="1.5" opacity="0.5"/>
+
+  <!-- Wings (handayani = memberi sayap) - 5 feathers spreading upward -->
+  <g stroke="#1e3a8a" stroke-width="1.2" stroke-linejoin="round" fill="url(#twhWing)">
+    <!-- Center feather -->
+    <path d="M 60 18 C 56 28 56 42 60 50 C 64 42 64 28 60 18 Z"/>
+    <!-- Inner left -->
+    <path d="M 60 22 C 50 30 44 42 46 52 C 52 46 58 42 60 42 Z"/>
+    <!-- Inner right -->
+    <path d="M 60 22 C 70 30 76 42 74 52 C 68 46 62 42 60 42 Z"/>
+    <!-- Outer left -->
+    <path d="M 60 28 C 44 34 36 46 38 56 C 48 50 56 48 60 48 Z"/>
+    <!-- Outer right -->
+    <path d="M 60 28 C 76 34 84 46 82 56 C 72 50 64 48 60 48 Z"/>
+  </g>
+
+  <!-- Wing stems (where wings meet book) -->
+  <path d="M 38 54 Q 60 48 82 54" fill="none" stroke="#1e3a8a" stroke-width="1.5"/>
+
+  <!-- Open book (bottom) -->
+  <g stroke="#1e3a8a" stroke-width="1.3" stroke-linejoin="round">
+    <!-- Left page -->
+    <path d="M 22 58 L 60 56 L 60 86 L 22 84 Z" fill="url(#twhBook)"/>
+    <!-- Right page -->
+    <path d="M 60 56 L 98 58 L 98 84 L 60 86 Z" fill="url(#twhBook)"/>
+    <!-- Page text lines (left) -->
+    <line x1="30" y1="63" x2="54" y2="62" stroke="#92400e" stroke-width="0.6"/>
+    <line x1="30" y1="68" x2="54" y2="67" stroke="#92400e" stroke-width="0.6"/>
+    <line x1="30" y1="73" x2="54" y2="72" stroke="#92400e" stroke-width="0.6"/>
+    <line x1="30" y1="78" x2="54" y2="77" stroke="#92400e" stroke-width="0.6"/>
+    <!-- Page text lines (right) -->
+    <line x1="66" y1="62" x2="90" y2="63" stroke="#92400e" stroke-width="0.6"/>
+    <line x1="66" y1="67" x2="90" y2="68" stroke="#92400e" stroke-width="0.6"/>
+    <line x1="66" y1="72" x2="90" y2="73" stroke="#92400e" stroke-width="0.6"/>
+    <line x1="66" y1="77" x2="90" y2="78" stroke="#92400e" stroke-width="0.6"/>
+    <!-- Book spine (center fold) -->
+    <line x1="60" y1="56" x2="60" y2="86" stroke="#1e3a8a" stroke-width="1.5"/>
+  </g>
+
+  <!-- Caption -->
+  <text x="60" y="106" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="bold" fill="#1e3a8a" letter-spacing="0.5">TUT WURI HANDAYANI</text>
+</svg>
