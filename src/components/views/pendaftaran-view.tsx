@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import {
   Users, Copy, Check, X, Trash2, Eye, UserPlus, Loader2, Search, Bike,
   Phone, Calendar, GraduationCap, Clock, UserCheck, MoreVertical, Inbox,
+  Edit, Image as ImageIcon,
 } from 'lucide-react'
 
 import { PageHeader } from '@/components/shared/page-header'
@@ -74,6 +75,19 @@ interface ImportFormState {
   semester: string
   angkatan: string
   prodiId: string
+}
+
+interface EditFormState {
+  namaLengkap: string
+  nim: string
+  prodiId: string // '' = "Lainnya" (manual prodiNama)
+  prodiNama: string
+  jurusan: string
+  jenisKelamin: 'L' | 'P'
+  noWa: string
+  punyaMotor: boolean
+  alamat: string
+  catatan: string
 }
 
 // ============ Constants ============
@@ -168,6 +182,7 @@ function RowActions({
   pendaftaran,
   busy,
   onDetail,
+  onEdit,
   onApprove,
   onReject,
   onImport,
@@ -176,6 +191,7 @@ function RowActions({
   pendaftaran: Pendaftaran
   busy: boolean
   onDetail: (p: Pendaftaran) => void
+  onEdit: (p: Pendaftaran) => void
   onApprove: (p: Pendaftaran) => void
   onReject: (p: Pendaftaran) => void
   onImport: (p: Pendaftaran) => void
@@ -185,6 +201,7 @@ function RowActions({
   const canReject = pendaftaran.status === 'PENDING' || pendaftaran.status === 'APPROVED'
   const canImport = pendaftaran.status !== 'IMPORTED'
   const canDelete = pendaftaran.status !== 'IMPORTED'
+  const canEdit = pendaftaran.status !== 'IMPORTED'
 
   return (
     <div className="flex items-center justify-end gap-1">
@@ -205,6 +222,11 @@ function RowActions({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
+          {canEdit && (
+            <DropdownMenuItem onClick={() => onEdit(pendaftaran)}>
+              <Edit className="w-4 h-4 text-amber-600" /> Edit Data
+            </DropdownMenuItem>
+          )}
           {canApprove && (
             <DropdownMenuItem onClick={() => onApprove(pendaftaran)}>
               <Check className="w-4 h-4 text-emerald-600" /> Setujui
@@ -250,6 +272,7 @@ export function PendaftaranView() {
   const [importTarget, setImportTarget] = useState<Pendaftaran | null>(null)
   const [rejectTarget, setRejectTarget] = useState<Pendaftaran | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Pendaftaran | null>(null)
+  const [editTarget, setEditTarget] = useState<Pendaftaran | null>(null)
 
   // Form states
   const [importForm, setImportForm] = useState<ImportFormState>({
@@ -257,11 +280,19 @@ export function PendaftaranView() {
     semester: '6', angkatan: String(new Date().getFullYear()), prodiId: '',
   })
   const [rejectReason, setRejectReason] = useState('')
+  const [editForm, setEditForm] = useState<EditFormState>({
+    namaLengkap: '', nim: '', prodiId: '', prodiNama: '', jurusan: '',
+    jenisKelamin: 'L', noWa: '', punyaMotor: false, alamat: '', catatan: '',
+  })
+  const [editFoto, setEditFoto] = useState<string | null>(null) // data URL or null
+  const [editFotoName, setEditFotoName] = useState<string>('')
+  const [editFotoDirty, setEditFotoDirty] = useState(false)
 
   // Loading states
   const [importing, setImporting] = useState(false)
   const [rejecting, setRejecting] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
 
   // ============ Fetchers ============
@@ -456,6 +487,131 @@ export function PendaftaranView() {
     }
   }
 
+  // ============ Edit handler ============
+  const openEdit = (p: Pendaftaran) => {
+    setEditTarget(p)
+    // Pre-fill form with existing values
+    setEditForm({
+      namaLengkap: p.namaLengkap,
+      nim: p.nim,
+      prodiId: p.prodiId ?? '', // '' => "Lainnya"
+      prodiNama: p.prodiNama,
+      jurusan: p.jurusan,
+      jenisKelamin: p.jenisKelamin,
+      noWa: p.noWa,
+      punyaMotor: p.punyaMotor,
+      alamat: p.alamat,
+      catatan: p.catatan ?? '',
+    })
+    setEditFoto(null) // null means "keep existing photo" until user uploads new
+    setEditFotoName('')
+    setEditFotoDirty(false)
+  }
+
+  const handleEditFotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Format foto harus JPG, PNG, atau WebP')
+      e.target.value = ''
+      return
+    }
+    const MAX_SIZE = 5 * 1024 * 1024
+    if (file.size > MAX_SIZE) {
+      toast.error('Ukuran foto melebihi 5MB')
+      e.target.value = ''
+      return
+    }
+    try {
+      const arr = await file.arrayBuffer()
+      const buf = Buffer.from(arr)
+      const base64 = buf.toString('base64')
+      const dataUrl = `data:${file.type};base64,${base64}`
+      setEditFoto(dataUrl)
+      setEditFotoName(file.name)
+      setEditFotoDirty(true)
+    } catch {
+      toast.error('Gagal memproses foto')
+    }
+  }
+
+  // When prodi selected in edit form, auto-fill prodiNama & jurusan from prodiList
+  const handleEditProdiChange = (value: string) => {
+    if (value === '__lainnya__') {
+      // keep current prodiNama editable, but clear prodiId link
+      setEditForm((f) => ({ ...f, prodiId: '' }))
+      return
+    }
+    const prodi = prodiList.find((p) => p.id === value)
+    if (prodi) {
+      setEditForm((f) => ({
+        ...f,
+        prodiId: prodi.id,
+        prodiNama: prodi.nama,
+        jurusan: prodi.fakultas?.nama ?? f.jurusan,
+      }))
+    } else {
+      setEditForm((f) => ({ ...f, prodiId: value }))
+    }
+  }
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editTarget) return
+    if (!editForm.namaLengkap.trim()) return toast.error('Nama lengkap wajib diisi')
+    if (!editForm.nim.trim()) return toast.error('NIM wajib diisi')
+    if (!editForm.prodiNama.trim()) return toast.error('Program Studi wajib diisi')
+    if (!editForm.jurusan.trim()) return toast.error('Jurusan wajib diisi')
+    if (!['L', 'P'].includes(editForm.jenisKelamin)) return toast.error('Jenis kelamin tidak valid')
+    if (!editForm.noWa.trim()) return toast.error('No WhatsApp aktif wajib diisi')
+    if (!editForm.alamat.trim()) return toast.error('Alamat wajib diisi')
+
+    setSaving(true)
+    try {
+      const payload: Record<string, unknown> = {
+        edit: true,
+        namaLengkap: editForm.namaLengkap.trim(),
+        nim: editForm.nim.trim(),
+        prodiId: editForm.prodiId || '',
+        prodiNama: editForm.prodiNama.trim(),
+        jurusan: editForm.jurusan.trim(),
+        jenisKelamin: editForm.jenisKelamin,
+        noWa: editForm.noWa.trim(),
+        punyaMotor: String(editForm.punyaMotor),
+        alamat: editForm.alamat.trim(),
+        catatan: editForm.catatan.trim(),
+      }
+      // Only send foto if user uploaded a new one
+      if (editFotoDirty && editFoto) {
+        payload.foto = editFoto
+      }
+
+      const res = await fetch(`/api/pendaftaran/${editTarget.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        cache: 'no-store',
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json?.error || 'Gagal menyimpan')
+      toast.success('Data pendaftaran diperbarui', {
+        description: editTarget.namaLengkap,
+      })
+      // Update detail dialog if it's the same record
+      setDetail((d) => (d && d.id === editTarget.id ? { ...d, ...json } : d))
+      setEditTarget(null)
+      setEditFoto(null)
+      setEditFotoName('')
+      setEditFotoDirty(false)
+      fetchList()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Gagal menyimpan perubahan')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   // ============ Render ============
   return (
     <div className="space-y-5">
@@ -615,8 +771,9 @@ export function PendaftaranView() {
                       <TableCell className="pr-4">
                         <RowActions
                           pendaftaran={p}
-                          busy={busyId === p.id}
+                          busy={busyId === p.id || saving}
                           onDetail={setDetail}
+                          onEdit={openEdit}
                           onApprove={handleApprove}
                           onReject={openReject}
                           onImport={openImport}
@@ -672,11 +829,16 @@ export function PendaftaranView() {
                     </Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" disabled={busyId === p.id}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" disabled={busyId === p.id || saving}>
                           <MoreVertical className="w-4 h-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-48">
+                        {p.status !== 'IMPORTED' && (
+                          <DropdownMenuItem onClick={() => openEdit(p)}>
+                            <Edit className="w-4 h-4 text-amber-600" /> Edit Data
+                          </DropdownMenuItem>
+                        )}
                         {(p.status === 'PENDING' || p.status === 'REJECTED') && (
                           <DropdownMenuItem onClick={() => handleApprove(p)}>
                             <Check className="w-4 h-4 text-emerald-600" /> Setujui
@@ -758,6 +920,17 @@ export function PendaftaranView() {
 
               <DialogFooter className="flex-col sm:flex-row gap-2 sm:justify-between">
                 <div className="flex gap-2 w-full sm:w-auto">
+                  {detail.status !== 'IMPORTED' && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 sm:flex-none"
+                      onClick={() => { openEdit(detail); setDetail(null) }}
+                      disabled={busyId === detail.id}
+                    >
+                      <Edit className="w-4 h-4" /> Edit Data
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
@@ -929,6 +1102,223 @@ export function PendaftaranView() {
                   <Button type="submit" disabled={importing}>
                     {importing ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <UserPlus className="w-4 h-4 mr-1" />}
                     Import Mahasiswa
+                  </Button>
+                </DialogFooter>
+              </form>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ============ Edit Dialog ============ */}
+      <Dialog open={!!editTarget} onOpenChange={(o) => {
+        if (!o) {
+          setEditTarget(null)
+          setEditFoto(null)
+          setEditFotoName('')
+          setEditFotoDirty(false)
+        }
+      }}>
+        <DialogContent className="sm:max-w-2xl max-h-[92vh] overflow-y-auto">
+          {editTarget && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Edit Data Pendaftaran</DialogTitle>
+                <DialogDescription>
+                  Perbaiki atau lengkapi informasi peserta. Foto hanya diganti jika Anda mengunggah foto baru.
+                </DialogDescription>
+              </DialogHeader>
+
+              <form onSubmit={handleSaveEdit} className="space-y-4">
+                {/* Photo preview & upload */}
+                <div className="flex items-start gap-4">
+                  <div className="w-24 h-32 rounded-lg overflow-hidden border bg-muted shrink-0">
+                    {editFoto ? (
+                      <img src={editFoto} alt="preview" className="w-full h-full object-cover" />
+                    ) : editTarget.foto ? (
+                      <img src={editTarget.foto} alt={editTarget.namaLengkap} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                        <ImageIcon className="w-7 h-7" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-1.5">
+                    <Label htmlFor="edit-foto">Pass Foto 3x4 (opsional)</Label>
+                    <Input
+                      id="edit-foto"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={handleEditFotoChange}
+                      disabled={saving}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {editFotoDirty
+                        ? `Foto baru dipilih: ${editFotoName}`
+                        : 'Kosongkan untuk tetap menggunakan foto yang lama. Maks 5MB, JPG/PNG/WebP.'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Nama & NIM */}
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-nama">Nama Lengkap <span className="text-rose-500">*</span></Label>
+                    <Input
+                      id="edit-nama"
+                      value={editForm.namaLengkap}
+                      onChange={(e) => setEditForm({ ...editForm, namaLengkap: e.target.value })}
+                      placeholder="Nama lengkap sesuai KTM"
+                      disabled={saving}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-nim">NIM <span className="text-rose-500">*</span></Label>
+                    <Input
+                      id="edit-nim"
+                      value={editForm.nim}
+                      onChange={(e) => setEditForm({ ...editForm, nim: e.target.value })}
+                      placeholder="Nomor Induk Mahasiswa"
+                      disabled={saving}
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Prodi & Jurusan */}
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-prodi">Program Studi <span className="text-rose-500">*</span></Label>
+                    <Select
+                      value={editForm.prodiId || '__lainnya__'}
+                      onValueChange={handleEditProdiChange}
+                      disabled={saving || prodiLoading}
+                    >
+                      <SelectTrigger id="edit-prodi" className="w-full">
+                        <SelectValue placeholder={prodiLoading ? 'Memuat prodi...' : 'Pilih prodi...'} />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-72">
+                        {prodiList.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.nama} — {p.fakultas?.nama ?? ''}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value="__lainnya__">Lainnya (ketik manual)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-prodi-nama">Nama Prodi (manual) <span className="text-rose-500">*</span></Label>
+                    <Input
+                      id="edit-prodi-nama"
+                      value={editForm.prodiNama}
+                      onChange={(e) => setEditForm({ ...editForm, prodiNama: e.target.value })}
+                      placeholder="Isi manual jika 'Lainnya'"
+                      disabled={saving}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-jurusan">Jurusan / Fakultas <span className="text-rose-500">*</span></Label>
+                  <Input
+                    id="edit-jurusan"
+                    value={editForm.jurusan}
+                    onChange={(e) => setEditForm({ ...editForm, jurusan: e.target.value })}
+                    placeholder="Contoh: Fakultas Teknik"
+                    disabled={saving}
+                    required
+                  />
+                </div>
+
+                {/* JK, WA, Motor */}
+                <div className="grid sm:grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-jk">Jenis Kelamin <span className="text-rose-500">*</span></Label>
+                    <Select
+                      value={editForm.jenisKelamin}
+                      onValueChange={(v) => setEditForm({ ...editForm, jenisKelamin: v as 'L' | 'P' })}
+                      disabled={saving}
+                    >
+                      <SelectTrigger id="edit-jk" className="w-full">
+                        <SelectValue placeholder="Pilih..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="L">Laki-laki</SelectItem>
+                        <SelectItem value="P">Perempuan</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-wa">No. WhatsApp Aktif <span className="text-rose-500">*</span></Label>
+                    <Input
+                      id="edit-wa"
+                      value={editForm.noWa}
+                      onChange={(e) => setEditForm({ ...editForm, noWa: e.target.value })}
+                      placeholder="08xxxxxxxxxx"
+                      disabled={saving}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-motor">Punya Motor? <span className="text-rose-500">*</span></Label>
+                    <Select
+                      value={String(editForm.punyaMotor)}
+                      onValueChange={(v) => setEditForm({ ...editForm, punyaMotor: v === 'true' })}
+                      disabled={saving}
+                    >
+                      <SelectTrigger id="edit-motor" className="w-full">
+                        <SelectValue placeholder="Pilih..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="true">Ya, punya motor</SelectItem>
+                        <SelectItem value="false">Tidak punya</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Alamat */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-alamat">Alamat <span className="text-rose-500">*</span></Label>
+                  <Textarea
+                    id="edit-alamat"
+                    value={editForm.alamat}
+                    onChange={(e) => setEditForm({ ...editForm, alamat: e.target.value })}
+                    placeholder="Alamat lengkap (desa, kecamatan, kabupaten)"
+                    rows={3}
+                    disabled={saving}
+                    required
+                  />
+                </div>
+
+                {/* Catatan admin */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-catatan">Catatan Admin (opsional)</Label>
+                  <Textarea
+                    id="edit-catatan"
+                    value={editForm.catatan}
+                    onChange={(e) => setEditForm({ ...editForm, catatan: e.target.value })}
+                    placeholder="Catatan internal terkait perbaikan data peserta..."
+                    rows={2}
+                    disabled={saving}
+                  />
+                </div>
+
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => { setEditTarget(null); setEditFoto(null); setEditFotoName(''); setEditFotoDirty(false) }}
+                    disabled={saving}
+                  >
+                    Batal
+                  </Button>
+                  <Button type="submit" disabled={saving}>
+                    {saving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Check className="w-4 h-4 mr-1" />}
+                    Simpan Perubahan
                   </Button>
                 </DialogFooter>
               </form>
