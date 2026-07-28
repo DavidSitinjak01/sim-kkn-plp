@@ -32,6 +32,7 @@ const VIEW_TITLES: Record<ViewKey, string> = {
   agenda: 'Agenda Kegiatan',
   pengumuman: 'Pengumuman',
   aktivitas: 'Log Aktivitas',
+  pendaftaran: 'Pendaftaran Peserta',
 }
 
 export function Header({ onMenuClick }: { onMenuClick: () => void }) {
