@@ -124,23 +124,39 @@ export function KartuPesertaLetter({ kelompokId }: Props) {
   const [logoBase64, setLogoBase64] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [printing, setPrinting] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   const fetchData = useCallback(async () => {
+    if (!kelompokId) {
+      setErrorMsg('ID Kelompok tidak valid.')
+      setLoading(false)
+      return
+    }
     setLoading(true)
+    setErrorMsg(null)
     try {
       const [kelRes, setRes] = await Promise.all([
-        fetch(`/api/kelompok/${kelompokId}`),
-        fetch('/api/pengaturan'),
+        fetch(`/api/kelompok/${kelompokId}`, { cache: 'no-store' }),
+        fetch('/api/pengaturan', { cache: 'no-store' }),
       ])
-      if (!kelRes.ok) throw new Error('Gagal memuat kelompok')
+      if (!kelRes.ok) {
+        const errBody = await kelRes.json().catch(() => ({}))
+        throw new Error(errBody?.error || `Gagal memuat kelompok (HTTP ${kelRes.status})`)
+      }
       const kel = await kelRes.json() as Kelompok
-      // Sort members by NIM for consistent ordering
-      kel.members.sort((a, b) => a.mahasiswa.nim.localeCompare(b.mahasiswa.nim))
+      // Sort members by NIM for consistent ordering (guard against missing members)
+      if (Array.isArray(kel.members)) {
+        kel.members.sort((a, b) => (a.mahasiswa?.nim ?? '').localeCompare(b.mahasiswa?.nim ?? ''))
+      } else {
+        kel.members = []
+      }
       setKelompok(kel)
       const setJson = await setRes.json() as Pengaturan
       setPengaturan({ ...DEFAULT_PENGATURAN, ...setJson })
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Gagal memuat data')
+      const msg = e instanceof Error ? e.message : 'Gagal memuat data'
+      setErrorMsg(msg)
+      toast.error(msg)
     } finally {
       setLoading(false)
     }
@@ -187,7 +203,15 @@ export function KartuPesertaLetter({ kelompokId }: Props) {
   }
 
   if (!kelompok) {
-    return <div className="py-12 text-center text-muted-foreground">Data kelompok tidak ditemukan.</div>
+    return (
+      <div className="py-12 text-center text-muted-foreground space-y-3">
+        <IdCard className="w-10 h-10 mx-auto opacity-40" />
+        <p>{errorMsg || 'Data kelompok tidak ditemukan.'}</p>
+        <Button size="sm" variant="outline" onClick={() => fetchData()}>
+          <Loader2 className="w-4 h-4 mr-1.5" />Coba Lagi
+        </Button>
+      </div>
+    )
   }
 
   if (kelompok.members.length === 0) {
