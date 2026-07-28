@@ -3,7 +3,14 @@ import { db } from '@/lib/db'
 
 type Params = { params: Promise<{ id: string }> }
 
-// POST - add member { mahasiswaId }
+// POST - add member { mahasiswaId, moveFromKelompokId? }
+//
+// Jika `moveFromKelompokId` diisi, ini adalah operasi PINDAH (transfer):
+//   1. Hapus mahasiswa dari kelompok asal (moveFromKelompokId)
+//   2. Tambahkan ke kelompok tujuan (id)
+//   Dilakukan dalam transaction agar atomic — kalau salah satu gagal, semua rollback.
+//
+// Jika tidak diisi, ini adalah operasi TAMBAH biasa.
 export async function POST(req: Request, { params }: Params) {
   try {
     const { id } = await params
@@ -13,7 +20,7 @@ export async function POST(req: Request, { params }: Params) {
       return NextResponse.json({ error: 'mahasiswaId wajib diisi' }, { status: 400 })
     }
 
-    // Verify kelompok & mahasiswa exist
+    // Verify kelompok tujuan & mahasiswa exist
     const [kel, mhs] = await Promise.all([
       db.kelompok.findUnique({ where: { id } }),
       db.mahasiswa.findUnique({ where: { id: body.mahasiswaId } }),
@@ -21,6 +28,69 @@ export async function POST(req: Request, { params }: Params) {
     if (!kel) return NextResponse.json({ error: 'Kelompok tidak ditemukan' }, { status: 404 })
     if (!mhs) return NextResponse.json({ error: 'Mahasiswa tidak ditemukan' }, { status: 400 })
 
+    // ===== Transfer (pindah antar kelompok) =====
+    if (body.moveFromKelompokId && body.moveFromKelompokId !== id) {
+      const sourceId = body.moveFromKelompokId as string
+
+      // Verify source kelompok exists & is same tipe+tahunAkademik
+      const sourceKel = await db.kelompok.findUnique({ where: { id: sourceId } })
+      if (!sourceKel) {
+        return NextResponse.json({ error: 'Kelompok asal tidak ditemukan' }, { status: 404 })
+      }
+      if (sourceKel.tipe !== kel.tipe) {
+        return NextResponse.json(
+          { error: `Tipe kelompok berbeda — tidak bisa pindah antar ${sourceKel.tipe} dan ${kel.tipe}` },
+          { status: 400 },
+        )
+      }
+
+      // Atomic transfer: delete from source + create in target
+      try {
+        const created = await db.$transaction(async (tx) => {
+          // 1. Find & delete membership in source kelompok
+          const existing = await tx.kelompokMember.findUnique({
+            where: {
+              kelompokId_mahasiswaId: { kelompokId: sourceId, mahasiswaId: body.mahasiswaId },
+            },
+          })
+          if (!existing) {
+            throw new Error('MAHASISWA_NOT_IN_SOURCE')
+          }
+          await tx.kelompokMember.delete({ where: { id: existing.id } })
+
+          // 2. Create membership in target kelompok
+          return tx.kelompokMember.create({
+            data: {
+              kelompokId: id,
+              mahasiswaId: body.mahasiswaId,
+            },
+            include: {
+              mahasiswa: { include: { prodi: { include: { fakultas: true } } } },
+            },
+          })
+        })
+        return NextResponse.json(
+          { ...created, moved: true, fromKelompokId: sourceId, toKelompokId: id },
+          { status: 201 },
+        )
+      } catch (e: any) {
+        if (e?.message === 'MAHASISWA_NOT_IN_SOURCE') {
+          return NextResponse.json(
+            { error: 'Mahasiswa tidak terdaftar di kelompok asal' },
+            { status: 400 },
+          )
+        }
+        if (e?.code === 'P2002') {
+          return NextResponse.json(
+            { error: 'Mahasiswa sudah terdaftar di kelompok tujuan' },
+            { status: 400 },
+          )
+        }
+        throw e
+      }
+    }
+
+    // ===== Add biasa =====
     const created = await db.kelompokMember.create({
       data: {
         kelompokId: id,

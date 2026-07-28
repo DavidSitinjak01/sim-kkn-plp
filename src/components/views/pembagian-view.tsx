@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import {
   GitBranch, Plus, Pencil, Trash2, Loader2, Users, Printer, FileSpreadsheet, FileText,
-  Building2, School, UserCheck, Search, UserPlus, UserMinus, Layers,
+  Building2, School, UserCheck, Search, UserPlus, UserMinus, Layers, ArrowRightLeft,
 } from 'lucide-react'
 
 import { PageHeader } from '@/components/shared/page-header'
@@ -726,12 +726,24 @@ export function PembagianView() {
 }
 
 // ============ Kelola Anggota Dialog ============
+// Dual-list box dengan dukungan PERPINDAHAN ANGGOTA antar kelompok (same tipe):
+//  - Panel kanan menampilkan badge "Di: Kelompok X" untuk mhs yang sudah ada di kelompok lain
+//  - Klik "+" pada mhs yang sudah di kelompok lain → konfirmasi → atomic transfer
+//  - Panel kiri: tombol "Pindah" per anggota → buka dialog pilih kelompok tujuan
 function KelolaAnggotaDialog({ kelompok, onClose }: { kelompok: Kelompok; onClose: () => void }) {
   const [detail, setDetail] = useState<Kelompok | null>(null)
   const [loading, setLoading] = useState(true)
   const [mhsList, setMhsList] = useState<Mahasiswa[]>([])
+  // Map mahasiswaId -> kelompok lain tempat dia terdaftar (same tipe, tahunAkademik)
+  const [otherMembership, setOtherMembership] = useState<Record<string, { id: string; nama: string }>>({})
   const [search, setSearch] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
+  // Transfer confirmation state
+  const [pendingMove, setPendingMove] = useState<{ mhs: Mahasiswa; fromKelompok: { id: string; nama: string } } | null>(null)
+  // Move-to dialog state (pindah dari current member ke kelompok lain)
+  const [moveToTarget, setMoveToTarget] = useState<Mahasiswa | null>(null)
+  const [peerKelompok, setPeerKelompok] = useState<Kelompok[]>([])
+  const [selectedTargetKelompok, setSelectedTargetKelompok] = useState<string>('')
 
   const fetchDetail = useCallback(async () => {
     setLoading(true)
@@ -749,22 +761,45 @@ function KelolaAnggotaDialog({ kelompok, onClose }: { kelompok: Kelompok; onClos
 
   useEffect(() => { fetchDetail() }, [fetchDetail])
 
-  // Load all mahasiswa + figure out which are already in a kelompok of same tipe
-  // For simplicity: we filter out mahasiswa already in *this* kelompok (so they can't be added twice).
-  // Additionally, to respect "not yet in any kelompok of same tipe", we'd need a separate endpoint.
-  // Here we approximate by checking if the mahasiswa already appears in `detail.members`.
+  // Load all mahasiswa + peer kelompok (same tipe + tahunAkademik)
+  // Then figure out each mahasiswa's other-group membership so we can show badges + enable transfer.
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch('/api/mahasiswa')
-        if (!res.ok) throw new Error('Gagal')
-        const json: Mahasiswa[] = await res.json()
-        setMhsList(json)
+        const [mhsRes, peerRes] = await Promise.all([
+          fetch('/api/mahasiswa'),
+          fetch(`/api/kelompok?tipe=${encodeURIComponent(kelompok.tipe)}`),
+        ])
+        if (mhsRes.ok) setMhsList(await mhsRes.json() as Mahasiswa[])
+        if (peerRes.ok) {
+          const allK = (await peerRes.json() as Kelompok[]).filter(
+            (k) => k.id !== kelompok.id && k.tahunAkademik === kelompok.tahunAkademik,
+          )
+          setPeerKelompok(allK)
+          // Fetch each peer's members to build the membership map
+          // (do it in parallel — typically just a few kelompok)
+          const entries: Record<string, { id: string; nama: string }> = {}
+          await Promise.all(
+            allK.map(async (k) => {
+              try {
+                const r = await fetch(`/api/kelompok/${k.id}`)
+                if (!r.ok) return
+                const full = await r.json() as Kelompok
+                for (const m of full.members ?? []) {
+                  entries[m.mahasiswaId] = { id: k.id, nama: k.nama }
+                }
+              } catch {
+                // silent — skip this kelompok on error
+              }
+            }),
+          )
+          setOtherMembership(entries)
+        }
       } catch {
         // silent
       }
     })()
-  }, [])
+  }, [kelompok.id, kelompok.tipe, kelompok.tahunAkademik])
 
   const memberIds = useMemo(() => new Set((detail?.members ?? []).map((m) => m.mahasiswaId)), [detail])
 
@@ -774,25 +809,74 @@ function KelolaAnggotaDialog({ kelompok, onClose }: { kelompok: Kelompok; onClos
       const q = search.toLowerCase()
       list = list.filter((m) => m.nim.toLowerCase().includes(q) || m.nama.toLowerCase().includes(q))
     }
-    return list.slice(0, 50)
-  }, [mhsList, memberIds, search])
+    // Sort: mahasiswa yang sudah di kelompok lain (perlu pindah) didahulukan,
+    // supaya admin gampang lihat siapa yang bisa ditukar.
+    list = [...list].sort((a, b) => {
+      const aInOther = otherMembership[a.id] ? 0 : 1
+      const bInOther = otherMembership[b.id] ? 0 : 1
+      if (aInOther !== bInOther) return aInOther - bInOther
+      return a.nama.localeCompare(b.nama)
+    })
+    return list.slice(0, 60)
+  }, [mhsList, memberIds, search, otherMembership])
 
-  const handleAdd = async (mhsId: string) => {
+  const handleAdd = async (mhs: Mahasiswa) => {
+    const other = otherMembership[mhs.id]
+    // Jika mhs sudah ada di kelompok lain (same tipe), tampilkan konfirmasi transfer
+    if (other) {
+      setPendingMove({ mhs, fromKelompok: other })
+      return
+    }
+    // Otherwise, add biasa
+    await doAdd(mhs.id)
+  }
+
+  const doAdd = async (mhsId: string, moveFromKelompokId?: string) => {
     setBusy(mhsId)
     try {
       const res = await fetch(`/api/kelompok/${kelompok.id}/members`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mahasiswaId: mhsId }),
+        body: JSON.stringify({ mahasiswaId: mhsId, moveFromKelompokId }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json?.error || 'Gagal menambah')
-      toast.success('Anggota ditambahkan')
+      if (json?.moved) {
+        toast.success(`Anggota dipindahkan dari "${pendingMove?.fromKelompok.nama ?? 'kelompok lain'}"`)
+      } else {
+        toast.success('Anggota ditambahkan')
+      }
+      setPendingMove(null)
+      // Refresh detail + other-membership map (mahasiswa yang bergerak perlu update badge-nya)
       fetchDetail()
+      refreshOtherMembership()
     } catch (err: any) {
       toast.error(err?.message || 'Gagal menambahkan anggota')
     } finally {
       setBusy(null)
+    }
+  }
+
+  const refreshOtherMembership = async () => {
+    try {
+      const entries: Record<string, { id: string; nama: string }> = {}
+      await Promise.all(
+        peerKelompok.map(async (k) => {
+          try {
+            const r = await fetch(`/api/kelompok/${k.id}`)
+            if (!r.ok) return
+            const full = await r.json() as Kelompok
+            for (const m of full.members ?? []) {
+              entries[m.mahasiswaId] = { id: k.id, nama: k.nama }
+            }
+          } catch {
+            // silent
+          }
+        }),
+      )
+      setOtherMembership(entries)
+    } catch {
+      // silent
     }
   }
 
@@ -806,8 +890,34 @@ function KelolaAnggotaDialog({ kelompok, onClose }: { kelompok: Kelompok; onClos
       if (!res.ok) throw new Error(json?.error || 'Gagal menghapus')
       toast.success('Anggota dihapus dari kelompok')
       fetchDetail()
+      refreshOtherMembership()
     } catch (err: any) {
       toast.error(err?.message || 'Gagal menghapus anggota')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  // Handle "Pindah ke kelompok lain" dari panel kiri
+  const handleMoveTo = async () => {
+    if (!moveToTarget || !selectedTargetKelompok) return
+    setBusy(moveToTarget.id)
+    try {
+      const res = await fetch(`/api/kelompok/${selectedTargetKelompok}/members`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mahasiswaId: moveToTarget.id, moveFromKelompokId: kelompok.id }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.error || 'Gagal memindahkan')
+      const targetName = peerKelompok.find((k) => k.id === selectedTargetKelompok)?.nama ?? 'kelompok tujuan'
+      toast.success(`Anggota dipindahkan ke "${targetName}"`)
+      setMoveToTarget(null)
+      setSelectedTargetKelompok('')
+      fetchDetail()
+      refreshOtherMembership()
+    } catch (err: any) {
+      toast.error(err?.message || 'Gagal memindahkan anggota')
     } finally {
       setBusy(null)
     }
@@ -851,6 +961,15 @@ function KelolaAnggotaDialog({ kelompok, onClose }: { kelompok: Kelompok; onClos
           </div>
         </div>
 
+        {/* Helper hint */}
+        <div className="rounded-md border border-sky-200 bg-sky-50 dark:border-sky-900 dark:bg-sky-950/30 px-3 py-2 text-xs text-sky-800 dark:text-sky-200 flex items-start gap-2">
+          <ArrowRightLeft className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+          <span>
+            <strong>Pindah antar kelompok:</strong> Klik tombol <kbd className="px-1 rounded bg-white dark:bg-sky-900/50 border">+</kbd> pada mahasiswa yang tertera badge kelompok lain untuk memindahkannya ke sini.
+            Atau klik <kbd className="px-1 rounded bg-white dark:bg-sky-900/50 border">Pindah</kbd> pada anggota saat ini untuk memindahkannya ke kelompok lain.
+          </span>
+        </div>
+
         {/* Two columns: members | available */}
         <div className="grid md:grid-cols-2 gap-4 mt-1 min-h-0 flex-1">
           {/* Current members */}
@@ -878,6 +997,21 @@ function KelolaAnggotaDialog({ kelompok, onClose }: { kelompok: Kelompok; onClos
                         <p className="text-sm font-medium truncate">{m.mahasiswa.nama}</p>
                         <p className="text-xs text-muted-foreground font-mono">{m.mahasiswa.nim}</p>
                       </div>
+                      {/* Pindah ke kelompok lain */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-violet-600 hover:text-violet-700 hover:bg-violet-50 dark:hover:bg-violet-900/20"
+                        onClick={() => {
+                          setMoveToTarget(m.mahasiswa)
+                          setSelectedTargetKelompok('')
+                        }}
+                        disabled={busy === m.mahasiswaId || peerKelompok.length === 0}
+                        title={peerKelompok.length === 0 ? 'Tidak ada kelompok lain' : 'Pindah ke kelompok lain'}
+                      >
+                        {busy === m.mahasiswaId ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRightLeft className="w-4 h-4" />}
+                      </Button>
+                      {/* Keluarkan */}
                       <Button
                         variant="ghost"
                         size="icon"
@@ -901,6 +1035,11 @@ function KelolaAnggotaDialog({ kelompok, onClose }: { kelompok: Kelompok; onClos
               <h4 className="text-sm font-semibold flex items-center gap-1.5">
                 <UserPlus className="w-4 h-4 text-violet-600" /> Tambah Mahasiswa
               </h4>
+              {peerKelompok.length > 0 && (
+                <span className="text-[10px] text-muted-foreground">
+                  {Object.keys(otherMembership).length} mhs di kelompok lain
+                </span>
+              )}
             </div>
             <div className="relative mb-2">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -918,27 +1057,35 @@ function KelolaAnggotaDialog({ kelompok, onClose }: { kelompok: Kelompok; onClos
                 <div className="p-6 text-center text-xs text-muted-foreground">Tidak ada mahasiswa yang cocok</div>
               ) : (
                 <div className="p-2 space-y-1.5">
-                  {available.map((m) => (
-                    <div key={m.id} className="flex items-center gap-2 p-2 rounded-md border border-border hover:bg-accent/30 transition-colors">
-                      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0 text-xs font-semibold">
-                        {m.nama.charAt(0)}
+                  {available.map((m) => {
+                    const other = otherMembership[m.id]
+                    return (
+                      <div key={m.id} className={`flex items-center gap-2 p-2 rounded-md border transition-colors ${other ? 'border-violet-200 bg-violet-50/40 dark:border-violet-900/50 dark:bg-violet-950/20' : 'border-border hover:bg-accent/30'}`}>
+                        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0 text-xs font-semibold">
+                          {m.nama.charAt(0)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate">{m.nama}</p>
+                          <p className="text-xs text-muted-foreground font-mono">{m.nim}</p>
+                          {other && (
+                            <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300 border border-violet-200 dark:border-violet-800 truncate max-w-full">
+                              ↗ Di: {other.nama}
+                            </span>
+                          )}
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className={`h-8 w-8 ${other ? 'text-violet-600 hover:text-violet-700 hover:bg-violet-100 dark:hover:bg-violet-900/30' : 'text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'}`}
+                          onClick={() => handleAdd(m)}
+                          disabled={busy === m.id}
+                          title={other ? `Pindahkan dari ${other.nama}` : 'Tambahkan'}
+                        >
+                          {busy === m.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+                        </Button>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium truncate">{m.nama}</p>
-                        <p className="text-xs text-muted-foreground font-mono">{m.nim}</p>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
-                        onClick={() => handleAdd(m.id)}
-                        disabled={busy === m.id}
-                        title="Tambahkan"
-                      >
-                        {busy === m.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
-                      </Button>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </ScrollArea>
@@ -949,6 +1096,80 @@ function KelolaAnggotaDialog({ kelompok, onClose }: { kelompok: Kelompok; onClos
           <Button variant="outline" onClick={onClose}>Tutup</Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* ===== Konfirmasi Pindah (klik + pada mhs yang sudah di kelompok lain) ===== */}
+      <AlertDialog open={!!pendingMove} onOpenChange={(o) => { if (!o) setPendingMove(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <ArrowRightLeft className="w-5 h-5 text-violet-600" /> Pindahkan Anggota?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{pendingMove?.mhs.nama}</strong> ({pendingMove?.mhs.nim}) saat ini terdaftar di{' '}
+              <strong>&ldquo;{pendingMove?.fromKelompok.nama}&rdquo;</strong>.
+              <br />
+              Pindahkan ke kelompok <strong>&ldquo;{kelompok.nama}&rdquo;</strong>?
+              <br />
+              <span className="text-xs text-muted-foreground">Mahasiswa akan otomatis dikeluarkan dari kelompok asal.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => pendingMove && doAdd(pendingMove.mhs.id, pendingMove.fromKelompok.id)}
+              className="bg-violet-600 hover:bg-violet-700 text-white"
+            >
+              Ya, Pindahkan
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ===== Dialog Pindah ke Kelompok Lain (klik tombol panah pada anggota saat ini) ===== */}
+      <Dialog open={!!moveToTarget} onOpenChange={(o) => { if (!o) { setMoveToTarget(null); setSelectedTargetKelompok('') } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ArrowRightLeft className="w-5 h-5 text-violet-600" /> Pindah ke Kelompok Lain
+            </DialogTitle>
+            <DialogDescription>
+              Pilih kelompok tujuan untuk <strong>{moveToTarget?.nama}</strong> ({moveToTarget?.nim}).
+              Mahasiswa akan dikeluarkan dari <strong>&ldquo;{kelompok.nama}&rdquo;</strong> dan dimasukkan ke kelompok tujuan.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            {peerKelompok.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                Tidak ada kelompok lain dengan tipe &amp; tahun akademik yang sama.
+              </p>
+            ) : (
+              <Select value={selectedTargetKelompok} onValueChange={setSelectedTargetKelompok}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih kelompok tujuan..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {peerKelompok.map((k) => (
+                    <SelectItem key={k.id} value={k.id}>
+                      {k.nama} — {k._count?.members ?? 0} anggota · {k.desa?.nama ?? k.sekolah?.nama ?? '-'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setMoveToTarget(null); setSelectedTargetKelompok('') }}>Batal</Button>
+            <Button
+              onClick={handleMoveTo}
+              disabled={!selectedTargetKelompok || busy === moveToTarget?.id}
+              className="bg-violet-600 hover:bg-violet-700 text-white"
+            >
+              {busy === moveToTarget?.id ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <ArrowRightLeft className="w-4 h-4 mr-1.5" />}
+              Pindahkan
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   )
 }
