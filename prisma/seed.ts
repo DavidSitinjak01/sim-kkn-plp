@@ -303,12 +303,14 @@ async function main() {
   await Promise.all(aktivitasData.map(a => db.aktivitas.create({ data: a })))
 
   // ============ PENGATURAN ============
+  // Default values match EXACTLY the user-uploaded PDF template
+  // (format "Daftar Peserta PLP" — Universitas Nias Raya).
   const pengaturanData = [
-    { key: 'nama_kampus', value: 'Universitas Nusantara Jaya' },
-    { key: 'alamat_kampus', value: 'Jl. Pendidikan No. 1, Jakarta Selatan' },
-    { key: 'no_telepon', value: '021-12345678' },
-    { key: 'email_kampus', value: 'info@nusantarajaya.ac.id' },
-    { key: 'website', value: 'https://nusantarajaya.ac.id' },
+    { key: 'nama_kampus', value: 'UNIVERSITAS NIAS RAYA' },
+    { key: 'alamat_kampus', value: 'Jl. Pramuka, Nari-nari, Kehurahan Pasar Telukdalam 22865 • Kabupaten Nias Selatan, Sumatra Utara, Telp/Fax (0630) 7321325' },
+    { key: 'no_telepon', value: '(0630) 7321325' },
+    { key: 'email_kampus', value: 'info@uniraya.ac.id' },
+    { key: 'website', value: 'https://uniraya.ac.id' },
     { key: 'tahun_akademik', value: '2024/2025' },
     { key: 'semester', value: 'GANJIL' },
     { key: 'theme', value: 'light' },
@@ -321,12 +323,12 @@ async function main() {
     { key: 'maps_api_key', value: 'AIzaSyXXXXXXXXXXXXXXXXX' },
     // ============ IDENTITAS SURAT (untuk format Daftar Peserta PLP) ============
     { key: 'logo_url', value: '/logo.png' },
-    { key: 'yayasan', value: 'Yayasan Pendidikan Nias Selatan' },
-    { key: 'panitia_plp', value: 'Panitia Pengenalan Lapangan Persekolahan II' },
+    { key: 'yayasan', value: 'YAYASAN PENDIDIKAN NIAS SELATAN' },
+    { key: 'panitia_plp', value: 'PANITIA PENGENALAN LAPANGAN PERSEKOLAHAN II' },
     { key: 'izin_operasional', value: 'Kepmendikbudristek Nomor 363/E/O/2021' },
-    { key: 'ketua_panitia', value: 'Antonius Sarumaha, M.Pd.' },
+    { key: 'ketua_panitia', value: 'Antonius Sarumaha, M.Pd' },
     { key: 'ketua_panitia_nidn', value: '0118058405' },
-    { key: 'sekretaris_panitia', value: 'Adam Smith Bago, S.Si., M.Pd.' },
+    { key: 'sekretaris_panitia', value: 'Adam Smith Bago, S.Si., M.Pd' },
     { key: 'sekretaris_panitia_nidn', value: '0101018409' },
     { key: 'koordinator_lapangan', value: 'Samalua Waoma, S.E., M.M., M.Ak.' },
   ]

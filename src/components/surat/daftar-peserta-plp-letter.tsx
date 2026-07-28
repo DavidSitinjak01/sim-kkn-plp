@@ -47,18 +47,20 @@ interface Props {
 }
 
 // ============ Default pengaturan (fallback jika key tidak ada di DB) ============
+// Default values match EXACTLY the user-uploaded PDF template (Universitas Nias Raya).
 const DEFAULT_PENGATURAN: Record<string, string> = {
   logo_url: '/logo.png',
-  yayasan: 'Yayasan Pendidikan Nias Selatan',
-  panitia_plp: 'Panitia Pengenalan Lapangan Persekolahan II',
+  yayasan: 'YAYASAN PENDIDIKAN NIAS SELATAN',
+  panitia_plp: 'PANITIA PENGENALAN LAPANGAN PERSEKOLAHAN II',
   izin_operasional: 'Kepmendikbudristek Nomor 363/E/O/2021',
-  ketua_panitia: 'Antonius Sarumaha, M.Pd.',
+  ketua_panitia: 'Antonius Sarumaha, M.Pd',
   ketua_panitia_nidn: '0118058405',
-  sekretaris_panitia: 'Adam Smith Bago, S.Si., M.Pd.',
+  sekretaris_panitia: 'Adam Smith Bago, S.Si., M.Pd',
   sekretaris_panitia_nidn: '0101018409',
   koordinator_lapangan: 'Samalua Waoma, S.E., M.M., M.Ak.',
-  nama_kampus: 'Universitas Nias Raya',
-  alamat_kampus: 'Jl. Pramuka. Nari-nari, Kelurahan Pasar Telukdalam 22865, Kabupaten Nias Selatan, Sumatra Utara',
+  nama_kampus: 'UNIVERSITAS NIAS RAYA',
+  // Alamat + Telp/Fax dalam SATU BARIS dengan separator ' • ' (sesuai PDF asli).
+  alamat_kampus: 'Jl. Pramuka, Nari-nari, Kehurahan Pasar Telukdalam 22865 • Kabupaten Nias Selatan, Sumatra Utara, Telp/Fax (0630) 7321325',
   no_telepon: '(0630) 7321325',
   email_kampus: '',
   tahun_akademik: '2024/2025',
@@ -191,28 +193,27 @@ export function DaftarPesertaPLPLetter({ kelompokId }: Props) {
       {/* Letter Preview (A4 ratio) */}
       <div className="bg-white text-black rounded-lg border shadow-inner overflow-auto" style={{ maxHeight: '70vh' }}>
         <div className="mx-auto bg-white" style={{ width: '100%', maxWidth: '794px', padding: '40px 50px', fontFamily: 'Times New Roman, serif' }}>
-          {/* ===== KOP SURAT ===== */}
+          {/* ===== KOP SURAT ===== (sesuai PDF: logo kiri, teks rata tengah, alamat+telp 1 baris) */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '18px', borderBottom: '3px double #000', paddingBottom: '10px', marginBottom: '6px' }}>
             {logoUrl && (
               <img
                 src={logoUrl}
                 alt="Logo"
-                style={{ width: '85px', height: '85px', objectFit: 'contain', flexShrink: 0 }}
+                style={{ width: '90px', height: '90px', objectFit: 'contain', flexShrink: 0 }}
                 onError={(e) => { (e.currentTarget.style.display = 'none') }}
               />
             )}
             <div style={{ flex: 1, textAlign: 'center' }}>
-              <div style={{ fontSize: '13px', fontWeight: 'bold', letterSpacing: '0.5px' }}>{pengaturan.yayasan}</div>
-              <div style={{ fontSize: '18px', fontWeight: 'bold', letterSpacing: '0.5px', textTransform: 'uppercase' }}>{pengaturan.nama_kampus}</div>
-              <div style={{ fontSize: '13px', fontWeight: 'bold', letterSpacing: '0.3px' }}>{pengaturan.panitia_plp}</div>
+              <div style={{ fontSize: '12px', fontWeight: 'normal', letterSpacing: '0.5px', textTransform: 'uppercase' }}>{pengaturan.yayasan}</div>
+              <div style={{ fontSize: '20px', fontWeight: 'bold', letterSpacing: '0.5px', textTransform: 'uppercase' }}>{pengaturan.nama_kampus}</div>
+              <div style={{ fontSize: '12px', fontWeight: 'bold', letterSpacing: '0.3px', textTransform: 'uppercase' }}>{pengaturan.panitia_plp}</div>
               <div style={{ fontSize: '10px', fontStyle: 'italic', marginTop: '2px' }}>Izin Operasional: {pengaturan.izin_operasional}</div>
               <div style={{ fontSize: '10px', marginTop: '2px' }}>{pengaturan.alamat_kampus}</div>
-              <div style={{ fontSize: '10px' }}>Telp/Fax {pengaturan.no_telepon}{pengaturan.email_kampus ? ` • ${pengaturan.email_kampus}` : ''}</div>
             </div>
           </div>
 
-          {/* ===== JUDUL SURAT ===== */}
-          <div style={{ textAlign: 'center', margin: '18px 0 14px' }}>
+          {/* ===== JUDUL SURAT ===== (jarak lebar dari kop sesuai PDF) */}
+          <div style={{ textAlign: 'center', margin: '28px 0 18px' }}>
             <div style={{ fontSize: '14px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>DAFTAR PESERTA</div>
             <div style={{ fontSize: '14px', fontWeight: 'bold', textTransform: 'uppercase' }}>PENGENALAN LINGKUNGAN PERSEKOLAHAN (PLP) {plpRoman}</div>
             <div style={{ fontSize: '13px', fontWeight: 'bold', textTransform: 'uppercase' }}>FKIP {pengaturan.nama_kampus}</div>
@@ -256,24 +257,24 @@ export function DaftarPesertaPLPLetter({ kelompokId }: Props) {
             </tbody>
           </table>
 
-          {/* ===== FOOTER / TANDA TANGAN ===== */}
+          {/* ===== FOOTER / TANDA TANGAN ===== (sesuai PDF: ruang tanda tangan ~5cm, NIDN bold) */}
           <div style={{ textAlign: 'center', marginTop: '24px', marginBottom: '8px' }}>
             <div style={{ fontSize: '12px', fontWeight: 'bold' }}>{pengaturan.panitia_plp}</div>
-            <div style={{ fontSize: '12px' }}>FKIP {pengaturan.nama_kampus} T.A {pengaturan.tahun_akademik}</div>
+            <div style={{ fontSize: '12px', fontWeight: 'bold' }}>FKIP {pengaturan.nama_kampus} T.A {pengaturan.tahun_akademik}</div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '50px', fontSize: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '24px', fontSize: '12px' }}>
             <div style={{ textAlign: 'center', width: '45%' }}>
               <div>Ketua,</div>
-              <div style={{ height: '70px' }} />
+              <div style={{ height: '120px' }} />
               <div style={{ fontWeight: 'bold', textDecoration: 'underline' }}>{pengaturan.ketua_panitia}</div>
-              <div>NIDN {pengaturan.ketua_panitia_nidn}</div>
+              <div style={{ fontWeight: 'bold' }}>NIDN {pengaturan.ketua_panitia_nidn}</div>
             </div>
             <div style={{ textAlign: 'center', width: '45%' }}>
               <div>Sekretaris,</div>
-              <div style={{ height: '70px' }} />
+              <div style={{ height: '120px' }} />
               <div style={{ fontWeight: 'bold', textDecoration: 'underline' }}>{pengaturan.sekretaris_panitia}</div>
-              <div>NIDN {pengaturan.sekretaris_panitia_nidn}</div>
+              <div style={{ fontWeight: 'bold' }}>NIDN {pengaturan.sekretaris_panitia_nidn}</div>
             </div>
           </div>
         </div>
@@ -330,13 +331,13 @@ function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logoBase64: string): 
     margin-bottom: 18px;
   }
   .kop .text { flex: 1; text-align: center; }
-  .yayasan { font-size: 13px; font-weight: bold; letter-spacing: 0.5px; }
-  .universitas { font-size: 18px; font-weight: bold; letter-spacing: 0.5px; text-transform: uppercase; }
-  .panitia { font-size: 13px; font-weight: bold; letter-spacing: 0.3px; }
+  .kop img { width: 90px; height: 90px; object-fit: contain; flex-shrink: 0; }
+  .yayasan { font-size: 12px; font-weight: normal; letter-spacing: 0.5px; text-transform: uppercase; }
+  .universitas { font-size: 20px; font-weight: bold; letter-spacing: 0.5px; text-transform: uppercase; }
+  .panitia { font-size: 12px; font-weight: bold; letter-spacing: 0.3px; text-transform: uppercase; }
   .izin { font-size: 10px; font-style: italic; margin-top: 2px; }
   .alamat { font-size: 10px; margin-top: 2px; }
-  .telp { font-size: 10px; }
-  .judul { text-align: center; margin: 18px 0 14px; }
+  .judul { text-align: center; margin: 28px 0 18px; }
   .judul .line1 { font-size: 14px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
   .judul .line2 { font-size: 14px; font-weight: bold; text-transform: uppercase; }
   .judul .line3 { font-size: 13px; font-weight: bold; text-transform: uppercase; }
@@ -347,11 +348,12 @@ function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logoBase64: string): 
   td { border: 1px solid #000; padding: 5px 8px; }
   .footer-title { text-align: center; margin-top: 24px; margin-bottom: 8px; }
   .footer-title .l1 { font-size: 12px; font-weight: bold; }
-  .footer-title .l2 { font-size: 12px; }
-  .signature { display: flex; justify-content: space-between; margin-top: 50px; font-size: 12px; }
+  .footer-title .l2 { font-size: 12px; font-weight: bold; }
+  .signature { display: flex; justify-content: space-between; margin-top: 24px; font-size: 12px; }
   .signature .col { text-align: center; width: 45%; }
-  .signature .space { height: 70px; }
+  .signature .space { height: 120px; }
   .signature .name { font-weight: bold; text-decoration: underline; }
+  .signature .nidn { font-weight: bold; }
   @media print {
     .no-print { display: none; }
     body { font-size: 11pt; }
@@ -369,7 +371,6 @@ function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logoBase64: string): 
       <div class="panitia">${escapeHtml(p.panitia_plp)}</div>
       <div class="izin">Izin Operasional: ${escapeHtml(p.izin_operasional)}</div>
       <div class="alamat">${escapeHtml(p.alamat_kampus)}</div>
-      <div class="telp">Telp/Fax ${escapeHtml(p.no_telepon)}${p.email_kampus ? ' &bull; ' + escapeHtml(p.email_kampus) : ''}</div>
     </div>
   </div>
 
@@ -414,13 +415,13 @@ function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logoBase64: string): 
       <div>Ketua,</div>
       <div class="space"></div>
       <div class="name">${escapeHtml(p.ketua_panitia)}</div>
-      <div>NIDN ${escapeHtml(p.ketua_panitia_nidn)}</div>
+      <div class="nidn">NIDN ${escapeHtml(p.ketua_panitia_nidn)}</div>
     </div>
     <div class="col">
       <div>Sekretaris,</div>
       <div class="space"></div>
       <div class="name">${escapeHtml(p.sekretaris_panitia)}</div>
-      <div>NIDN ${escapeHtml(p.sekretaris_panitia_nidn)}</div>
+      <div class="nidn">NIDN ${escapeHtml(p.sekretaris_panitia_nidn)}</div>
     </div>
   </div>
 </div>
