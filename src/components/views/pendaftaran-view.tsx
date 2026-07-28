@@ -272,7 +272,8 @@ export function PendaftaranView() {
   const [importTarget, setImportTarget] = useState<Pendaftaran | null>(null)
   const [rejectTarget, setRejectTarget] = useState<Pendaftaran | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Pendaftaran | null>(null)
-  const [editTarget, setEditTarget] = useState<Pendaftaran | null>(null)
+  const [formTarget, setFormTarget] = useState<Pendaftaran | null>(null) // record being edited; null when adding
+  const [formMode, setFormMode] = useState<'add' | 'edit' | null>(null)
 
   // Form states
   const [importForm, setImportForm] = useState<ImportFormState>({
@@ -487,23 +488,45 @@ export function PendaftaranView() {
     }
   }
 
-  // ============ Edit handler ============
-  const openEdit = (p: Pendaftaran) => {
-    setEditTarget(p)
-    // Pre-fill form with existing values
-    setEditForm({
-      namaLengkap: p.namaLengkap,
-      nim: p.nim,
-      prodiId: p.prodiId ?? '', // '' => "Lainnya"
-      prodiNama: p.prodiNama,
-      jurusan: p.jurusan,
-      jenisKelamin: p.jenisKelamin,
-      noWa: p.noWa,
-      punyaMotor: p.punyaMotor,
-      alamat: p.alamat,
-      catatan: p.catatan ?? '',
-    })
-    setEditFoto(null) // null means "keep existing photo" until user uploads new
+  // ============ Add / Edit form handlers ============
+  // openForm() with no args => Add mode (empty form)
+  // openForm(p)            => Edit mode (pre-filled with record p)
+  const openForm = (p?: Pendaftaran) => {
+    if (p) {
+      setFormMode('edit')
+      setFormTarget(p)
+      setEditForm({
+        namaLengkap: p.namaLengkap,
+        nim: p.nim,
+        prodiId: p.prodiId ?? '', // '' => "Lainnya"
+        prodiNama: p.prodiNama,
+        jurusan: p.jurusan,
+        jenisKelamin: p.jenisKelamin,
+        noWa: p.noWa,
+        punyaMotor: p.punyaMotor,
+        alamat: p.alamat,
+        catatan: p.catatan ?? '',
+      })
+      setEditFoto(null) // null means "keep existing photo" until user uploads new
+      setEditFotoName('')
+      setEditFotoDirty(false)
+    } else {
+      setFormMode('add')
+      setFormTarget(null)
+      setEditForm({
+        namaLengkap: '', nim: '', prodiId: '', prodiNama: '', jurusan: '',
+        jenisKelamin: 'L', noWa: '', punyaMotor: false, alamat: '', catatan: '',
+      })
+      setEditFoto(null)
+      setEditFotoName('')
+      setEditFotoDirty(false)
+    }
+  }
+
+  const closeForm = () => {
+    setFormMode(null)
+    setFormTarget(null)
+    setEditFoto(null)
     setEditFotoName('')
     setEditFotoDirty(false)
   }
@@ -556,9 +579,9 @@ export function PendaftaranView() {
     }
   }
 
-  const handleSaveEdit = async (e: React.FormEvent) => {
+  const handleSaveForm = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!editTarget) return
+    if (!formMode) return
     if (!editForm.namaLengkap.trim()) return toast.error('Nama lengkap wajib diisi')
     if (!editForm.nim.trim()) return toast.error('NIM wajib diisi')
     if (!editForm.prodiNama.trim()) return toast.error('Program Studi wajib diisi')
@@ -569,8 +592,8 @@ export function PendaftaranView() {
 
     setSaving(true)
     try {
-      const payload: Record<string, unknown> = {
-        edit: true,
+      // Shared payload fields
+      const common: Record<string, unknown> = {
         namaLengkap: editForm.namaLengkap.trim(),
         nim: editForm.nim.trim(),
         prodiId: editForm.prodiId || '',
@@ -584,26 +607,42 @@ export function PendaftaranView() {
       }
       // Only send foto if user uploaded a new one
       if (editFotoDirty && editFoto) {
-        payload.foto = editFoto
+        common.foto = editFoto
       }
 
-      const res = await fetch(`/api/pendaftaran/${editTarget.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        cache: 'no-store',
-      })
+      let res: Response
+      if (formMode === 'add') {
+        res = await fetch(`/api/pendaftaran`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(common),
+          cache: 'no-store',
+        })
+      } else {
+        // edit
+        if (!formTarget) return
+        res = await fetch(`/api/pendaftaran/${formTarget.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ edit: true, ...common }),
+          cache: 'no-store',
+        })
+      }
       const json = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(json?.error || 'Gagal menyimpan')
-      toast.success('Data pendaftaran diperbarui', {
-        description: editTarget.namaLengkap,
-      })
-      // Update detail dialog if it's the same record
-      setDetail((d) => (d && d.id === editTarget.id ? { ...d, ...json } : d))
-      setEditTarget(null)
-      setEditFoto(null)
-      setEditFotoName('')
-      setEditFotoDirty(false)
+
+      if (formMode === 'add') {
+        toast.success('Pendaftar baru ditambahkan', {
+          description: editForm.namaLengkap.trim(),
+        })
+      } else {
+        toast.success('Data pendaftaran diperbarui', {
+          description: editForm.namaLengkap.trim(),
+        })
+        // Update detail dialog if it's the same record
+        setDetail((d) => (d && formTarget && d.id === formTarget.id ? { ...d, ...json } : d))
+      }
+      closeForm()
       fetchList()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Gagal menyimpan perubahan')
@@ -621,9 +660,14 @@ export function PendaftaranView() {
         icon={Users}
         breadcrumb={['Pendaftaran']}
         actions={
-          <Button variant="outline" size="sm" onClick={copyLink}>
-            <Copy className="w-4 h-4" /> Salin Link Form
-          </Button>
+          <div className="flex gap-2">
+            <Button size="sm" onClick={() => openForm()}>
+              <UserPlus className="w-4 h-4" /> Tambah Pendaftar
+            </Button>
+            <Button variant="outline" size="sm" onClick={copyLink}>
+              <Copy className="w-4 h-4" /> Salin Link Form
+            </Button>
+          </div>
         }
       />
 
@@ -773,7 +817,7 @@ export function PendaftaranView() {
                           pendaftaran={p}
                           busy={busyId === p.id || saving}
                           onDetail={setDetail}
-                          onEdit={openEdit}
+                          onEdit={(p) => openForm(p)}
                           onApprove={handleApprove}
                           onReject={openReject}
                           onImport={openImport}
@@ -835,7 +879,7 @@ export function PendaftaranView() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-48">
                         {p.status !== 'IMPORTED' && (
-                          <DropdownMenuItem onClick={() => openEdit(p)}>
+                          <DropdownMenuItem onClick={() => openForm(p)}>
                             <Edit className="w-4 h-4 text-amber-600" /> Edit Data
                           </DropdownMenuItem>
                         )}
@@ -925,7 +969,7 @@ export function PendaftaranView() {
                       variant="outline"
                       size="sm"
                       className="flex-1 sm:flex-none"
-                      onClick={() => { openEdit(detail); setDetail(null) }}
+                      onClick={() => { openForm(detail); setDetail(null) }}
                       disabled={busyId === detail.id}
                     >
                       <Edit className="w-4 h-4" /> Edit Data
@@ -1111,32 +1155,29 @@ export function PendaftaranView() {
       </Dialog>
 
       {/* ============ Edit Dialog ============ */}
-      <Dialog open={!!editTarget} onOpenChange={(o) => {
-        if (!o) {
-          setEditTarget(null)
-          setEditFoto(null)
-          setEditFotoName('')
-          setEditFotoDirty(false)
-        }
+      <Dialog open={!!formMode} onOpenChange={(o) => {
+        if (!o) closeForm()
       }}>
         <DialogContent className="sm:max-w-2xl max-h-[92vh] overflow-y-auto">
-          {editTarget && (
+          {formMode && (
             <>
               <DialogHeader>
-                <DialogTitle>Edit Data Pendaftaran</DialogTitle>
+                <DialogTitle>{formMode === 'add' ? 'Tambah Pendaftar Baru' : 'Edit Data Pendaftaran'}</DialogTitle>
                 <DialogDescription>
-                  Perbaiki atau lengkapi informasi peserta. Foto hanya diganti jika Anda mengunggah foto baru.
+                  {formMode === 'add'
+                    ? 'Input manual pendaftar baru. Foto opsional saat tambah (bisa dilengkapi nanti via Edit).'
+                    : 'Perbaiki atau lengkapi informasi peserta. Foto hanya diganti jika Anda mengunggah foto baru.'}
                 </DialogDescription>
               </DialogHeader>
 
-              <form onSubmit={handleSaveEdit} className="space-y-4">
+              <form onSubmit={handleSaveForm} className="space-y-4">
                 {/* Photo preview & upload */}
                 <div className="flex items-start gap-4">
                   <div className="w-24 h-32 rounded-lg overflow-hidden border bg-muted shrink-0">
                     {editFoto ? (
                       <img src={editFoto} alt="preview" className="w-full h-full object-cover" />
-                    ) : editTarget.foto ? (
-                      <img src={editTarget.foto} alt={editTarget.namaLengkap} className="w-full h-full object-cover" />
+                    ) : formMode === 'edit' && formTarget?.foto ? (
+                      <img src={formTarget.foto} alt={formTarget.namaLengkap} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-muted-foreground">
                         <ImageIcon className="w-7 h-7" />
@@ -1144,7 +1185,7 @@ export function PendaftaranView() {
                     )}
                   </div>
                   <div className="flex-1 space-y-1.5">
-                    <Label htmlFor="edit-foto">Pass Foto 3x4 (opsional)</Label>
+                    <Label htmlFor="edit-foto">Pass Foto 3x4 {formMode === 'add' ? '(opsional)' : '(opsional)'}</Label>
                     <Input
                       id="edit-foto"
                       type="file"
@@ -1155,7 +1196,9 @@ export function PendaftaranView() {
                     <p className="text-xs text-muted-foreground">
                       {editFotoDirty
                         ? `Foto baru dipilih: ${editFotoName}`
-                        : 'Kosongkan untuk tetap menggunakan foto yang lama. Maks 5MB, JPG/PNG/WebP.'}
+                        : formMode === 'edit'
+                          ? 'Kosongkan untuk tetap menggunakan foto yang lama. Maks 5MB, JPG/PNG/WebP.'
+                          : 'Unggah foto 3x4 (maks 5MB, JPG/PNG/WebP). Bisa dikosongkan saat tambah.'}
                     </p>
                   </div>
                 </div>
@@ -1311,14 +1354,14 @@ export function PendaftaranView() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => { setEditTarget(null); setEditFoto(null); setEditFotoName(''); setEditFotoDirty(false) }}
+                    onClick={closeForm}
                     disabled={saving}
                   >
                     Batal
                   </Button>
                   <Button type="submit" disabled={saving}>
-                    {saving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Check className="w-4 h-4 mr-1" />}
-                    Simpan Perubahan
+                    {saving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : (formMode === 'add' ? <UserPlus className="w-4 h-4 mr-1" /> : <Check className="w-4 h-4 mr-1" />)}
+                    {formMode === 'add' ? 'Tambah Pendaftar' : 'Simpan Perubahan'}
                   </Button>
                 </DialogFooter>
               </form>
