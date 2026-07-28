@@ -54,3 +54,4 @@ next-env.d.ts
 /tool-results/
 /.zscripts/
 worklog.md
+.env*
