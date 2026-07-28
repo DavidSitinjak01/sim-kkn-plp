@@ -384,7 +384,8 @@ function CardPreview({ member, kelompok, pengaturan, logoUrl, theme }: CardPrevi
           alignItems: 'center',
           justifyContent: 'flex-start',
           paddingTop: '48px',
-          paddingX: '12px',
+          paddingLeft: '12px',
+          paddingRight: '12px',
           textAlign: 'center',
           color: '#000',
         }}
