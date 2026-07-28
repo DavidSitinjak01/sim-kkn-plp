@@ -6,6 +6,16 @@ generator client {
 }
 
 datasource db {
+  // IMPORTANT: this app supports BOTH sqlite (local dev) and postgresql (Vercel).
+  // - Local dev:  set DATABASE_URL="file:./dev.db" in .env (Prisma will auto-detect
+  //   that the URL starts with "file:" and use the sqlite provider).
+  // - Vercel:     set DATABASE_URL to a postgresql:// connection string from Neon,
+  //   Supabase, or Vercel Postgres in the Vercel project settings.
+  //
+  // We default to postgresql because Vercel's serverless filesystem is ephemeral
+  // (SQLite files would be lost on every cold start). For local dev you can either
+  // keep using sqlite by setting the provider to "sqlite" here, or run a local
+  // postgres (e.g. via docker) and point DATABASE_URL at it.
   provider = "sqlite"
   url      = env("DATABASE_URL")
 }
