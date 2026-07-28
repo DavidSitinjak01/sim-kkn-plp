@@ -7,7 +7,8 @@ export type Role = 'SUPER_ADMIN' | 'ADMIN_FAKULTAS' | 'ADMIN_PRODI' | 'DOSEN' | 
 
 export interface AuthUser {
   id: string
-  email: string
+  username: string
+  email?: string | null
   name: string
   role: Role
   avatar?: string | null
@@ -62,7 +63,19 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'kknplp-store',
+      version: 2,
       partialize: (s) => ({ user: s.user, currentView: s.currentView, theme: s.theme, sidebarCollapsed: s.sidebarCollapsed }),
+      // v1 -> v2: AuthUser changed from `email` (required) to `username` (required).
+      // Old persisted sessions have no `username`, so force logout to require fresh login
+      // with the new username-based credential.
+      migrate: (persisted: any, version: number) => {
+        if (version < 2 && persisted?.user) {
+          // Old shape: user.email existed, user.username did not. Clear session.
+          persisted.user = null
+          persisted.currentView = 'dashboard'
+        }
+        return persisted
+      },
     }
   )
 )

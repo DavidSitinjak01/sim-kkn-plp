@@ -169,7 +169,7 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
           <DropdownMenuLabel>
             <div className="flex flex-col">
               <span className="text-sm font-semibold">{user.name}</span>
-              <span className="text-xs text-muted-foreground font-normal">{user.email}</span>
+              <span className="text-xs text-muted-foreground font-normal">@{user.username}</span>
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />

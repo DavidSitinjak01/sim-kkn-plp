@@ -42,7 +42,8 @@ type Role = 'SUPER_ADMIN' | 'ADMIN_FAKULTAS' | 'ADMIN_PRODI' | 'DOSEN' | 'MAHASI
 
 interface User {
   id: string
-  email: string
+  username: string
+  email: string | null
   name: string
   role: string
   avatar: string | null
@@ -55,6 +56,7 @@ interface User {
 
 interface FormState {
   name: string
+  username: string
   email: string
   password: string
   role: string
@@ -63,8 +65,11 @@ interface FormState {
 }
 
 const EMPTY_FORM: FormState = {
-  name: '', email: '', password: '', role: 'MAHASISWA', phone: '', status: 'AKTIF',
+  name: '', username: '', email: '', password: '', role: 'MAHASISWA', phone: '', status: 'AKTIF',
 }
+
+// Username: 3-30 chars, lowercase letters/digits/dot/underscore/hyphen. NOT email.
+const USERNAME_RE = /^[a-z0-9._-]{3,30}$/
 
 const ROLE_OPTIONS: { value: Role; label: string }[] = [
   { value: 'SUPER_ADMIN', label: 'Super Admin' },
@@ -228,7 +233,8 @@ export function AkunView() {
     setEditing(u)
     setForm({
       name: u.name,
-      email: u.email,
+      username: u.username,
+      email: u.email ?? '',
       password: '',
       role: u.role,
       phone: u.phone ?? '',
@@ -247,8 +253,13 @@ export function AkunView() {
   }
 
   const submitForm = async () => {
-    if (!form.name.trim() || !form.email.trim() || !form.role) {
-      toast.error('Nama, email, dan role wajib diisi')
+    if (!form.name.trim() || !form.username.trim() || !form.role) {
+      toast.error('Nama, username, dan role wajib diisi')
+      return
+    }
+    const username = form.username.trim().toLowerCase()
+    if (!USERNAME_RE.test(username) || username.includes('@')) {
+      toast.error('Username 3-30 karakter, hanya huruf/angka/titik/underscore/tanda hubung. Tidak boleh email.')
       return
     }
     if (!editing && !form.password.trim()) {
@@ -262,7 +273,8 @@ export function AkunView() {
       const method = isEdit ? 'PUT' : 'POST'
       const payload: Record<string, unknown> = {
         name: form.name.trim(),
-        email: form.email.trim().toLowerCase(),
+        username,
+        email: form.email.trim() || null,
         role: form.role,
         phone: form.phone.trim() || null,
         status: form.status,
@@ -358,18 +370,18 @@ export function AkunView() {
 
   // ============ Export ============
   const handleExportCSV = () => {
-    const headers = ['Nama', 'Email', 'Role', 'Status', 'Telepon', 'Last Login']
+    const headers = ['Nama', 'Username', 'Email', 'Role', 'Status', 'Telepon', 'Last Login']
     const rows = filtered.map(u => [
-      u.name, u.email, ROLE_LABEL[u.role] ?? u.role, u.status,
+      u.name, u.username, u.email ?? '-', ROLE_LABEL[u.role] ?? u.role, u.status,
       u.phone ?? '-', u.lastLogin ? formatDate(u.lastLogin, true) : '-',
     ])
     exportToCSV('data-akun', headers, rows)
   }
 
   const handleExportPDF = () => {
-    const headers = ['Nama', 'Email', 'Role', 'Status', 'Telepon', 'Last Login']
+    const headers = ['Nama', 'Username', 'Email', 'Role', 'Status', 'Telepon', 'Last Login']
     const rows = filtered.map(u => [
-      u.name, u.email, ROLE_LABEL[u.role] ?? u.role, u.status,
+      u.name, u.username, u.email ?? '-', ROLE_LABEL[u.role] ?? u.role, u.status,
       u.phone ?? '-', u.lastLogin ? formatDate(u.lastLogin, true) : '-',
     ])
     exportToPDF('Daftar Akun User', generateTableHTML('Daftar Akun User', headers, rows))
@@ -413,14 +425,20 @@ export function AkunView() {
           </Avatar>
           <div className="min-w-0">
             <p className="font-medium truncate">{u.name}</p>
-            <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+            <p className="text-xs text-muted-foreground truncate">@{u.username}</p>
           </div>
         </div>
       ),
     },
     {
-      key: 'email', header: 'Email', sortable: true, className: 'hidden md:table-cell',
-      render: (u) => <span className="text-sm text-muted-foreground">{u.email}</span>,
+      key: 'username', header: 'Username', sortable: true, className: 'hidden md:table-cell',
+      render: (u) => <span className="text-sm font-mono text-muted-foreground">@{u.username}</span>,
+    },
+    {
+      key: 'email', header: 'Email', sortable: false, className: 'hidden lg:table-cell',
+      render: (u) => (
+        <span className="text-sm text-muted-foreground">{u.email ?? <span className="italic text-muted-foreground/60">—</span>}</span>
+      ),
     },
     {
       key: 'role', header: 'Role', sortable: true,
@@ -593,7 +611,7 @@ export function AkunView() {
           data={filtered}
           columns={columns}
           searchable
-          searchKeys={['name', 'email']}
+          searchKeys={['name', 'username', 'email']}
           getRowId={(u) => u.id}
           emptyMessage="Belum ada user. Klik 'Tambah User' untuk membuat."
         />
@@ -619,13 +637,31 @@ export function AkunView() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Email <span className="text-rose-500">*</span></Label>
+              <Label>Username <span className="text-rose-500">*</span></Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm select-none">@</span>
+                <Input
+                  type="text"
+                  value={form.username}
+                  onChange={(e) => setForm({ ...form, username: e.target.value })}
+                  placeholder="mis. superadmin, admin.fkip, dosen01"
+                  className="pl-7 font-mono lowercase"
+                  autoComplete="off"
+                />
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Username untuk login. 3-30 karakter, hanya huruf kecil/angka/titik/underscore/tanda hubung. <strong>Tidak boleh format email.</strong>
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Email <span className="text-muted-foreground text-[11px] font-normal">(opsional)</span></Label>
               <Input
                 type="email"
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
-                placeholder="user@kknplp.ac.id"
+                placeholder="user@example.com (opsional)"
               />
+              <p className="text-[11px] text-muted-foreground">Hanya untuk kontak. Tidak digunakan untuk login.</p>
             </div>
             <div className="space-y-1.5">
               <Label>Telepon</Label>
@@ -720,7 +756,7 @@ export function AkunView() {
             <AlertDialogTitle>Reset Password User</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <span>
-                Pilih metode reset password untuk <strong>{resetTarget?.name}</strong> ({resetTarget?.email}).
+                Pilih metode reset password untuk <strong>{resetTarget?.name}</strong> (@{resetTarget?.username}).
               </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -814,7 +850,7 @@ export function AkunView() {
           <AlertDialogHeader>
             <AlertDialogTitle>Hapus User?</AlertDialogTitle>
             <AlertDialogDescription>
-              User <strong>{deleteTarget?.name}</strong> ({deleteTarget?.email}) akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.
+              User <strong>{deleteTarget?.name}</strong> (@{deleteTarget?.username}) akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -7,8 +7,12 @@ type Params = { params: Promise<{ id: string }> }
 const VALID_ROLES = ['SUPER_ADMIN', 'ADMIN_FAKULTAS', 'ADMIN_PRODI', 'DOSEN', 'MAHASISWA', 'PIMPINAN']
 const VALID_STATUS = ['AKTIF', 'NONAKTIF']
 
+const USERNAME_RE = /^[a-z0-9._-]{3,30}$/
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 const PUBLIC_SELECT = {
   id: true,
+  username: true,
   email: true,
   name: true,
   role: true,
@@ -54,15 +58,43 @@ export async function PUT(req: Request, { params }: Params) {
       return NextResponse.json({ error: 'Status tidak valid' }, { status: 400 })
     }
 
-    // Email uniqueness check (if changed)
-    if (body.email && body.email !== existing.email) {
-      const email = String(body.email).trim().toLowerCase()
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        return NextResponse.json({ error: 'Format email tidak valid' }, { status: 400 })
+    // Username validation + uniqueness (if changed)
+    if (body.username !== undefined && body.username !== null && String(body.username).trim() !== '') {
+      const username = String(body.username).trim().toLowerCase()
+      if (!USERNAME_RE.test(username)) {
+        return NextResponse.json(
+          { error: 'Username 3-30 karakter, hanya huruf/angka/titik/underscore/tanda hubung. Tidak boleh format email.' },
+          { status: 400 }
+        )
       }
-      const dup = await db.user.findUnique({ where: { email } })
-      if (dup) {
-        return NextResponse.json({ error: 'Email sudah digunakan' }, { status: 400 })
+      if (username.includes('@') || EMAIL_RE.test(username)) {
+        return NextResponse.json({ error: 'Username tidak boleh berupa email. Gunakan nama biasa.' }, { status: 400 })
+      }
+      if (username !== existing.username) {
+        const dup = await db.user.findUnique({ where: { username } })
+        if (dup) {
+          return NextResponse.json({ error: 'Username sudah digunakan' }, { status: 400 })
+        }
+      }
+    }
+
+    // Email validation + uniqueness (if provided & changed)
+    let emailValue: string | null | undefined = undefined
+    if (body.email !== undefined) {
+      if (body.email === null || String(body.email).trim() === '') {
+        emailValue = null // allow clearing email
+      } else {
+        const email = String(body.email).trim().toLowerCase()
+        if (!EMAIL_RE.test(email)) {
+          return NextResponse.json({ error: 'Format email tidak valid' }, { status: 400 })
+        }
+        if (email !== existing.email) {
+          const dup = await db.user.findUnique({ where: { email } })
+          if (dup) {
+            return NextResponse.json({ error: 'Email sudah digunakan' }, { status: 400 })
+          }
+        }
+        emailValue = email
       }
     }
 
@@ -78,7 +110,8 @@ export async function PUT(req: Request, { params }: Params) {
     const updated = await db.user.update({
       where: { id },
       data: {
-        ...(body.email !== undefined && { email: String(body.email).trim().toLowerCase() }),
+        ...(body.username !== undefined && body.username !== null && String(body.username).trim() !== '' && { username: String(body.username).trim().toLowerCase() }),
+        ...(emailValue !== undefined && { email: emailValue }),
         ...(body.name !== undefined && { name: String(body.name).trim() }),
         ...(body.role !== undefined && { role: body.role }),
         ...(body.status !== undefined && { status: body.status }),
@@ -93,7 +126,11 @@ export async function PUT(req: Request, { params }: Params) {
   } catch (e: any) {
     console.error('[PUT /api/user/:id]', e)
     if (e?.code === 'P2002') {
-      return NextResponse.json({ error: 'Email sudah terdaftar' }, { status: 400 })
+      const target = e?.meta?.target?.[0] ?? 'username'
+      return NextResponse.json(
+        { error: target === 'email' ? 'Email sudah terdaftar' : 'Username sudah digunakan' },
+        { status: 400 }
+      )
     }
     return NextResponse.json({ error: 'Gagal memperbarui user' }, { status: 500 })
   }

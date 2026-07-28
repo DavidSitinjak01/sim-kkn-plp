@@ -152,7 +152,7 @@ export function AktivitasView() {
           </div>
           <div className="min-w-0">
             <p className="text-xs font-medium truncate">{a.user?.name ?? 'Sistem'}</p>
-            {a.user?.email && <p className="text-[10px] text-muted-foreground truncate">{a.user.email}</p>}
+            {a.user?.username && <p className="text-[10px] text-muted-foreground truncate">@{a.user.username}</p>}
           </div>
         </div>
       ),

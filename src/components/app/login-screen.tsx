@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { GraduationCap, Mail, Lock, Eye, EyeOff, ArrowRight, ShieldCheck, Users, MapPin, BookOpen } from 'lucide-react'
+import { GraduationCap, User, Lock, Eye, EyeOff, ArrowRight, ShieldCheck, Users, MapPin, BookOpen } from 'lucide-react'
 import { useAppStore } from '@/lib/store'
 import { useBranding } from '@/lib/branding'
 import { Button } from '@/components/ui/button'
@@ -12,18 +12,18 @@ import { toast } from 'sonner'
 import { ThemeToggle } from '@/components/app/theme-toggle'
 
 const DEMO_ACCOUNTS = [
-  { email: 'superadmin@kknplp.ac.id', label: 'Super Admin' },
-  { email: 'admin.fkip@kknplp.ac.id', label: 'Admin Fakultas' },
-  { email: 'admin.prodi@kknplp.ac.id', label: 'Admin Prodi' },
-  { email: 'pimpinan@kknplp.ac.id', label: 'Pimpinan' },
-  { email: 'suparman@kknplp.ac.id', label: 'Dosen' },
-  { email: 'mhs1@mhs.kknplp.ac.id', label: 'Mahasiswa' },
+  { username: 'superadmin', label: 'Super Admin' },
+  { username: 'admin.fkip', label: 'Admin Fakultas' },
+  { username: 'admin.prodi', label: 'Admin Prodi' },
+  { username: 'pimpinan', label: 'Pimpinan' },
+  { username: 'suparman', label: 'Dosen' },
+  { username: 'mhs1', label: 'Mahasiswa' },
 ]
 
 export function LoginScreen() {
   const setUser = useAppStore((s) => s.setUser)
   const branding = useBranding()
-  const [email, setEmail] = useState('superadmin@kknplp.ac.id')
+  const [username, setUsername] = useState('superadmin')
   const [password, setPassword] = useState('password123')
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -47,7 +47,7 @@ export function LoginScreen() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ username, password }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Login gagal')
@@ -60,8 +60,8 @@ export function LoginScreen() {
     }
   }
 
-  const quickLogin = (em: string) => {
-    setEmail(em)
+  const quickLogin = (un: string) => {
+    setUsername(un)
     setPassword('password123')
   }
 
@@ -167,19 +167,21 @@ export function LoginScreen() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="username">Username</Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="nama@kknplp.ac.id"
+                  id="username"
+                  type="text"
+                  autoComplete="username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="mis. superadmin, admin.fkip, suparman"
                   className="pl-9"
                   required
                 />
               </div>
+              <p className="text-[11px] text-muted-foreground">Masukkan username (bukan email) yang dibuat oleh Super Admin.</p>
             </div>
 
             <div className="space-y-2">
@@ -247,12 +249,13 @@ export function LoginScreen() {
             <div className="grid grid-cols-2 gap-2">
               {DEMO_ACCOUNTS.map((acc) => (
                 <button
-                  key={acc.email}
+                  key={acc.username}
                   type="button"
-                  onClick={() => quickLogin(acc.email)}
+                  onClick={() => quickLogin(acc.username)}
                   className="text-xs px-3 py-2 rounded-lg border border-border hover:bg-accent hover:border-primary/30 transition-colors text-left"
                 >
                   <span className="font-medium">{acc.label}</span>
+                  <span className="block text-[10px] text-muted-foreground font-mono">{acc.username}</span>
                 </button>
               ))}
             </div>

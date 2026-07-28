@@ -51,7 +51,8 @@ model ProgramStudi {
 
 model User {
   id        String   @id @default(cuid())
-  email     String   @unique
+  username  String   @unique // login credential (plain name, NOT email format)
+  email     String?  @unique // optional contact email (NOT used for login); unique when set
   password  String
   name      String
   role      String   // SUPER_ADMIN, ADMIN_FAKULTAS, ADMIN_PRODI, DOSEN, MAHASISWA, PIMPINAN
