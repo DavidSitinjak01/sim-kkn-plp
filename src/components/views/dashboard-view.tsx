@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useAppStore, ROLE_LABELS } from '@/lib/store'
 
 const COLORS = ['oklch(0.55 0.2 255)', 'oklch(0.65 0.16 180)', 'oklch(0.7 0.18 145)', 'oklch(0.75 0.18 70)', 'oklch(0.6 0.22 300)']
 
@@ -58,6 +59,16 @@ const STAT_CARDS = [
 export function DashboardView() {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const user = useAppStore((s) => s.user)
+
+  // Time-based greeting in Indonesian
+  const greeting = (() => {
+    const h = new Date().getHours()
+    if (h < 11) return 'Selamat Pagi'
+    if (h < 15) return 'Selamat Siang'
+    if (h < 19) return 'Selamat Sore'
+    return 'Selamat Malam'
+  })()
 
   useEffect(() => {
     fetch('/api/dashboard')
@@ -129,7 +140,17 @@ export function DashboardView() {
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/4" />
         <div className="absolute bottom-0 right-20 w-40 h-40 bg-white/10 rounded-full translate-y-1/2" />
         <div className="relative z-10">
-          <h2 className="text-2xl font-bold">Selamat Datang di Dashboard KKN & PLP</h2>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xs font-medium px-2.5 py-1 bg-white/20 backdrop-blur rounded-full">
+              {user ? ROLE_LABELS[user.role] : 'Pengguna'}
+            </span>
+            {user?.username && (
+              <span className="text-xs text-white/70 font-mono">@{user.username}</span>
+            )}
+          </div>
+          <h2 className="text-2xl font-bold">
+            {greeting}, {user?.name ?? 'Pengguna'}!
+          </h2>
           <p className="text-white/80 mt-1">
             Tahun Akademik 2024/2025 — Semester Ganjil. Pantau seluruh kegiatan KKN dan PLP dalam satu layar.
           </p>
