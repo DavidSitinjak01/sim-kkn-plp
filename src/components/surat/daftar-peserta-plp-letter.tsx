@@ -84,6 +84,24 @@ function fullTipeLabel(tipe: string): string {
 }
 
 /**
+ * Build the panitia label with the correct Roman numeral (I / II) based on
+ * the kelompok's tipe. Strips any trailing Roman numeral from the stored
+ * `panitia_plp` setting and re-appends the correct one.
+ *
+ * Examples:
+ *   ('PANITIA PENGENALAN LAPANGAN PERSEKOLAHAN II', 'PLP1') -> '...PERSEKOLAHAN I'
+ *   ('PANITIA PENGENALAN LAPANGAN PERSEKOLAHAN II', 'PLP2') -> '...PERSEKOLAHAN II'
+ *   ('PANITIA PLP', 'PLP1')                              -> 'PANITIA PLP I'
+ */
+function panitiaLabel(panitiaPlp: string, tipe: string): string {
+  const roman = tipeLabel(tipe)
+  if (!roman) return panitiaPlp
+  // Remove any trailing Roman numeral (I, II, III, ...) and surrounding whitespace
+  const stripped = panitiaPlp.replace(/\s+I+\s*$/i, '').trimEnd()
+  return `${stripped} ${roman}`
+}
+
+/**
  * Convert image URL to base64 data URL for embedding in print window.
  * Handles both relative (/logo.png) and absolute URLs.
  */
@@ -178,6 +196,7 @@ export function DaftarPesertaPLPLetter({ kelompokId }: Props) {
   }
 
   const plpRoman = tipeLabel(kelompok.tipe)
+  const panitiaText = panitiaLabel(pengaturan.panitia_plp, kelompok.tipe)
   const logoUrl = pengaturan.logo_url || '/logo.png'
 
   return (
@@ -206,7 +225,7 @@ export function DaftarPesertaPLPLetter({ kelompokId }: Props) {
             <div style={{ flex: 1, textAlign: 'center' }}>
               <div style={{ fontSize: '12px', fontWeight: 'normal', letterSpacing: '0.5px', textTransform: 'uppercase' }}>{pengaturan.yayasan}</div>
               <div style={{ fontSize: '20px', fontWeight: 'bold', letterSpacing: '0.5px', textTransform: 'uppercase' }}>{pengaturan.nama_kampus}</div>
-              <div style={{ fontSize: '12px', fontWeight: 'bold', letterSpacing: '0.3px', textTransform: 'uppercase' }}>{pengaturan.panitia_plp}</div>
+              <div style={{ fontSize: '12px', fontWeight: 'bold', letterSpacing: '0.3px', textTransform: 'uppercase' }}>{panitiaText}</div>
               <div style={{ fontSize: '10px', fontStyle: 'italic', marginTop: '2px' }}>Izin Operasional: {pengaturan.izin_operasional}</div>
               <div style={{ fontSize: '10px', marginTop: '2px' }}>{pengaturan.alamat_kampus}</div>
             </div>
@@ -259,7 +278,7 @@ export function DaftarPesertaPLPLetter({ kelompokId }: Props) {
 
           {/* ===== FOOTER / TANDA TANGAN ===== (sesuai PDF: ruang tanda tangan ~5cm, NIDN bold) */}
           <div style={{ textAlign: 'center', marginTop: '24px', marginBottom: '8px' }}>
-            <div style={{ fontSize: '12px', fontWeight: 'bold' }}>{pengaturan.panitia_plp}</div>
+            <div style={{ fontSize: '12px', fontWeight: 'bold' }}>{panitiaText}</div>
             <div style={{ fontSize: '12px', fontWeight: 'bold' }}>FKIP {pengaturan.nama_kampus} T.A {pengaturan.tahun_akademik}</div>
           </div>
 
@@ -286,6 +305,7 @@ export function DaftarPesertaPLPLetter({ kelompokId }: Props) {
 // ============ Print HTML Builder ============
 function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logoBase64: string): string {
   const plpRoman = tipeLabel(kelompok.tipe)
+  const panitiaText = panitiaLabel(p.panitia_plp, kelompok.tipe)
   const logoImg = logoBase64
     ? `<img src="${logoBase64}" alt="Logo" style="width:85px;height:85px;object-fit:contain;flex-shrink:0;" />`
     : ''
@@ -368,7 +388,7 @@ function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logoBase64: string): 
     <div class="text">
       <div class="yayasan">${escapeHtml(p.yayasan)}</div>
       <div class="universitas">${escapeHtml(p.nama_kampus)}</div>
-      <div class="panitia">${escapeHtml(p.panitia_plp)}</div>
+      <div class="panitia">${escapeHtml(panitiaText)}</div>
       <div class="izin">Izin Operasional: ${escapeHtml(p.izin_operasional)}</div>
       <div class="alamat">${escapeHtml(p.alamat_kampus)}</div>
     </div>
@@ -406,7 +426,7 @@ function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logoBase64: string): 
 
   <!-- FOOTER -->
   <div class="footer-title">
-    <div class="l1">${escapeHtml(p.panitia_plp)}</div>
+    <div class="l1">${escapeHtml(panitiaText)}</div>
     <div class="l2">FKIP ${escapeHtml(p.nama_kampus)} T.A ${escapeHtml(p.tahun_akademik)}</div>
   </div>
 
