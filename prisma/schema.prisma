@@ -44,6 +44,7 @@ model ProgramStudi {
   updatedAt  DateTime @updatedAt
   mahasiswa  Mahasiswa[]
   dosen      Dosen[]
+  pendaftaran Pendaftaran[]
 }
 
 // ============ AUTENTIKASI & USER ============
@@ -285,4 +286,28 @@ model Pengaturan {
   key       String   @unique
   value     String
   updatedAt DateTime @updatedAt
+}
+
+// ============ PENDAFTARAN PESERTA KKN/PLP (PUBLIC FORM) ============
+// Diisi oleh calon peserta melalui link publik (/?daftar=true).
+// Admin dapat menyetujui/menolak dan mengimpor ke tabel Mahasiswa.
+
+model Pendaftaran {
+  id            String   @id @default(cuid())
+  namaLengkap   String
+  nim           String   @unique
+  prodiId       String?  // relasi opsional ke ProgramStudi (jika prodi ada di sistem)
+  prodi         ProgramStudi? @relation(fields: [prodiId], references: [id])
+  prodiNama     String   // nama prodi bebas (dipilih dari dropdown atau diketik)
+  jurusan       String   // jurusan / fakultas (bebas teks)
+  jenisKelamin  String   // L, P
+  noWa          String
+  punyaMotor    Boolean
+  alamat        String
+  foto          String?  // foto 3x4 disimpan sebagai data URL base64
+  status        String   @default("PENDING") // PENDING, APPROVED, REJECTED, IMPORTED
+  catatan       String?  // catatan admin saat approve/reject
+  importedMahasiswaId String? // ID Mahasiswa jika sudah diimpor
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }

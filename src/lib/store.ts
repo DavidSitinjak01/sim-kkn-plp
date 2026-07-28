@@ -30,6 +30,7 @@ export type ViewKey =
   | 'agenda'
   | 'pengumuman'
   | 'aktivitas'
+  | 'pendaftaran'
 
 interface AppState {
   user: AuthUser | null
@@ -67,12 +68,12 @@ export const useAppStore = create<AppState>()(
 
 // Role-based menu access
 export const MENU_ACCESS: Record<Role, ViewKey[]> = {
-  SUPER_ADMIN: ['dashboard', 'mahasiswa', 'dosen', 'desa', 'sekolah', 'absensi', 'pembagian', 'persuratan', 'penilaian', 'akun', 'laporan', 'pengaturan', 'agenda', 'pengumuman', 'aktivitas'],
-  ADMIN_FAKULTAS: ['dashboard', 'mahasiswa', 'dosen', 'desa', 'sekolah', 'absensi', 'pembagian', 'persuratan', 'penilaian', 'laporan', 'agenda', 'pengumuman'],
-  ADMIN_PRODI: ['dashboard', 'mahasiswa', 'absensi', 'pembagian', 'persuratan', 'penilaian', 'laporan', 'agenda', 'pengumuman'],
+  SUPER_ADMIN: ['dashboard', 'mahasiswa', 'dosen', 'desa', 'sekolah', 'absensi', 'pembagian', 'persuratan', 'penilaian', 'akun', 'laporan', 'pengaturan', 'agenda', 'pengumuman', 'aktivitas', 'pendaftaran'],
+  ADMIN_FAKULTAS: ['dashboard', 'mahasiswa', 'dosen', 'desa', 'sekolah', 'absensi', 'pembagian', 'persuratan', 'penilaian', 'laporan', 'agenda', 'pengumuman', 'pendaftaran'],
+  ADMIN_PRODI: ['dashboard', 'mahasiswa', 'absensi', 'pembagian', 'persuratan', 'penilaian', 'laporan', 'agenda', 'pengumuman', 'pendaftaran'],
   DOSEN: ['dashboard', 'mahasiswa', 'absensi', 'pembagian', 'penilaian', 'agenda', 'pengumuman'],
   MAHASISWA: ['dashboard', 'absensi', 'agenda', 'pengumuman'],
-  PIMPINAN: ['dashboard', 'mahasiswa', 'dosen', 'desa', 'sekolah', 'absensi', 'pembagian', 'laporan', 'pengumuman', 'agenda'],
+  PIMPINAN: ['dashboard', 'mahasiswa', 'dosen', 'desa', 'sekolah', 'absensi', 'pembagian', 'laporan', 'pengumuman', 'agenda', 'pendaftaran'],
 }
 
 export const ROLE_LABELS: Record<Role, string> = {

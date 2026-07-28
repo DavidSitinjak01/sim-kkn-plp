@@ -20,6 +20,7 @@ import { PengaturanView } from '@/components/views/pengaturan-view'
 import { AgendaView } from '@/components/views/agenda-view'
 import { PengumumanView } from '@/components/views/pengumuman-view'
 import { AktivitasView } from '@/components/views/aktivitas-view'
+import { PendaftaranView } from '@/components/views/pendaftaran-view'
 
 const VIEW_MAP: Record<string, React.ComponentType> = {
   dashboard: DashboardView,
@@ -37,6 +38,7 @@ const VIEW_MAP: Record<string, React.ComponentType> = {
   agenda: AgendaView,
   pengumuman: PengumumanView,
   aktivitas: AktivitasView,
+  pendaftaran: PendaftaranView,
 }
 
 export function AppShell() {
