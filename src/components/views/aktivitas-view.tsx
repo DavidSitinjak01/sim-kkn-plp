@@ -23,7 +23,7 @@ import {
 
 // ============ Types ============
 interface User {
-  id: string; name: string; email: string; role: string
+  id: string; name: string; username: string; email: string | null; role: string
 }
 interface Aktivitas {
   id: string

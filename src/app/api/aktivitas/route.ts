@@ -17,7 +17,11 @@ export async function GET(req: Request) {
 
     const data = await db.aktivitas.findMany({
       where,
-      include: { user: true },
+      include: {
+        user: {
+          select: { id: true, name: true, username: true, email: true, role: true },
+        },
+      },
       orderBy: { createdAt: 'desc' },
       take: 200,
     })
