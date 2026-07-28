@@ -2,6 +2,25 @@ import { db } from '../src/lib/db'
 import bcrypt from 'bcryptjs'
 
 async function main() {
+  // Idempotency guard: if the database already has data, skip seeding.
+  // This makes the seed safe to run on every Vercel build (via vercel.json
+  // buildCommand) without failing on unique-constraint violations when the
+  // database was already seeded by a previous deploy or manually.
+  //
+  // To force a re-seed (e.g. after schema changes), truncate the tables
+  // first via the Neon dashboard SQL editor:
+  //   TRUNCATE "Pengaturan", "Aktivitas", "Agenda", "Pengumuman",
+  //     "Penilaian", "Surat", "Absensi", "KelompokMember", "Kelompok",
+  //     "Sekolah", "Desa", "Mahasiswa", "Dosen", "User", "ProgramStudi",
+  //     "Fakultas" CASCADE;
+  // …then trigger a Vercel redeploy.
+  const existing = await db.user.count()
+  if (existing > 0) {
+    console.log(`ℹ️  Database already has ${existing} users — skipping seed (idempotent).`)
+    console.log('   To force re-seed, truncate tables via Neon SQL editor first.')
+    return
+  }
+
   console.log('🌱 Seeding database...')
 
   // ============ FAKULTAS & PRODI ============
