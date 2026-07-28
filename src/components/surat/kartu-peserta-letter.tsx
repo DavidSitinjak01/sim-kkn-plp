@@ -338,7 +338,7 @@ function CardPreview({ member, kelompok, pengaturan, logoUrl, tutWuriSrc, merdek
             />
           </div>
 
-          {/* Center: University logo */}
+          {/* Center: University logo (no caption text — logo only) */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             {logoUrl && (
               <img
@@ -348,9 +348,6 @@ function CardPreview({ member, kelompok, pengaturan, logoUrl, tutWuriSrc, merdek
                 onError={(e) => { (e.currentTarget.style.display = 'none') }}
               />
             )}
-            <span style={{ fontSize: '6px', color: '#475569', marginTop: '2px', textAlign: 'center', lineHeight: 1.1, fontWeight: 700, textTransform: 'uppercase' }}>
-              {pengaturan.nama_kampus}
-            </span>
           </div>
 
           {/* Right: Kampus Merdeka (admin-uploaded or built-in SVG) */}
@@ -523,7 +520,6 @@ function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logos: PrintLogos): s
           </div>
           <div class="logo-center">
             ${kampusImg}
-            <span class="logo-cap">${escapeHtml(p.nama_kampus)}</span>
           </div>
           <div class="logo-side">
             ${merdekaImg}
