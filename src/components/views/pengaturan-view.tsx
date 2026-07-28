@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import {
   Settings, Save, Loader2, Building2, CalendarDays, Plug, Palette,
   Database, Download, Upload, ShieldCheck, Moon, Sun, Mail, MessageSquare,
-  MapPin, QrCode, Info, Send, Bell, AlertCircle, CheckCircle2, Link as LinkIcon,
+  MapPin, QrCode, Info, Send, Bell, AlertCircle,
   Users, FileText, BadgeCheck, IdCard, Image as ImageIcon, Trash2,
 } from 'lucide-react'
 
@@ -239,82 +239,6 @@ export function PengaturanView() {
     </div>
   )
 
-  // Extract a valid image URL from arbitrary user input.
-  // Handles common mistakes:
-  //  - Full imgbb/HTML snippet: '<a href="..."><img src="https://i.ibb.co/xxx/logo.png">'
-  //  - BBCode: '[img]https://.../logo.png[/img]'
-  //  - Markdown: '![alt](https://.../logo.png)'
-  //  - Plain URL: 'https://.../logo.png'
-  // Returns '' if no valid http(s) URL found.
-  const extractImageUrl = (raw: string): string => {
-    if (!raw) return ''
-    const s = raw.trim()
-    // Fast path: already a clean URL
-    if (/^https?:\/\/\S+\.(png|jpg|jpeg|gif|svg|webp|ico)$/i.test(s)) return s
-    // Try to find any http(s) URL ending with an image extension
-    const m = s.match(/https?:\/\/[^\s"'<>\]]+\.(?:png|jpg|jpeg|gif|svg|webp|ico)(?:\?[^\s"'<>\]]*)?/i)
-    if (m) return m[0]
-    // Fallback: any http(s) URL (user might link a page that serves an image)
-    const m2 = s.match(/https?:\/\/[^\s"'<>\]]+/i)
-    return m2 ? m2[0] : ''
-  }
-
-  // URL field with validation + auto-extraction from pasted HTML/BBCode/Markdown.
-  // Prevents users from accidentally saving HTML snippets (like imgbb share codes)
-  // as the logo/favicon URL, which would break the image display.
-  const UrlField = ({
-    label, value, onChange, placeholder, description,
-  }: {
-    label: string; value: string; onChange: (v: string) => void; placeholder?: string; description?: string;
-  }) => {
-    const extracted = extractImageUrl(value)
-    const isClean = !value || value === extracted
-    return (
-      <div className="space-y-1.5">
-        <Label className="text-sm flex items-center gap-1.5">
-          <LinkIcon className="w-3.5 h-3.5" /> {label}
-        </Label>
-        <Input
-          type="url"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onBlur={() => {
-            // Auto-clean on blur: if user pasted HTML/markdown, extract the URL
-            if (value && !isClean) {
-              onChange(extracted)
-              toast.success('URL otomatis dibersihkan dari format HTML/BBCode')
-            }
-          }}
-          placeholder={placeholder}
-          className={!isClean ? 'border-amber-400' : ''}
-        />
-        {description && <p className="text-xs text-muted-foreground">{description}</p>}
-        {!isClean && (
-          <div className="flex items-start gap-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md p-2">
-            <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-            <div>
-              <p className="font-medium">Tampaknya Anda mem-paste kode HTML, bukan URL gambar.</p>
-              <p className="mt-0.5">URL yang akan disimpan: <code className="font-mono bg-amber-100 dark:bg-amber-900/40 px-1 rounded">{extracted || '(tidak ditemukan URL valid)'}</code></p>
-              <p className="mt-0.5 text-muted-foreground">Klik di luar kolom untuk otomatis membersihkan, atau hapus manual.</p>
-            </div>
-          </div>
-        )}
-        {isClean && extracted && /^https?:\/\//.test(extracted) && (
-          <div className="flex items-center gap-2 text-xs">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-            <span className="text-emerald-600 dark:text-emerald-400">URL valid</span>
-            <img src={extracted} alt="Preview" className="w-8 h-8 rounded border border-border object-contain bg-muted/30" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
-          </div>
-        )}
-        {isClean && value && !extracted && (
-          <p className="flex items-center gap-1 text-xs text-rose-600 dark:text-rose-400">
-            <AlertCircle className="w-3 h-3" /> URL tidak valid — harus diawali http:// atau https://
-          </p>
-        )}
-      </div>
-    )
-  }
-
   if (loading) {
     return (
       <div className="space-y-6">
@@ -373,8 +297,27 @@ export function PengaturanView() {
                   <Label className="text-sm">Website</Label>
                   <Input value={settings.website ?? ''} onChange={(e) => update('website', e.target.value)} placeholder="https://nusantarajaya.ac.id" />
                 </div>
-                <UrlField label="URL Logo" value={settings.logo_url ?? ''} onChange={(v) => update('logo_url', v)} placeholder="https://.../logo.png" description="Tautan langsung ke gambar logo kampus (PNG/SVG/JPG). JANGAN paste kode HTML — cukup URL gambar saja." />
-                <UrlField label="URL Favicon" value={settings.favicon_url ?? ''} onChange={(v) => update('favicon_url', v)} placeholder="https://.../favicon.png" description="Tautan gambar favicon (PNG/ICO/SVG, ukuran kecil 32x32 atau 64x64)." />
+                <div className="sm:col-span-2">
+                  <LogoUploader
+                    label="Logo Aplikasi"
+                    description="Logo kampus yang tampil pada sidebar, header aplikasi, dan halaman pendaftaran mahasiswa. Unggah file gambar (PNG/SVG/JPG/WEBP, maks 2MB) atau tempel URL gambar."
+                    defaultSrc=""
+                    value={settings.logo_url ?? ''}
+                    onChange={(v) => update('logo_url', v)}
+                    onReset={() => update('logo_url', '')}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <LogoUploader
+                    label="Favicon"
+                    description="Ikon kecil pada tab browser. Disarankan PNG/ICO/SVG ukuran 32x32 atau 64x64, maks 512KB."
+                    defaultSrc=""
+                    maxSizeMb={0.5}
+                    value={settings.favicon_url ?? ''}
+                    onChange={(v) => update('favicon_url', v)}
+                    onReset={() => update('favicon_url', '')}
+                  />
+                </div>
               </CardContent>
               <CardFooter className="justify-end gap-2 border-t bg-muted/30 py-3">
                 <Button onClick={() => saveSettings(['nama_kampus', 'alamat_kampus', 'no_telepon', 'email_kampus', 'website', 'logo_url', 'favicon_url'])} disabled={saving}>
@@ -837,9 +780,10 @@ interface LogoUploaderProps {
   value: string
   onChange: (v: string) => void
   onReset: () => void
+  maxSizeMb?: number
 }
 
-function LogoUploader({ label, description, defaultSrc, value, onChange, onReset }: LogoUploaderProps) {
+function LogoUploader({ label, description, defaultSrc, value, onChange, onReset, maxSizeMb = 2 }: LogoUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -851,14 +795,15 @@ function LogoUploader({ label, description, defaultSrc, value, onChange, onReset
 
   const handleFile = async (file: File) => {
     setError(null)
-    // Validate type
-    if (!/^image\/(png|jpe?g|svg\+xml|webp|gif)$/i.test(file.type)) {
-      setError('Format file tidak didukung. Gunakan PNG, JPG, SVG, atau WEBP.')
+    // Validate type (PNG/JPG/SVG/WEBP/GIF/ICO)
+    if (!/^image\/(png|jpe?g|svg\+xml|webp|gif|x-icon|vnd\.microsoft\.icon)$/i.test(file.type)) {
+      setError('Format file tidak didukung. Gunakan PNG, JPG, SVG, WEBP, atau ICO.')
       return
     }
-    // Validate size (max 2 MB)
-    if (file.size > 2 * 1024 * 1024) {
-      setError(`Ukuran file ${Math.round(file.size / 1024)} KB melebihi batas 2 MB.`)
+    // Validate size
+    const maxBytes = maxSizeMb * 1024 * 1024
+    if (file.size > maxBytes) {
+      setError(`Ukuran file ${Math.round(file.size / 1024)} KB melebihi batas ${maxSizeMb} MB.`)
       return
     }
     setBusy(true)
@@ -908,17 +853,24 @@ function LogoUploader({ label, description, defaultSrc, value, onChange, onReset
         {/* Preview */}
         <div className="shrink-0">
           <div className="w-28 h-28 rounded-lg border-2 border-dashed border-border bg-muted/30 flex items-center justify-center overflow-hidden">
-            <img
-              src={previewSrc}
-              alt={label}
-              className="max-w-full max-h-full object-contain p-2"
-              onError={(e) => {
-                const t = e.currentTarget
-                t.style.display = 'none'
-                const p = t.parentElement
-                if (p) p.innerHTML = '<span class="text-xs text-muted-foreground text-center px-2">Gagal memuat</span>'
-              }}
-            />
+            {previewSrc ? (
+              <img
+                src={previewSrc}
+                alt={label}
+                className="max-w-full max-h-full object-contain p-2"
+                onError={(e) => {
+                  const t = e.currentTarget
+                  t.style.display = 'none'
+                  const p = t.parentElement
+                  if (p) p.innerHTML = '<span class="text-xs text-muted-foreground text-center px-2">Gagal memuat</span>'
+                }}
+              />
+            ) : (
+              <div className="flex flex-col items-center gap-1 text-muted-foreground">
+                <ImageIcon className="w-7 h-7 opacity-40" />
+                <span className="text-[10px] text-center px-2">Belum ada logo</span>
+              </div>
+            )}
           </div>
           <p className="text-[10px] text-muted-foreground text-center mt-1">Pratinjau</p>
         </div>
@@ -945,7 +897,7 @@ function LogoUploader({ label, description, defaultSrc, value, onChange, onReset
             <input
               ref={inputRef}
               type="file"
-              accept="image/png,image/jpeg,image/svg+xml,image/webp,image/gif"
+              accept="image/png,image/jpeg,image/svg+xml,image/webp,image/gif,image/x-icon,image/vnd.microsoft.icon"
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0]

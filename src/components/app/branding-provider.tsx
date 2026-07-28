@@ -13,16 +13,19 @@ import { useBranding, fetchBranding } from '@/lib/branding'
  * Komponen ini render null (tidak ada UI), hanya side-effect.
  */
 
-// Validate that a string is a usable http(s) URL.
-// Rejects HTML snippets, javascript: URLs, data: URLs (except small SVG),
-// relative paths, or anything that would break the favicon/logo display.
+// Validate that a string is a usable image URL.
+// Accepts:
+//   - http(s) URLs (external/remote logos)
+//   - data:image/*;base64,... URLs (admin-uploaded logos stored as base64 in DB)
+// Rejects HTML snippets, javascript: URLs, relative paths, or anything that
+// would break the favicon/logo display.
 function isValidImageUrl(url: string): boolean {
   if (!url) return false
   const s = url.trim()
   if (!s) return false
-  // Must start with http:// or https:// (external image) — reject everything else
-  // (relative paths won't work for user-uploaded external logos, and javascript:/data:
-  // URLs are security risks in a favicon context)
+  // Allow base64 data URLs from admin file upload: data:image/png;base64,...
+  if (/^data:image\/[a-z0-9.+-]+;base64,/i.test(s)) return true
+  // Otherwise must be a clean http(s) URL
   return /^https?:\/\/[^\s"'<>\]]+/i.test(s) && !/[<>"']/.test(s)
 }
 
@@ -41,11 +44,18 @@ export function BrandingProvider() {
     // tags, and browsers are inconsistent about which one they pick. If we only update
     // the first, a stale second tag can keep pointing at the old favicon.
     if (branding.faviconUrl && isValidImageUrl(branding.faviconUrl)) {
-      const iconType = branding.faviconUrl.match(/\.png$/i)
-        ? 'image/png'
-        : branding.faviconUrl.match(/\.svg$/i)
-          ? 'image/svg+xml'
-          : ''
+      // Determine MIME type — supports both data: URLs (admin upload) and file extensions
+      const iconType = branding.faviconUrl.startsWith('data:')
+        ? (branding.faviconUrl.match(/^data:image\/([a-z0-9.+-]+)/i)?.[1] ?? '')
+        : branding.faviconUrl.match(/\.png$/i)
+          ? 'image/png'
+          : branding.faviconUrl.match(/\.svg$/i)
+            ? 'image/svg+xml'
+            : branding.faviconUrl.match(/\.ico$/i)
+              ? 'image/x-icon'
+              : branding.faviconUrl.match(/\.(jpe?g|webp|gif)$/i)
+                ? (branding.faviconUrl.match(/\.jpe?g$/i) ? 'image/jpeg' : branding.faviconUrl.match(/\.webp$/i) ? 'image/webp' : 'image/gif')
+                : ''
 
       // Update every existing icon + shortcut icon link in one pass.
       const existingLinks = document.querySelectorAll<HTMLLinkElement>(
