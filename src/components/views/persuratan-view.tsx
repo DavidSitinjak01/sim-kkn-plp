@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import QRCode from 'qrcode'
 import {
   FileText, Plus, Pencil, Trash2, Loader2, Eye, Printer, FileSpreadsheet, FileText as FilePdf,
-  Mail, Send, FileCheck2, FileEdit, ClipboardList, ScrollText, FileSignature,
+  Mail, Send, FileCheck2, FileEdit, ClipboardList, ScrollText, FileSignature, Users,
 } from 'lucide-react'
 
 import { PageHeader } from '@/components/shared/page-header'
@@ -32,6 +32,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import { DaftarPesertaPLPLetter } from '@/components/surat/daftar-peserta-plp-letter'
 
 // ============ Types ============
 interface Surat {
@@ -57,6 +58,17 @@ interface FormState {
   tujuan: string
   status: string
   konten: string
+}
+
+interface PlpKelompok {
+  id: string
+  nama: string
+  tipe: string
+  tahunAkademik: string
+  semester: string
+  sekolah: { id: string; nama: string; jenjang: string } | null
+  dosen: { id: string; nama: string; noHp: string } | null
+  _count: { members: number }
 }
 const EMPTY_FORM: FormState = {
   nomor: '', jenis: 'TUGAS', perihal: '', pemohon: '', tujuan: '', status: 'DRAFT', konten: '',
@@ -234,6 +246,11 @@ export function PersuratanView() {
   const [filterJenis, setFilterJenis] = useState('ALL')
   const [filterStatus, setFilterStatus] = useState('ALL')
 
+  // Daftar Peserta PLP state
+  const [plpKelompok, setPlpKelompok] = useState<PlpKelompok[]>([])
+  const [plpLoading, setPlpLoading] = useState(false)
+  const [letterKelompokId, setLetterKelompokId] = useState<string | null>(null)
+
   // Dialog states
   const [formOpen, setFormOpen] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
@@ -263,6 +280,27 @@ export function PersuratanView() {
   }, [])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  // Fetch PLP kelompok for "Daftar Peserta PLP" tab
+  const fetchPlpKelompok = useCallback(async () => {
+    setPlpLoading(true)
+    try {
+      // Fetch both PLP1 and PLP2 in parallel
+      const [r1, r2] = await Promise.all([
+        fetch('/api/kelompok?tipe=PLP1'),
+        fetch('/api/kelompok?tipe=PLP2'),
+      ])
+      if (!r1.ok || !r2.ok) throw new Error('Gagal memuat')
+      const [d1, d2] = await Promise.all([r1.json(), r2.json()])
+      setPlpKelompok([...d1, ...d2] as PlpKelompok[])
+    } catch {
+      toast.error('Gagal memuat data kelompok PLP')
+    } finally {
+      setPlpLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { fetchPlpKelompok() }, [fetchPlpKelompok])
 
   // Filter data client-side (already fetched all, then apply filters)
   const filtered = useMemo(() => {
@@ -472,6 +510,7 @@ export function PersuratanView() {
         <TabsList className="mb-4">
           <TabsTrigger value="daftar"><FileText className="w-4 h-4 mr-2" />Daftar Surat</TabsTrigger>
           <TabsTrigger value="template"><ClipboardList className="w-4 h-4 mr-2" />Template Surat</TabsTrigger>
+          <TabsTrigger value="daftar-peserta"><Users className="w-4 h-4 mr-2" />Daftar Peserta PLP</TabsTrigger>
         </TabsList>
 
         <TabsContent value="daftar" className="space-y-4">
@@ -570,6 +609,66 @@ export function PersuratanView() {
               )
             })}
           </div>
+        </TabsContent>
+
+        {/* ===== Tab: Daftar Peserta PLP ===== */}
+        <TabsContent value="daftar-peserta" className="space-y-4">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <Users className="w-5 h-5 text-primary" />
+                <h3 className="font-semibold">Daftar Peserta PLP</h3>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Pilih kelompok PLP untuk mencetak daftar peserta sesuai format resmi panitia.
+                Format surat mencakup kop surat dengan logo, daftar anggota kelompok, dan tanda tangan panitia.
+              </p>
+            </CardContent>
+          </Card>
+
+          {plpLoading ? (
+            <Skeleton className="h-48 w-full" />
+          ) : plpKelompok.length === 0 ? (
+            <Card>
+              <CardContent className="p-8 text-center text-muted-foreground">
+                <Users className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                <p>Belum ada kelompok PLP. Buat kelompok PLP di menu Pembagian KKN &amp; PLP terlebih dahulu.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {plpKelompok.map((k, i) => (
+                <motion.div
+                  key={k.id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: i * 0.04 }}
+                >
+                  <Card className="hover:shadow-md hover:border-primary/40 transition-all h-full">
+                    <CardContent className="p-5 flex flex-col h-full">
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <div>
+                          <h4 className="font-semibold leading-tight">{k.nama}</h4>
+                          <span className="inline-block mt-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300 border border-violet-200 dark:border-violet-800">
+                            {k.tipe === 'PLP2' ? 'PLP II' : 'PLP I'}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-xs text-muted-foreground space-y-1 mb-4 flex-1">
+                        <p><span className="font-medium text-foreground">Sekolah:</span> {k.sekolah?.nama ?? '-'}</p>
+                        <p><span className="font-medium text-foreground">DPL:</span> {k.dosen?.nama ?? '-'}</p>
+                        <p><span className="font-medium text-foreground">Anggota:</span> {k._count.members} mahasiswa</p>
+                        <p><span className="font-medium text-foreground">T.A:</span> {k.tahunAkademik} {k.semester === 'GANJIL' ? 'Ganjil' : 'Genap'}</p>
+                      </div>
+                      <Button size="sm" className="w-full" onClick={() => setLetterKelompokId(k.id)}>
+                        <Printer className="w-4 h-4 mr-1.5" />Cetak Daftar Peserta
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 
@@ -711,6 +810,22 @@ export function PersuratanView() {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setTemplateOpen(null)}>Tutup</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ===== Daftar Peserta PLP Letter Dialog ===== */}
+      <Dialog open={!!letterKelompokId} onOpenChange={(o) => { if (!o) setLetterKelompokId(null) }}>
+        <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Daftar Peserta PLP</DialogTitle>
+            <DialogDescription>
+              Pratinjau daftar peserta sesuai format resmi panitia. Klik &quot;Cetak / PDF&quot; untuk mencetak atau menyimpan sebagai PDF.
+            </DialogDescription>
+          </DialogHeader>
+          {letterKelompokId && <DaftarPesertaPLPLetter kelompokId={letterKelompokId} />}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLetterKelompokId(null)}>Tutup</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

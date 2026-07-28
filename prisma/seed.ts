@@ -319,6 +319,16 @@ async function main() {
     { key: 'wa_sender', value: '' },
     { key: 'wa_enabled', value: 'false' },
     { key: 'maps_api_key', value: 'AIzaSyXXXXXXXXXXXXXXXXX' },
+    // ============ IDENTITAS SURAT (untuk format Daftar Peserta PLP) ============
+    { key: 'logo_url', value: '/logo.png' },
+    { key: 'yayasan', value: 'Yayasan Pendidikan Nias Selatan' },
+    { key: 'panitia_plp', value: 'Panitia Pengenalan Lapangan Persekolahan II' },
+    { key: 'izin_operasional', value: 'Kepmendikbudristek Nomor 363/E/O/2021' },
+    { key: 'ketua_panitia', value: 'Antonius Sarumaha, M.Pd.' },
+    { key: 'ketua_panitia_nidn', value: '0118058405' },
+    { key: 'sekretaris_panitia', value: 'Adam Smith Bago, S.Si., M.Pd.' },
+    { key: 'sekretaris_panitia_nidn', value: '0101018409' },
+    { key: 'koordinator_lapangan', value: 'Samalua Waoma, S.E., M.M., M.Ak.' },
   ]
   await Promise.all(pengaturanData.map(p => db.pengaturan.create({ data: p })))
 
