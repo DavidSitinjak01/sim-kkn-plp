@@ -51,8 +51,13 @@ interface Props {
 }
 
 // ============ Default pengaturan (fallback) ============
+// Note: logo_tut_wuri_url & logo_kampus_merdeka_url fall back to the
+// built-in SVG assets in /public when not set by the admin. Admins can
+// upload higher-quality PNG/JPG logos via Pengaturan > Logo Kartu Peserta.
 const DEFAULT_PENGATURAN: Record<string, string> = {
   logo_url: '/logo.png',
+  logo_tut_wuri_url: '',
+  logo_kampus_merdeka_url: '',
   yayasan: 'YAYASAN PENDIDIKAN NIAS SELATAN',
   nama_kampus: 'UNIVERSITAS NIAS RAYA',
   alamat_kampus: 'Jl. Pramuka, Nari-nari, Kelurahan Pasar Telukdalam 22865',
@@ -164,13 +169,19 @@ export function KartuPesertaLetter({ kelompokId }: Props) {
     }
   }, [kelompokId])
 
+  // Resolve the 3 logo sources. Admin-uploaded logos (stored in pengaturan
+  // as data: URLs or remote URLs) take priority; otherwise fall back to the
+  // built-in SVG assets in /public.
+  const tutWuriSrc = pengaturan.logo_tut_wuri_url || '/logo-tut-wuri.svg'
+  const merdekaSrc = pengaturan.logo_kampus_merdeka_url || '/logo-kampus-merdeka.svg'
+
   // Fetch all 3 logos as base64 (for print window embedding)
   useEffect(() => {
     const logoUrl = pengaturan.logo_url || '/logo.png'
     imageUrlToBase64(logoUrl).then(setLogoBase64)
-    imageUrlToBase64('/logo-tut-wuri.svg').then(setTutWuriBase64)
-    imageUrlToBase64('/logo-kampus-merdeka.svg').then(setMerdekaBase64)
-  }, [pengaturan.logo_url])
+    imageUrlToBase64(tutWuriSrc).then(setTutWuriBase64)
+    imageUrlToBase64(merdekaSrc).then(setMerdekaBase64)
+  }, [pengaturan.logo_url, tutWuriSrc, merdekaSrc])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -233,6 +244,7 @@ export function KartuPesertaLetter({ kelompokId }: Props) {
 
   const theme = cardTheme(kelompok.tipe)
   const logoUrl = pengaturan.logo_url || '/logo.png'
+  // tutWuriSrc & merdekaSrc already resolved above (with admin upload priority)
 
   return (
     <div className="space-y-4">
@@ -257,6 +269,8 @@ export function KartuPesertaLetter({ kelompokId }: Props) {
               kelompok={kelompok}
               pengaturan={pengaturan}
               logoUrl={logoUrl}
+              tutWuriSrc={tutWuriSrc}
+              merdekaSrc={merdekaSrc}
               theme={theme}
             />
           ))}
@@ -272,10 +286,12 @@ interface CardPreviewProps {
   kelompok: Kelompok
   pengaturan: Pengaturan
   logoUrl: string
+  tutWuriSrc: string
+  merdekaSrc: string
   theme: ReturnType<typeof cardTheme>
 }
 
-function CardPreview({ member, kelompok, pengaturan, logoUrl, theme }: CardPreviewProps) {
+function CardPreview({ member, kelompok, pengaturan, logoUrl, tutWuriSrc, merdekaSrc, theme }: CardPreviewProps) {
   const m = member.mahasiswa
   const lokasi = kelompok.tipe === 'KKN'
     ? (kelompok.desa?.nama ?? '-')
@@ -312,10 +328,10 @@ function CardPreview({ member, kelompok, pengaturan, logoUrl, theme }: CardPrevi
       >
         {/* 3 Logos row */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', padding: '0 10px' }}>
-          {/* Left: Tut Wuri Handayani (SVG logo) */}
+          {/* Left: Tut Wuri Handayani (admin-uploaded or built-in SVG) */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '56px' }}>
             <img
-              src="/logo-tut-wuri.svg"
+              src={tutWuriSrc}
               alt="Tut Wuri Handayani"
               style={{ width: '48px', height: '48px', objectFit: 'contain' }}
               onError={(e) => { (e.currentTarget.style.display = 'none') }}
@@ -337,10 +353,10 @@ function CardPreview({ member, kelompok, pengaturan, logoUrl, theme }: CardPrevi
             </span>
           </div>
 
-          {/* Right: Kampus Merdeka (SVG logo) */}
+          {/* Right: Kampus Merdeka (admin-uploaded or built-in SVG) */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '56px' }}>
             <img
-              src="/logo-kampus-merdeka.svg"
+              src={merdekaSrc}
               alt="Kampus Merdeka"
               style={{ width: '48px', height: '56px', objectFit: 'contain' }}
               onError={(e) => { (e.currentTarget.style.display = 'none') }}

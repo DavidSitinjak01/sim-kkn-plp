@@ -7,7 +7,7 @@ import {
   Settings, Save, Loader2, Building2, CalendarDays, Plug, Palette,
   Database, Download, Upload, ShieldCheck, Moon, Sun, Mail, MessageSquare,
   MapPin, QrCode, Info, Send, Bell, AlertCircle, CheckCircle2, Link as LinkIcon,
-  Users, FileText, BadgeCheck,
+  Users, FileText, BadgeCheck, IdCard, Image as ImageIcon, Trash2,
 } from 'lucide-react'
 
 import { PageHeader } from '@/components/shared/page-header'
@@ -59,6 +59,10 @@ const DEFAULT_SETTINGS: SettingsMap = {
   sekretaris_panitia: '',
   sekretaris_panitia_nidn: '',
   koordinator_lapangan: '',
+  // Logo Kartu Peserta (ID Card) — admin-upload base64 data URL or remote URL.
+  // Falls back to built-in /public SVGs when empty.
+  logo_tut_wuri_url: '',
+  logo_kampus_merdeka_url: '',
 }
 
 export function PengaturanView() {
@@ -335,11 +339,12 @@ export function PengaturanView() {
         breadcrumb={['Sistem', 'Pengaturan']}
       />
 
-      <Tabs defaultValue={typeof window !== 'undefined' && window.location.hash === '#panitia' ? 'panitia' : 'profil'} className="w-full">
+      <Tabs defaultValue={typeof window !== 'undefined' && (window.location.hash === '#panitia' ? 'panitia' : window.location.hash === '#logo-kartu' ? 'logo-kartu' : '') ? (window.location.hash === '#panitia' ? 'panitia' : 'logo-kartu') : 'profil'} className="w-full">
         <TabsList className="h-auto flex flex-wrap gap-1">
           <TabsTrigger value="profil"><Building2 className="w-4 h-4" />Profil Universitas</TabsTrigger>
           <TabsTrigger value="akademik"><CalendarDays className="w-4 h-4" />Tahun Akademik</TabsTrigger>
           <TabsTrigger value="panitia"><Users className="w-4 h-4" />Kepanitiaan PLP</TabsTrigger>
+          <TabsTrigger value="logo-kartu"><IdCard className="w-4 h-4" />Logo Kartu Peserta</TabsTrigger>
           <TabsTrigger value="integrasi"><Plug className="w-4 h-4" />Integrasi</TabsTrigger>
           <TabsTrigger value="tampilan"><Palette className="w-4 h-4" />Tampilan</TabsTrigger>
           <TabsTrigger value="backup"><Database className="w-4 h-4" />Backup & Restore</TabsTrigger>
@@ -505,6 +510,60 @@ export function PengaturanView() {
                 >
                   {saving ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Save className="w-4 h-4 mr-1.5" />}
                   Simpan Perubahan
+                </Button>
+              </CardFooter>
+            </Card>
+          </motion.div>
+        </TabsContent>
+
+        {/* Logo Kartu Peserta (ID Card) */}
+        <TabsContent value="logo-kartu">
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><IdCard className="w-5 h-5 text-primary" />Logo Kartu Peserta (ID Card)</CardTitle>
+                <CardDescription>
+                  Unggah logo berkualitas tinggi (PNG/JPG/SVG) untuk dipakai pada cetakan Kartu Peserta
+                  mahasiswa KKN &amp; PLP. Logo yang diunggah akan otomatis dipakai pada menu
+                  <strong> Persuratan &rarr; Kartu Peserta (ID Card)</strong>. Jika kosong, sistem memakai logo bawaan.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30 p-3">
+                  <Info className="w-5 h-5 text-amber-600 dark:text-amber-300 shrink-0 mt-0.5" />
+                  <div className="text-xs text-amber-800 dark:text-amber-200">
+                    <p className="font-medium">Tips hasil cetak terbaik:</p>
+                    <ul className="list-disc pl-4 mt-1 space-y-0.5">
+                      <li>Gunakan PNG dengan latar <strong>transparan</strong> (resolusi minimal 512×512 px).</li>
+                      <li>Ukuran file maksimal <strong>2 MB</strong> per logo.</li>
+                      <li>Logo akan otomatis di-embed ke file PDF saat dicetak (tidak bergantung koneksi internet).</li>
+                      <li>Logo Kampus memakai kolom <em>URL Logo</em> di tab <strong>Profil Universitas</strong>.</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <LogoUploader
+                  label="Logo Tut Wuri Handayani"
+                  description="Logo Kemendikbud RI (Tut Wuri Handayani). Tampil di sisi kiri atas kartu peserta."
+                  defaultSrc="/logo-tut-wuri.svg"
+                  value={settings.logo_tut_wuri_url ?? ''}
+                  onChange={(v) => update('logo_tut_wuri_url', v)}
+                  onReset={() => update('logo_tut_wuri_url', '')}
+                />
+
+                <LogoUploader
+                  label="Logo Kampus Merdeka"
+                  description="Logo program Kampus Merdeka. Tampil di sisi kanan atas kartu peserta."
+                  defaultSrc="/logo-kampus-merdeka.svg"
+                  value={settings.logo_kampus_merdeka_url ?? ''}
+                  onChange={(v) => update('logo_kampus_merdeka_url', v)}
+                  onReset={() => update('logo_kampus_merdeka_url', '')}
+                />
+              </CardContent>
+              <CardFooter className="justify-end gap-2 border-t bg-muted/30 py-3">
+                <Button onClick={() => saveSettings(['logo_tut_wuri_url', 'logo_kampus_merdeka_url'])} disabled={saving}>
+                  {saving ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Save className="w-4 h-4 mr-1.5" />}
+                  Simpan Logo Kartu
                 </Button>
               </CardFooter>
             </Card>
@@ -763,6 +822,175 @@ export function PengaturanView() {
           </motion.div>
         </TabsContent>
       </Tabs>
+    </div>
+  )
+}
+
+// ============ Logo Uploader (for ID Card logos) ============
+// Allows admin to upload a high-quality logo (converted to base64 data URL)
+// or paste a remote URL. Falls back to a built-in default SVG when empty.
+// Stored in Pengaturan as `logo_tut_wuri_url` / `logo_kampus_merdeka_url`.
+interface LogoUploaderProps {
+  label: string
+  description: string
+  defaultSrc: string
+  value: string
+  onChange: (v: string) => void
+  onReset: () => void
+}
+
+function LogoUploader({ label, description, defaultSrc, value, onChange, onReset }: LogoUploaderProps) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Determine the source type for display
+  const isDataUrl = value.startsWith('data:')
+  const isRemoteUrl = /^https?:\/\//.test(value)
+  const previewSrc = value || defaultSrc
+
+  const handleFile = async (file: File) => {
+    setError(null)
+    // Validate type
+    if (!/^image\/(png|jpe?g|svg\+xml|webp|gif)$/i.test(file.type)) {
+      setError('Format file tidak didukung. Gunakan PNG, JPG, SVG, atau WEBP.')
+      return
+    }
+    // Validate size (max 2 MB)
+    if (file.size > 2 * 1024 * 1024) {
+      setError(`Ukuran file ${Math.round(file.size / 1024)} KB melebihi batas 2 MB.`)
+      return
+    }
+    setBusy(true)
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result as string)
+        reader.onerror = () => reject(new Error('Gagal membaca file'))
+        reader.readAsDataURL(file)
+      })
+      onChange(dataUrl)
+      toast.success(`Logo "${label}" berhasil dimuat. Klik Simpan untuk menyimpan.`)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal memproses file')
+    } finally {
+      setBusy(false)
+      if (inputRef.current) inputRef.current.value = ''
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    const file = e.dataTransfer.files?.[0]
+    if (file) handleFile(file)
+  }
+
+  return (
+    <div className="rounded-lg border p-4 space-y-3">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="flex-1 min-w-[200px]">
+          <Label className="text-sm flex items-center gap-1.5">
+            <ImageIcon className="w-3.5 h-3.5" /> {label}
+          </Label>
+          <p className="text-xs text-muted-foreground mt-1">{description}</p>
+        </div>
+        {/* Source badge */}
+        <Badge variant="outline" className={
+          isDataUrl ? 'border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-300'
+          : isRemoteUrl ? 'border-sky-300 text-sky-700 dark:border-sky-700 dark:text-sky-300'
+          : 'border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-300'
+        }>
+          {isDataUrl ? 'Unggahan (base64)' : isRemoteUrl ? 'URL Eksternal' : 'Bawaan'}
+        </Badge>
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-4">
+        {/* Preview */}
+        <div className="shrink-0">
+          <div className="w-28 h-28 rounded-lg border-2 border-dashed border-border bg-muted/30 flex items-center justify-center overflow-hidden">
+            <img
+              src={previewSrc}
+              alt={label}
+              className="max-w-full max-h-full object-contain p-2"
+              onError={(e) => {
+                const t = e.currentTarget
+                t.style.display = 'none'
+                const p = t.parentElement
+                if (p) p.innerHTML = '<span class="text-xs text-muted-foreground text-center px-2">Gagal memuat</span>'
+              }}
+            />
+          </div>
+          <p className="text-[10px] text-muted-foreground text-center mt-1">Pratinjau</p>
+        </div>
+
+        {/* Controls */}
+        <div className="flex-1 space-y-2">
+          {/* Drop zone + upload button */}
+          <div
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={handleDrop}
+            className="rounded-md border border-dashed border-border bg-muted/20 px-3 py-2.5 flex items-center gap-2"
+          >
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => inputRef.current?.click()}
+              disabled={busy}
+            >
+              {busy ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Upload className="w-3.5 h-3.5 mr-1.5" />}
+              {busy ? 'Memuat...' : 'Pilih File'}
+            </Button>
+            <span className="text-xs text-muted-foreground">atau seret &amp; lepas file ke sini</span>
+            <input
+              ref={inputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/svg+xml,image/webp,image/gif"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                if (f) handleFile(f)
+              }}
+            />
+          </div>
+
+          {/* URL input (alternative) */}
+          <div className="flex items-center gap-2">
+            <Input
+              type="url"
+              value={isDataUrl ? '' : value}
+              onChange={(e) => onChange(e.target.value)}
+              placeholder="https://.../logo.png (opsional)"
+              className="text-xs h-8"
+            />
+          </div>
+
+          {/* Reset button */}
+          <div className="flex items-center justify-between">
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => { onReset(); setError(null) }}
+              disabled={!value || busy}
+              className="text-xs h-7 px-2 text-muted-foreground"
+            >
+              <Trash2 className="w-3 h-3 mr-1" />Gunakan logo bawaan
+            </Button>
+            {isDataUrl && (
+              <span className="text-[10px] text-muted-foreground">
+                {Math.round(value.length * 0.75 / 1024)} KB
+              </span>
+            )}
+          </div>
+
+          {error && (
+            <p className="flex items-center gap-1 text-xs text-rose-600 dark:text-rose-400">
+              <AlertCircle className="w-3 h-3" />{error}
+            </p>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

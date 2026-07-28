@@ -273,6 +273,14 @@ export function PersuratanView() {
     setView('pengaturan')
   }
 
+  // Navigation: jump to Pengaturan > Logo Kartu Peserta tab
+  const goToLogoKartu = () => {
+    if (typeof window !== 'undefined') {
+      window.location.hash = '#logo-kartu'
+    }
+    setView('pengaturan')
+  }
+
   // Template dialog
   const [templateOpen, setTemplateOpen] = useState<string | null>(null)
 
@@ -524,7 +532,8 @@ export function PersuratanView() {
         <TabsList className="mb-4">
           <TabsTrigger value="daftar"><FileText className="w-4 h-4 mr-2" />Daftar Surat</TabsTrigger>
           <TabsTrigger value="template"><ClipboardList className="w-4 h-4 mr-2" />Template Surat</TabsTrigger>
-          <TabsTrigger value="daftar-peserta"><IdCard className="w-4 h-4 mr-2" />Daftar & Kartu Peserta KKN/PLP</TabsTrigger>
+          <TabsTrigger value="daftar-peserta"><Printer className="w-4 h-4 mr-2" />Daftar Peserta KKN/PLP</TabsTrigger>
+          <TabsTrigger value="kartu-peserta"><IdCard className="w-4 h-4 mr-2" />Kartu Peserta (ID Card)</TabsTrigger>
         </TabsList>
 
         <TabsContent value="daftar" className="space-y-4">
@@ -625,19 +634,18 @@ export function PersuratanView() {
           </div>
         </TabsContent>
 
-        {/* ===== Tab: Daftar Peserta PLP ===== */}
+        {/* ===== Tab: Daftar Peserta KKN/PLP (print participant list) ===== */}
         <TabsContent value="daftar-peserta" className="space-y-4">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-start justify-between gap-3 flex-wrap">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
-                    <Users className="w-5 h-5 text-primary" />
-                    <h3 className="font-semibold">Daftar &amp; Kartu Peserta KKN/PLP</h3>
+                    <Printer className="w-5 h-5 text-primary" />
+                    <h3 className="font-semibold">Daftar Peserta KKN/PLP</h3>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Pilih kelompok KKN atau PLP untuk mencetak daftar peserta (format surat resmi)
-                    atau kartu peserta (ID card) untuk setiap mahasiswa.
+                    Pilih kelompok KKN atau PLP untuk mencetak daftar peserta dalam format surat resmi panitia.
                   </p>
                 </div>
                 <Button variant="outline" size="sm" onClick={goToKepanitiaan} className="shrink-0">
@@ -689,14 +697,85 @@ export function PersuratanView() {
                         <p><span className="font-medium text-foreground">Anggota:</span> {k._count.members} mahasiswa</p>
                         <p><span className="font-medium text-foreground">T.A:</span> {k.tahunAkademik} {k.semester === 'GANJIL' ? 'Ganjil' : 'Genap'}</p>
                       </div>
-                      <div className="flex flex-col gap-2">
-                        <Button size="sm" className="w-full" onClick={() => setKartuKelompokId(k.id)}>
-                          <IdCard className="w-4 h-4 mr-1.5" />Cetak Kartu Peserta
-                        </Button>
-                        <Button size="sm" variant="outline" className="w-full" onClick={() => setLetterKelompokId(k.id)}>
-                          <Printer className="w-4 h-4 mr-1.5" />Cetak Daftar Peserta
-                        </Button>
+                      <Button size="sm" className="w-full" onClick={() => setLetterKelompokId(k.id)}>
+                        <Printer className="w-4 h-4 mr-1.5" />Cetak Daftar Peserta
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+                )
+              })}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ===== Tab: Kartu Peserta (ID Card) ===== */}
+        <TabsContent value="kartu-peserta" className="space-y-4">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <IdCard className="w-5 h-5 text-primary" />
+                    <h3 className="font-semibold">Kartu Peserta (ID Card)</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Pilih kelompok untuk mencetak kartu peserta (ID card) setiap mahasiswa. Logo yang tampil pada kartu
+                    dapat diatur di menu <strong>Pengaturan &rarr; Logo Kartu Peserta</strong>.
+                  </p>
+                </div>
+                <Button variant="outline" size="sm" onClick={goToLogoKartu} className="shrink-0">
+                  <Settings className="w-4 h-4 mr-1.5" />Atur Logo Kartu
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {plpLoading ? (
+            <Skeleton className="h-48 w-full" />
+          ) : plpKelompok.length === 0 ? (
+            <Card>
+              <CardContent className="p-8 text-center text-muted-foreground">
+                <IdCard className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                <p>Belum ada kelompok KKN/PLP. Buat kelompok di menu Pembagian KKN &amp; PLP terlebih dahulu.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {plpKelompok.map((k, i) => {
+                const tipeBadge = k.tipe === 'KKN' ? 'KKN' : k.tipe === 'PLP2' ? 'PLP II' : 'PLP I'
+                const isKkn = k.tipe === 'KKN'
+                const lokasiNama = isKkn ? (k.desa?.nama ?? '-') : (k.sekolah?.nama ?? '-')
+                return (
+                <motion.div
+                  key={k.id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: i * 0.04 }}
+                >
+                  <Card className="hover:shadow-md hover:border-primary/40 transition-all h-full">
+                    <CardContent className="p-5 flex flex-col h-full">
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <div>
+                          <h4 className="font-semibold leading-tight">{k.nama}</h4>
+                          <span className={`inline-block mt-1 px-2 py-0.5 rounded-md text-xs font-semibold border ${
+                            isKkn
+                              ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300 border-cyan-200 dark:border-cyan-800'
+                              : 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300 border-violet-200 dark:border-violet-800'
+                          }`}>
+                            {tipeBadge}
+                          </span>
+                        </div>
                       </div>
+                      <div className="text-xs text-muted-foreground space-y-1 mb-4 flex-1">
+                        <p><span className="font-medium text-foreground">{isKkn ? 'Desa' : 'Sekolah'}:</span> {lokasiNama}</p>
+                        <p><span className="font-medium text-foreground">DPL:</span> {k.dosen?.nama ?? '-'}</p>
+                        <p><span className="font-medium text-foreground">Anggota:</span> {k._count.members} mahasiswa</p>
+                        <p><span className="font-medium text-foreground">T.A:</span> {k.tahunAkademik} {k.semester === 'GANJIL' ? 'Ganjil' : 'Genap'}</p>
+                      </div>
+                      <Button size="sm" className="w-full" onClick={() => setKartuKelompokId(k.id)}>
+                        <IdCard className="w-4 h-4 mr-1.5" />Cetak Kartu Peserta
+                      </Button>
                     </CardContent>
                   </Card>
                 </motion.div>
