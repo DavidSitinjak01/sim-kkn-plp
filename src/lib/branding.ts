@@ -19,7 +19,7 @@ export interface Branding {
 const DEFAULT_BRANDING: Branding = {
   logoUrl: '',
   faviconUrl: '',
-  namaKampus: 'Universitas Nusantara Jaya',
+  namaKampus: 'Universitas Nias Raya',
   website: '',
   emailKampus: '',
   noTelepon: '',
@@ -47,7 +47,7 @@ export async function fetchBranding(force = false): Promise<Branding> {
       cachedBranding = {
         logoUrl: (data.logo_url ?? '').trim(),
         faviconUrl: (data.favicon_url ?? '').trim(),
-        namaKampus: (data.nama_kampus ?? '').trim() || 'Universitas Nusantara Jaya',
+        namaKampus: (data.nama_kampus ?? '').trim() || 'Universitas Nias Raya',
         website: (data.website ?? '').trim(),
         emailKampus: (data.email_kampus ?? '').trim(),
         noTelepon: (data.no_telepon ?? '').trim(),

@@ -16,23 +16,32 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SIM KKN & PLP — Universitas Nusantara Jaya",
+  // Static default metadata. BrandingProvider overrides document.title at
+  // runtime with the value from the pengaturan table (currently
+  // "Universitas Nias Raya"), so this static title is mainly for SEO / OG
+  // tags / no-JS fallback. We keep it in sync with the DB value.
+  title: "SIM KKN & PLP — Universitas Nias Raya",
   description: "Sistem Informasi Manajemen Kuliah Kerja Nyata & Praktik Lapangan Persekolahan. Platform terintegrasi untuk pengelolaan KKN, PLP 1, dan PLP 2.",
-  keywords: ["KKN", "PLP", "Universitas", "Sistem Informasi", "Manajemen"],
+  keywords: ["KKN", "PLP", "Universitas Nias Raya", "Sistem Informasi", "Manajemen"],
   applicationName: "SIM KKN & PLP",
-  authors: [{ name: "Universitas Nusantara Jaya" }],
-  creator: "Universitas Nusantara Jaya",
-  publisher: "Universitas Nusantara Jaya",
+  authors: [{ name: "Universitas Nias Raya" }],
+  creator: "Universitas Nias Raya",
+  publisher: "Universitas Nias Raya",
+  // Single canonical icon entry. Previously this was an array of two SVGs
+  // which produced TWO <link rel="icon"> tags in <head>; browsers picked
+  // whichever they preferred and the BrandingProvider only updated the
+  // first one, so the stale graduation-cap SVG kept showing as favicon.
+  // Now we ship ONE local PNG (the Universitas Nias Raya logo) so the
+  // favicon is correct from the very first HTML render, no JS required.
+  // BrandingProvider still overrides this href at runtime if an admin
+  // sets a custom logo_url / favicon_url via Pengaturan.
   icons: {
-    icon: [
-      { url: "/favicon.svg", type: "image/svg+xml" },
-      { url: "/logo.svg", type: "image/svg+xml" },
-    ],
-    apple: [{ url: "/logo.svg" }],
-    shortcut: ["/favicon.svg"],
+    icon: [{ url: "/favicon.png", type: "image/png" }],
+    shortcut: [{ url: "/favicon.png", type: "image/png" }],
+    apple: [{ url: "/logo.png" }],
   },
   openGraph: {
-    title: "SIM KKN & PLP — Universitas Nusantara Jaya",
+    title: "SIM KKN & PLP — Universitas Nias Raya",
     description: "Platform terintegrasi untuk pengelolaan KKN, PLP 1, dan PLP 2.",
     type: "website",
     locale: "id_ID",
@@ -40,7 +49,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary",
-    title: "SIM KKN & PLP — Universitas Nusantara Jaya",
+    title: "SIM KKN & PLP — Universitas Nias Raya",
     description: "Platform terintegrasi untuk pengelolaan KKN, PLP 1, dan PLP 2.",
   },
 };

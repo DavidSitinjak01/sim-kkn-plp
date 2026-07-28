@@ -35,19 +35,35 @@ export function BrandingProvider() {
   }, [])
 
   useEffect(() => {
-    // Update favicon — only if URL is valid (prevents broken icon if DB has bad data)
+    // Update favicon — only if URL is valid (prevents broken icon if DB has bad data).
+    // IMPORTANT: update ALL <link rel="icon"> and <link rel="shortcut icon"> tags,
+    // not just the first one. Next.js metadata.icons can emit multiple <link rel="icon">
+    // tags, and browsers are inconsistent about which one they pick. If we only update
+    // the first, a stale second tag can keep pointing at the old favicon.
     if (branding.faviconUrl && isValidImageUrl(branding.faviconUrl)) {
-      let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
-      if (!link) {
-        link = document.createElement('link')
+      const iconType = branding.faviconUrl.match(/\.png$/i)
+        ? 'image/png'
+        : branding.faviconUrl.match(/\.svg$/i)
+          ? 'image/svg+xml'
+          : ''
+
+      // Update every existing icon + shortcut icon link in one pass.
+      const existingLinks = document.querySelectorAll<HTMLLinkElement>(
+        'link[rel="icon"], link[rel="shortcut icon"]',
+      )
+      existingLinks.forEach((link) => {
+        link.href = branding.faviconUrl
+        if (iconType) link.type = iconType
+      })
+
+      // If nothing existed yet, create one canonical link.
+      if (existingLinks.length === 0) {
+        const link = document.createElement('link')
         link.rel = 'icon'
+        link.href = branding.faviconUrl
+        if (iconType) link.type = iconType
         document.head.appendChild(link)
       }
-      link.href = branding.faviconUrl
-      // Hint type untuk PNG
-      if (branding.faviconUrl.match(/\.png$/i)) link.type = 'image/png'
-      else if (branding.faviconUrl.match(/\.svg$/i)) link.type = 'image/svg+xml'
-      else if (branding.faviconUrl.match(/\.(ico|jpg|jpeg|webp)$/i)) link.type = ''
     }
 
     // Update apple-touch-icon
