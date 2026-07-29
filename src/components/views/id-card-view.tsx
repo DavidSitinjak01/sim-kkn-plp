@@ -41,7 +41,7 @@ import { cn } from '@/lib/utils'
 import {
   ID_CARD_TEMPLATES, TemplatePreview, buildPrintDocumentHtml,
   imageUrlToBase64, getInitials,
-  type TemplateId, type IdCardMahasiswa, type IdCardPengaturan,
+  type TemplateId, type IdCardMahasiswa, type IdCardPengaturan, type IdCardLogos,
 } from '@/components/id-card/id-card-templates'
 
 // ============ Default pengaturan (fallback) ============
@@ -58,7 +58,7 @@ const DEFAULT_PENGATURAN: IdCardPengaturan = {
 export function IdCardView() {
   const [mahasiswaList, setMahasiswaList] = useState<IdCardMahasiswa[]>([])
   const [pengaturan, setPengaturan] = useState<IdCardPengaturan>(DEFAULT_PENGATURAN)
-  const [logoBase64, setLogoBase64] = useState<string | null>(null)
+  const [logosBase64, setLogosBase64] = useState<IdCardLogos>({ kampus: '', tutWuri: '', merdeka: '' })
   const [loading, setLoading] = useState(true)
   const [printing, setPrinting] = useState(false)
   const [printingAll, setPrintingAll] = useState(false)
@@ -95,11 +95,28 @@ export function IdCardView() {
 
   useEffect(() => { fetchData() }, [fetchData])
 
-  // Convert logo to base64 for print embedding
+  // Resolve 3 logo sources (admin-uploaded takes priority; fallback to built-in SVG)
+  const kampusLogoUrl = pengaturan.logo_url || '/logo.png'
+  const tutWuriUrl = pengaturan.logo_tut_wuri_url || '/logo-tut-wuri.svg'
+  const merdekaUrl = pengaturan.logo_kampus_merdeka_url || '/logo-kampus-merdeka.svg'
+
+  // Convert all 3 logos to base64 for print embedding
   useEffect(() => {
-    const logoUrl = pengaturan.logo_url || '/logo.png'
-    imageUrlToBase64(logoUrl).then(setLogoBase64)
-  }, [pengaturan.logo_url])
+    Promise.all([
+      imageUrlToBase64(kampusLogoUrl),
+      imageUrlToBase64(tutWuriUrl),
+      imageUrlToBase64(merdekaUrl),
+    ]).then(([k, t, m]) => {
+      setLogosBase64({ kampus: k ?? '', tutWuri: t ?? '', merdeka: m ?? '' })
+    })
+  }, [kampusLogoUrl, tutWuriUrl, merdekaUrl])
+
+  // Logo URLs for live preview (no base64 conversion needed on screen)
+  const logosPreview: IdCardLogos = {
+    kampus: kampusLogoUrl,
+    tutWuri: tutWuriUrl,
+    merdeka: merdekaUrl,
+  }
 
   // ---------- Derived data ----------
   const prodiOptions = useMemo(() => {
@@ -194,7 +211,7 @@ export function IdCardView() {
       toast.error('Tidak ada mahasiswa untuk dicetak')
       return
     }
-    const html = buildPrintDocumentHtml(templateId, list, pengaturan, logoBase64 ?? '')
+    const html = buildPrintDocumentHtml(templateId, list, pengaturan, logosBase64)
     const win = window.open('', '_blank', 'width=900,height=700')
     if (!win) {
       toast.error('Popup diblokir. Izinkan popup untuk mencetak.')
@@ -574,7 +591,7 @@ export function IdCardView() {
                       templateId={templateId}
                       m={previewMhs}
                       p={pengaturan}
-                      logoUrl={pengaturan.logo_url || '/logo.png'}
+                      logos={logosPreview}
                     />
                   </motion.div>
                 ) : (
