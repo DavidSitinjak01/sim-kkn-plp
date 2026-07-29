@@ -25,6 +25,7 @@ import { AktivitasView } from '@/components/views/aktivitas-view'
 import { PendaftaranView } from '@/components/views/pendaftaran-view'
 import { FormPendaftaranView } from '@/components/views/form-pendaftaran-view'
 import { LinkPentingView } from '@/components/views/link-penting-view'
+import { IdCardView } from '@/components/views/id-card-view'
 
 const VIEW_MAP: Record<string, React.ComponentType> = {
   dashboard: DashboardView,
@@ -45,6 +46,7 @@ const VIEW_MAP: Record<string, React.ComponentType> = {
   pendaftaran: PendaftaranView,
   formPendaftaran: FormPendaftaranView,
   linkPenting: LinkPentingView,
+  idCard: IdCardView,
 }
 
 export function AppShell() {
