@@ -61,8 +61,8 @@ const DEFAULT_PENGATURAN: Record<string, string> = {
   sekretaris_panitia_nidn: '0101018409',
   koordinator_lapangan: 'Samalua Waoma, S.E., M.M., M.Ak.',
   nama_kampus: 'UNIVERSITAS NIAS RAYA',
-  // Alamat + Telp/Fax dalam SATU BARIS dengan separator ' • ' (sesuai PDF asli).
-  alamat_kampus: 'Jl. Pramuka, Nari-nari, Kehurahan Pasar Telukdalam 22865 • Kabupaten Nias Selatan, Sumatra Utara, Telp/Fax (0630) 7321325',
+  // Alamat + Telp/Fax dalam SATU BARIS dengan separator ' • ' (PERSIS sesuai PDF asli).
+  alamat_kampus: 'Jl. Pramuka. Nari-nari, Kelurahan Pasar Telukdalam 22865 • Kabupaten Nias Selatan, Sumatra Utara. Telp/Fax (0630) 7321325',
   no_telepon: '(0630) 7321325',
   email_kampus: '',
   tahun_akademik: '2024/2025',
@@ -270,15 +270,15 @@ export function DaftarPesertaPLPLetter({ kelompokId }: Props) {
       {/* Letter Preview (A4 ratio) */}
       <div className="bg-white text-black rounded-lg border shadow-inner overflow-auto" style={{ maxHeight: '70vh' }}>
         <div className="mx-auto bg-white" style={{ width: '100%', maxWidth: '794px', padding: '40px 50px', fontFamily: 'Times New Roman, serif' }}>
-          {/* ===== KOP SURAT =====
-             Layout: logo absolute di kiri (90px), blok teks KOP digeser ke
-             kanan dengan margin-left:100px (hanya kiri, BUKAN kiri-kanan).
-             Tujuan: teks KOP (terutama baris alamat + telp yang panjang)
-             TIDAK tertutup logo DAN tetap pada SATU baris (tidak wrap).
-             margin kiri saja = "geser" sesuai permintaan user; area teks
-             tetap cukup lebar (lebar penuh - 100px) sehingga alamat+telp
-             tidak turun ke baris bawah. */}
-          <div style={{ position: 'relative', borderBottom: '3px double #000', paddingBottom: '10px', marginBottom: '6px', minHeight: '90px' }}>
+          {/* ===== KOP SURAT ===== (PERSIS sesuai PDF: logo absolute kiri-atas,
+             blok teks KOP width:100% rata tengah pada LEBAR HALAMAN PENUH
+             sehingga titik tengah teks KOP = titik tengah judul surat di
+             bawahnya → SEJAJAR. Alamat (baris ke-5) tetap 1 baris & TIDAK
+             tertutup logo karena: pada lebar A4 sebenarnya (794px, content
+             ~694px), alamat panjang (~475px) yang rata tengah memiliki tepi
+             kiri di ~(694-475)/2≈110px, sudah lewat dari tepi kanan logo
+             (90px). Garis bawah KOP = SINGLE solid (bukan double) sesuai PDF. */}
+          <div style={{ position: 'relative', borderBottom: '3px solid #000', paddingBottom: '10px', marginBottom: '6px', minHeight: '90px' }}>
             {logoUrl && (
               <img
                 src={logoUrl}
@@ -287,7 +287,7 @@ export function DaftarPesertaPLPLetter({ kelompokId }: Props) {
                 onError={(e) => { (e.currentTarget.style.display = 'none') }}
               />
             )}
-            <div style={{ marginLeft: '100px', textAlign: 'center' }}>
+            <div style={{ width: '100%', textAlign: 'center' }}>
               <div style={{ fontSize: '12px', fontWeight: 'normal', letterSpacing: '0.5px', textTransform: 'uppercase' }}>{pengaturan.yayasan}</div>
               <div style={{ fontSize: '20px', fontWeight: 'bold', letterSpacing: '0.5px', textTransform: 'uppercase' }}>{pengaturan.nama_kampus}</div>
               <div style={{ fontSize: '12px', fontWeight: 'bold', letterSpacing: '0.3px', textTransform: 'uppercase' }}>{panitiaText}</div>
@@ -410,12 +410,12 @@ function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logoBase64: string): 
   }
   .kop {
     position: relative;
-    border-bottom: 3px double #000;
+    border-bottom: 3px solid #000;
     padding-bottom: 10px;
     margin-bottom: 18px;
     min-height: 90px;
   }
-  .kop .text { margin-left: 100px; text-align: center; }
+  .kop .text { width: 100%; text-align: center; }
   .kop img { position: absolute; left: 0; top: 0; width: 90px; height: 90px; object-fit: contain; }
   .yayasan { font-size: 12px; font-weight: normal; letter-spacing: 0.5px; text-transform: uppercase; }
   .universitas { font-size: 20px; font-weight: bold; letter-spacing: 0.5px; text-transform: uppercase; }
@@ -429,7 +429,7 @@ function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logoBase64: string): 
   .info { font-size: 12px; margin-bottom: 14px; line-height: 1.7; }
   .info .label { display: inline-block; width: 180px; }
   table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px; }
-  th { border: 1px solid #000; padding: 6px 8px; text-align: center; background: #f0f0f0; }
+  th { border: 1px solid #000; padding: 6px 8px; text-align: center; }
   td { border: 1px solid #000; padding: 5px 8px; }
   .footer-title { text-align: center; margin-top: 24px; margin-bottom: 8px; }
   .footer-title .l1 { font-size: 12px; font-weight: bold; }
