@@ -5,12 +5,19 @@ type Params = { params: Promise<{ id: string }> }
 
 // POST - add member { mahasiswaId, moveFromKelompokId? }
 //
+// Aturan ANTI-DUPLIKASI:
+//   Seorang mahasiswa hanya boleh terdaftar di SATU kelompok per tahun akademik,
+//   tidak boleh di 2 kelompok sekalipun tipenya berbeda (KKN vs PLP1 vs PLP2).
+//
 // Jika `moveFromKelompokId` diisi, ini adalah operasi PINDAH (transfer):
 //   1. Hapus mahasiswa dari kelompok asal (moveFromKelompokId)
 //   2. Tambahkan ke kelompok tujuan (id)
 //   Dilakukan dalam transaction agar atomic — kalau salah satu gagal, semua rollback.
+//   Tipe kelompok asal & tujuan BOLEH berbeda (pindah KKN -> PLP2 dsb.) karena
+//   user secara eksplisit memilih untuk memindahkan.
 //
 // Jika tidak diisi, ini adalah operasi TAMBAH biasa.
+//   Akan ditolak bila mahasiswa sudah terdaftar di kelompok lain pada tahun akademik yang sama.
 export async function POST(req: Request, { params }: Params) {
   try {
     const { id } = await params
@@ -28,18 +35,43 @@ export async function POST(req: Request, { params }: Params) {
     if (!kel) return NextResponse.json({ error: 'Kelompok tidak ditemukan' }, { status: 404 })
     if (!mhs) return NextResponse.json({ error: 'Mahasiswa tidak ditemukan' }, { status: 400 })
 
+    // ===== Anti-duplikasi: cek kelompok lain pada tahun akademik yang sama =====
+    // Mahasiswa tidak boleh ada di 2 kelompok (apapun tipenya) pada tahun akademik yang sama.
+    const existingMemberships = await db.kelompokMember.findMany({
+      where: { mahasiswaId: body.mahasiswaId },
+      include: { kelompok: { select: { id: true, nama: true, tipe: true, tahunAkademik: true } } },
+    })
+    const conflictSameYear = existingMemberships.find(
+      (m) => m.kelompok.tahunAkademik === kel.tahunAkademik && m.kelompokId !== id,
+    )
+
     // ===== Transfer (pindah antar kelompok) =====
     if (body.moveFromKelompokId && body.moveFromKelompokId !== id) {
       const sourceId = body.moveFromKelompokId as string
 
-      // Verify source kelompok exists & is same tipe+tahunAkademik
+      // Verify source kelompok exists
       const sourceKel = await db.kelompok.findUnique({ where: { id: sourceId } })
       if (!sourceKel) {
         return NextResponse.json({ error: 'Kelompok asal tidak ditemukan' }, { status: 404 })
       }
-      if (sourceKel.tipe !== kel.tipe) {
+      // Tipe BOLEH berbeda — user secara eksplisit memilih untuk memindahkan antar tipe.
+      // Tapi tahun akademik HARUS sama agar tidak menduplikasi entry historis.
+      if (sourceKel.tahunAkademik !== kel.tahunAkademik) {
         return NextResponse.json(
-          { error: `Tipe kelompok berbeda — tidak bisa pindah antar ${sourceKel.tipe} dan ${kel.tipe}` },
+          { error: 'Tahun akademik kelompok asal & tujuan berbeda — tidak bisa pindah antar tahun' },
+          { status: 400 },
+        )
+      }
+
+      // Safety net: pastikan tidak ada konflik di kelompok lain (selain source) di tahun yang sama
+      const otherConflict = existingMemberships.find(
+        (m) => m.kelompokId !== sourceId && m.kelompokId !== id && m.kelompok.tahunAkademik === kel.tahunAkademik,
+      )
+      if (otherConflict) {
+        return NextResponse.json(
+          {
+            error: `Mahasiswa masih terdaftar di kelompok lain: "${otherConflict.kelompok.nama}" (${otherConflict.kelompok.tipe}). Keluarkan dahulu sebelum memindahkan.`,
+          },
           { status: 400 },
         )
       }
@@ -90,7 +122,19 @@ export async function POST(req: Request, { params }: Params) {
       }
     }
 
-    // ===== Add biasa =====
+    // ===== Add biasa — tolak bila sudah ada di kelompok lain (same tahunAkademik) =====
+    if (conflictSameYear) {
+      const k = conflictSameYear.kelompok
+      const tipeLabel = k.tipe === 'KKN' ? 'KKN' : k.tipe === 'PLP1' ? 'PLP 1' : 'PLP 2'
+      return NextResponse.json(
+        {
+          error: `Mahasiswa sudah terdaftar di kelompok "${k.nama}" (${tipeLabel}, TA ${k.tahunAkademik}). Mahasiswa tidak boleh berada di 2 kelompok pada tahun akademik yang sama. Gunakan fitur "Pindah" untuk memindahkan.`,
+          conflict: { kelompokId: k.id, kelompokNama: k.nama, tipe: k.tipe, tahunAkademik: k.tahunAkademik },
+        },
+        { status: 409 },
+      )
+    }
+
     const created = await db.kelompokMember.create({
       data: {
         kelompokId: id,
