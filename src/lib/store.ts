@@ -33,6 +33,7 @@ export type ViewKey =
   | 'aktivitas'
   | 'pendaftaran'
   | 'formPendaftaran'
+  | 'linkPenting'
 
 interface AppState {
   user: AuthUser | null
@@ -92,12 +93,12 @@ export const useAppStore = create<AppState>()(
 
 // Role-based menu access
 export const MENU_ACCESS: Record<Role, ViewKey[]> = {
-  SUPER_ADMIN: ['dashboard', 'mahasiswa', 'dosen', 'desa', 'sekolah', 'absensi', 'pembagian', 'persuratan', 'penilaian', 'akun', 'laporan', 'pengaturan', 'agenda', 'pengumuman', 'aktivitas', 'pendaftaran', 'formPendaftaran'],
-  ADMIN_FAKULTAS: ['dashboard', 'mahasiswa', 'dosen', 'desa', 'sekolah', 'absensi', 'pembagian', 'persuratan', 'penilaian', 'laporan', 'agenda', 'pengumuman', 'pendaftaran', 'formPendaftaran'],
-  ADMIN_PRODI: ['dashboard', 'mahasiswa', 'absensi', 'pembagian', 'persuratan', 'penilaian', 'laporan', 'agenda', 'pengumuman', 'pendaftaran', 'formPendaftaran'],
-  DOSEN: ['dashboard', 'mahasiswa', 'absensi', 'pembagian', 'penilaian', 'agenda', 'pengumuman'],
-  MAHASISWA: ['dashboard', 'absensi', 'agenda', 'pengumuman'],
-  PIMPINAN: ['dashboard', 'mahasiswa', 'dosen', 'desa', 'sekolah', 'absensi', 'pembagian', 'laporan', 'pengumuman', 'agenda', 'pendaftaran', 'formPendaftaran'],
+  SUPER_ADMIN: ['dashboard', 'mahasiswa', 'dosen', 'desa', 'sekolah', 'absensi', 'pembagian', 'persuratan', 'penilaian', 'akun', 'laporan', 'pengaturan', 'agenda', 'pengumuman', 'aktivitas', 'pendaftaran', 'formPendaftaran', 'linkPenting'],
+  ADMIN_FAKULTAS: ['dashboard', 'mahasiswa', 'dosen', 'desa', 'sekolah', 'absensi', 'pembagian', 'persuratan', 'penilaian', 'laporan', 'agenda', 'pengumuman', 'pendaftaran', 'formPendaftaran', 'linkPenting'],
+  ADMIN_PRODI: ['dashboard', 'mahasiswa', 'absensi', 'pembagian', 'persuratan', 'penilaian', 'laporan', 'agenda', 'pengumuman', 'pendaftaran', 'formPendaftaran', 'linkPenting'],
+  DOSEN: ['dashboard', 'mahasiswa', 'absensi', 'pembagian', 'penilaian', 'agenda', 'pengumuman', 'linkPenting'],
+  MAHASISWA: ['dashboard', 'absensi', 'agenda', 'pengumuman', 'linkPenting'],
+  PIMPINAN: ['dashboard', 'mahasiswa', 'dosen', 'desa', 'sekolah', 'absensi', 'pembagian', 'laporan', 'pengumuman', 'agenda', 'pendaftaran', 'formPendaftaran', 'linkPenting'],
 }
 
 export const ROLE_LABELS: Record<Role, string> = {

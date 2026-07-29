@@ -340,3 +340,20 @@ model PendaftaranResponse {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 }
+
+// ============ LINK PENTING ============
+// Kumpulan tautan eksternal untuk admin (SISTER, SIAKAD, e-learning, dll).
+// Dikelola oleh admin, ditampilkan dalam card grid berdasarkan kategori.
+
+model LinkPenting {
+  id        String   @id @default(cuid())
+  judul     String
+  url       String
+  deskripsi String?
+  kategori  String   @default("Umum") // Akademik, Kepegawaian, Umum, dll
+  icon      String?  // nama emoji atau lucide icon (opsional)
+  urutan    Int      @default(0) // untuk sorting manual
+  status    String   @default("AKTIF") // AKTIF, NONAKTIF
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
