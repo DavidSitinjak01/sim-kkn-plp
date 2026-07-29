@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { GraduationCap, User, Lock, Eye, EyeOff, ArrowRight, ShieldCheck, Users, MapPin, BookOpen } from 'lucide-react'
 import { useAppStore } from '@/lib/store'
@@ -18,21 +18,9 @@ export function LoginScreen() {
   const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [captchaAns, setCaptchaAns] = useState('')
-  const [captcha, setCaptcha] = useState({ a: 0, b: 0 })
-
-  useEffect(() => {
-    setCaptcha({ a: Math.floor(Math.random() * 9) + 1, b: Math.floor(Math.random() * 9) + 1 })
-  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (parseInt(captchaAns) !== captcha.a + captcha.b) {
-      toast.error('Jawaban captcha salah')
-      setCaptchaAns('')
-      setCaptcha({ a: Math.floor(Math.random() * 9) + 1, b: Math.floor(Math.random() * 9) + 1 })
-      return
-    }
     setLoading(true)
     try {
       const res = await fetch('/api/auth/login', {
@@ -195,24 +183,6 @@ export function LoginScreen() {
                 >
                   {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="captcha">Verifikasi Keamanan</Label>
-              <div className="flex gap-2">
-                <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg border border-input font-mono text-sm">
-                  {captcha.a} + {captcha.b} = ?
-                </div>
-                <Input
-                  id="captcha"
-                  type="number"
-                  value={captchaAns}
-                  onChange={(e) => setCaptchaAns(e.target.value)}
-                  placeholder="Jawaban"
-                  className="flex-1"
-                  required
-                />
               </div>
             </div>
 
