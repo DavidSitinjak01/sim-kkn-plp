@@ -34,6 +34,7 @@ Jawab HANYA dengan format JSON valid (tanpa markdown, tanpa penjelasan tambahan)
 }`
 
     const response = await zai.chat.completions.createVision({
+      model: 'glm-4v',
       messages: [
         {
           role: 'user',
