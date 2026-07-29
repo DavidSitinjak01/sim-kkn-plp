@@ -270,17 +270,21 @@ export function DaftarPesertaPLPLetter({ kelompokId }: Props) {
       {/* Letter Preview (A4 ratio) */}
       <div className="bg-white text-black rounded-lg border shadow-inner overflow-auto" style={{ maxHeight: '70vh' }}>
         <div className="mx-auto bg-white" style={{ width: '100%', maxWidth: '794px', padding: '40px 50px', fontFamily: 'Times New Roman, serif' }}>
-          {/* ===== KOP SURAT ===== (sesuai PDF: logo kiri, teks rata tengah, alamat+telp 1 baris) */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '18px', borderBottom: '3px double #000', paddingBottom: '10px', marginBottom: '6px' }}>
+          {/* ===== KOP SURAT =====
+             Layout: logo absolute di kiri, teks KOP width:100% rata tengah.
+             Tujuannya: titik tengah teks KOP sama dengan titik tengah judul
+             surat di bawahnya (yang juga rata tengah pada lebar penuh), sehingga
+             KOP dan keterangan surat di bawah KOP tampak SEJAJAR / rapi. */}
+          <div style={{ position: 'relative', borderBottom: '3px double #000', paddingBottom: '10px', marginBottom: '6px', minHeight: '90px' }}>
             {logoUrl && (
               <img
                 src={logoUrl}
                 alt="Logo"
-                style={{ width: '90px', height: '90px', objectFit: 'contain', flexShrink: 0 }}
+                style={{ position: 'absolute', left: 0, top: 0, width: '90px', height: '90px', objectFit: 'contain' }}
                 onError={(e) => { (e.currentTarget.style.display = 'none') }}
               />
             )}
-            <div style={{ flex: 1, textAlign: 'center' }}>
+            <div style={{ width: '100%', textAlign: 'center' }}>
               <div style={{ fontSize: '12px', fontWeight: 'normal', letterSpacing: '0.5px', textTransform: 'uppercase' }}>{pengaturan.yayasan}</div>
               <div style={{ fontSize: '20px', fontWeight: 'bold', letterSpacing: '0.5px', textTransform: 'uppercase' }}>{pengaturan.nama_kampus}</div>
               <div style={{ fontSize: '12px', fontWeight: 'bold', letterSpacing: '0.3px', textTransform: 'uppercase' }}>{panitiaText}</div>
@@ -402,15 +406,14 @@ function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logoBase64: string): 
     padding: 5mm;
   }
   .kop {
-    display: flex;
-    align-items: center;
-    gap: 18px;
+    position: relative;
     border-bottom: 3px double #000;
     padding-bottom: 10px;
     margin-bottom: 18px;
+    min-height: 90px;
   }
-  .kop .text { flex: 1; text-align: center; }
-  .kop img { width: 90px; height: 90px; object-fit: contain; flex-shrink: 0; }
+  .kop .text { width: 100%; text-align: center; }
+  .kop img { position: absolute; left: 0; top: 0; width: 90px; height: 90px; object-fit: contain; }
   .yayasan { font-size: 12px; font-weight: normal; letter-spacing: 0.5px; text-transform: uppercase; }
   .universitas { font-size: 20px; font-weight: bold; letter-spacing: 0.5px; text-transform: uppercase; }
   .panitia { font-size: 12px; font-weight: bold; letter-spacing: 0.3px; text-transform: uppercase; }
