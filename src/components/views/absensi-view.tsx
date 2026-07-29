@@ -7,7 +7,7 @@ import QRCode from 'qrcode'
 import {
   QrCode, CalendarDays, CalendarRange, ScanLine, FileSpreadsheet, FileText,
   Pencil, Trash2, Loader2, MapPin, CheckCircle2, AlertCircle, Users, XCircle,
-  Clock, LogIn, LogOut, Info, Camera,
+  Clock, LogIn, LogOut, Info, Camera, Send, MessageSquare,
 } from 'lucide-react'
 
 import { PageHeader } from '@/components/shared/page-header'
@@ -195,6 +195,10 @@ function RekapHarianTab() {
   const [deleteTarget, setDeleteTarget] = useState<Absensi | null>(null)
   const [deleting, setDeleting] = useState(false)
 
+  // === State untuk kirim rekap ke Dosen (WA) ===
+  const [notifSending, setNotifSending] = useState(false)
+  const [notifConfirm, setNotifConfirm] = useState(false)
+
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
@@ -266,6 +270,42 @@ function RekapHarianTab() {
       toast.error(err?.message || 'Gagal menghapus')
     } finally {
       setDeleting(false)
+    }
+  }
+
+  // === Kirim rekap harian ke Dosen Pembimbing (DPL) kelompok terpilih via WA ===
+  const handleKirimNotifikasi = async () => {
+    if (kelompokId === 'ALL') {
+      toast.error('Pilih kelompok tertentu untuk mengirim notifikasi ke DPL')
+      return
+    }
+    setNotifSending(true)
+    try {
+      const res = await fetch('/api/absensi/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kelompokId, tipe: 'HARIAN', tanggal }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.error || json?.detail || 'Gagal mengirim')
+      if (json.mode === 'simulasi') {
+        toast.success(`Rekap harian dicatat di log server (mode simulasi) untuk DPL: ${json.dosen}`, {
+          description: 'Aktifkan WA Gateway di Pengaturan untuk mengirim pesan nyata.',
+        })
+      } else if (json.mode === 'disabled') {
+        toast.warning(`Notifikasi dilewati — WA dinonaktifkan di Pengaturan`, {
+          description: json.detail,
+        })
+      } else {
+        toast.success(`Rekap harian terkirim ke ${json.dosen} (${json.recipient})`, {
+          description: `${json.jumlahRecord} record · ${json.periodeLabel}`,
+        })
+      }
+      setNotifConfirm(false)
+    } catch (err: any) {
+      toast.error(err?.message || 'Gagal mengirim notifikasi')
+    } finally {
+      setNotifSending(false)
     }
   }
 
@@ -379,7 +419,7 @@ function RekapHarianTab() {
     <div className="space-y-4">
       {/* Filter row */}
       <Card>
-        <CardContent className="p-4">
+        <CardContent className="p-4 space-y-3">
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Tanggal</Label>
@@ -421,6 +461,29 @@ function RekapHarianTab() {
               </div>
             </div>
           </div>
+          {/* Tombol Kirim Notifikasi ke Dosen Pembimbing (DPL) */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-2 border-t border-border/60">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <MessageSquare className="w-4 h-4 text-primary" />
+              <span>
+                Kirim rekap absensi harian ke <strong>Dosen Pembimbing (DPL)</strong> kelompok terpilih via WhatsApp.
+              </span>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => setNotifConfirm(true)}
+              disabled={kelompokId === 'ALL' || notifSending || loading}
+              className="sm:w-auto w-full"
+            >
+              {notifSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              Kirim ke Dosen
+            </Button>
+          </div>
+          {kelompokId === 'ALL' && (
+            <p className="text-[11px] text-amber-600 dark:text-amber-400">
+              Pilih kelompok tertentu untuk mengaktifkan tombol kirim notifikasi.
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -526,6 +589,34 @@ function RekapHarianTab() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Dialog konfirmasi kirim rekap ke Dosen */}
+      <AlertDialog open={notifConfirm} onOpenChange={setNotifConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Send className="w-5 h-5 text-primary" /> Kirim Rekap Harian ke Dosen?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Rekap absensi tanggal <strong>{new Date(tanggal).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</strong> untuk kelompok <strong>{kelompokList.find((k) => k.id === kelompokId)?.nama ?? '-'}</strong> akan dikirim via WhatsApp ke Dosen Pembimbing (DPL) kelompok tersebut.
+              <br /><br />
+              <span className="text-xs text-muted-foreground">
+                Mode pengiriman mengikuti konfigurasi WhatsApp Gateway di menu Pengaturan (live / simulasi / dinonaktifkan).
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={notifSending}>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleKirimNotifikasi() }}
+              disabled={notifSending}
+            >
+              {notifSending && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
+              Ya, Kirim
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
@@ -537,6 +628,10 @@ function RekapBulananTab() {
   const [loading, setLoading] = useState(true)
   const [bulan, setBulan] = useState(currentMonthStr())
   const [kelompokId, setKelompokId] = useState('ALL')
+
+  // === State untuk kirim rekap ke Dosen (WA) ===
+  const [notifSending, setNotifSending] = useState(false)
+  const [notifConfirm, setNotifConfirm] = useState(false)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -583,6 +678,42 @@ function RekapBulananTab() {
       return [r.nim, r.nama, r.hadir, r.izin, r.sakit, r.alpha, r.total, pct + '%']
     })
     exportToPDF(`Rekap Bulanan ${bulan}`, generateTableHTML(`Rekap Kehadiran Bulanan ${bulan}`, headers, rows))
+  }
+
+  // === Kirim rekap bulanan ke Dosen Pembimbing (DPL) kelompok terpilih via WA ===
+  const handleKirimNotifikasi = async () => {
+    if (kelompokId === 'ALL') {
+      toast.error('Pilih kelompok tertentu untuk mengirim notifikasi ke DPL')
+      return
+    }
+    setNotifSending(true)
+    try {
+      const res = await fetch('/api/absensi/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kelompokId, tipe: 'BULANAN', bulan }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.error || json?.detail || 'Gagal mengirim')
+      if (json.mode === 'simulasi') {
+        toast.success(`Rekap bulanan dicatat di log server (mode simulasi) untuk DPL: ${json.dosen}`, {
+          description: 'Aktifkan WA Gateway di Pengaturan untuk mengirim pesan nyata.',
+        })
+      } else if (json.mode === 'disabled') {
+        toast.warning(`Notifikasi dilewati — WA dinonaktifkan di Pengaturan`, {
+          description: json.detail,
+        })
+      } else {
+        toast.success(`Rekap bulanan terkirim ke ${json.dosen} (${json.recipient})`, {
+          description: `${json.jumlahRecord} record · ${json.periodeLabel}`,
+        })
+      }
+      setNotifConfirm(false)
+    } catch (err: any) {
+      toast.error(err?.message || 'Gagal mengirim notifikasi')
+    } finally {
+      setNotifSending(false)
+    }
   }
 
   const columns: Column<RekapRow>[] = useMemo(() => [
@@ -633,7 +764,7 @@ function RekapBulananTab() {
   return (
     <div className="space-y-4">
       <Card>
-        <CardContent className="p-4">
+        <CardContent className="p-4 space-y-3">
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Bulan</Label>
@@ -660,6 +791,29 @@ function RekapBulananTab() {
               </Button>
             </div>
           </div>
+          {/* Tombol Kirim Notifikasi ke Dosen Pembimbing (DPL) */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-2 border-t border-border/60">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <MessageSquare className="w-4 h-4 text-primary" />
+              <span>
+                Kirim rekap absensi <strong>bulanan</strong> ke <strong>Dosen Pembimbing (DPL)</strong> kelompok terpilih via WhatsApp.
+              </span>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => setNotifConfirm(true)}
+              disabled={kelompokId === 'ALL' || notifSending || loading}
+              className="sm:w-auto w-full"
+            >
+              {notifSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              Kirim ke Dosen
+            </Button>
+          </div>
+          {kelompokId === 'ALL' && (
+            <p className="text-[11px] text-amber-600 dark:text-amber-400">
+              Pilih kelompok tertentu untuk mengaktifkan tombol kirim notifikasi.
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -700,6 +854,34 @@ function RekapBulananTab() {
           />
         </>
       )}
+
+      {/* Dialog konfirmasi kirim rekap bulanan ke Dosen */}
+      <AlertDialog open={notifConfirm} onOpenChange={setNotifConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Send className="w-5 h-5 text-primary" /> Kirim Rekap Bulanan ke Dosen?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Rekap absensi bulan <strong>{new Date(bulan + '-01').toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}</strong> untuk kelompok <strong>{kelompokList.find((k) => k.id === kelompokId)?.nama ?? '-'}</strong> akan dikirim via WhatsApp ke Dosen Pembimbing (DPL) kelompok tersebut.
+              <br /><br />
+              <span className="text-xs text-muted-foreground">
+                Mode pengiriman mengikuti konfigurasi WhatsApp Gateway di menu Pengaturan (live / simulasi / dinonaktifkan).
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={notifSending}>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleKirimNotifikasi() }}
+              disabled={notifSending}
+            >
+              {notifSending && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
+              Ya, Kirim
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

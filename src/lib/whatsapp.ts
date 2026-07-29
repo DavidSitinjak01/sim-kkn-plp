@@ -169,6 +169,118 @@ export async function sendWhatsApp(payload: { to: string; message: string }): Pr
 }
 
 /**
+ * Kirim rekap absensi (harian atau bulanan) sebuah kelompok ke dosen pembimbingnya.
+ *
+ * @param kelompokId  ID Kelompok yang rekapnya dikirim
+ * @param tipe        'HARIAN' atau 'BULANAN'
+ * @param records     Array absensi yang sudah di-fetch + include relasinya.
+ *                    Untuk HARIAN: semua record tanggal tsb. Untuk BULANAN:
+ *                    sudah digabung per-mahasiswa (count per status).
+ * @param periodeLabel Label periode untuk header pesan, mis. "Senin, 12 Mei 2025"
+ *                     atau "Mei 2025".
+ */
+export async function notifyDosenRekap(args: {
+  kelompokId: string
+  tipe: 'HARIAN' | 'BULANAN'
+  records: Array<{
+    nim: string
+    nama: string
+    status: string
+    jamMasuk: Date | string | null
+    jamPulang: Date | string | null
+    keterangan?: string | null
+  }>
+  periodeLabel: string
+}): Promise<WaResult> {
+  try {
+    const kel = await db.kelompok.findUnique({
+      where: { id: args.kelompokId },
+      include: { dosen: true, desa: true, sekolah: true },
+    })
+    if (!kel) {
+      return { ok: false, mode: 'disabled', detail: 'Kelompok tidak ditemukan' }
+    }
+    const dosen = kel.dosen
+    if (!dosen) {
+      return {
+        ok: false,
+        mode: 'disabled',
+        detail: `Kelompok "${kel.nama}" tidak punya dosen pembimbing`,
+      }
+    }
+    if (!dosen.noHp) {
+      return {
+        ok: false,
+        mode: 'disabled',
+        detail: `Dosen ${dosen.nama} tidak punya nomor WA`,
+      }
+    }
+
+    const tipeLabel = args.tipe === 'HARIAN' ? 'HARIAN' : 'BULANAN'
+    const tipeEmoji = args.tipe === 'HARIAN' ? '📋' : '📊'
+    const lokasi = kel.desa?.nama || kel.sekolah?.nama || '-'
+
+    const total = args.records.length
+    const hadir = args.records.filter((r) => r.status === 'HADIR').length
+    const izin = args.records.filter((r) => r.status === 'IZIN').length
+    const sakit = args.records.filter((r) => r.status === 'SAKIT').length
+    const alpha = args.records.filter((r) => r.status === 'ALPHA').length
+
+    // Batasi daftar nama supaya pesan tidak melebihi batas WA (~4096 char).
+    // Tampilkan maksimal 15 baris; sisanya diringkas.
+    const lines: string[] = []
+    const shown = args.records.slice(0, 15)
+    for (const r of shown) {
+      const jam =
+        r.jamMasuk
+          ? new Date(r.jamMasuk).toLocaleTimeString('id-ID', {
+              timeZone: 'Asia/Jakarta',
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+          : '-'
+      const statusEmoji =
+        r.status === 'HADIR' ? '✅'
+        : r.status === 'IZIN' ? '🟨'
+        : r.status === 'SAKIT' ? '🩺'
+        : '⬛'
+      lines.push(`${statusEmoji} ${r.nim} — ${r.nama} (${jam})`)
+    }
+    if (args.records.length > 15) {
+      lines.push(`... dan ${args.records.length - 15} lainnya`)
+    }
+    const detail = lines.length > 0 ? lines.join('\n') : '(Belum ada absensi)'
+
+    const message = `${tipeEmoji} *REKAP ABSENSI ${tipeLabel}*
+
+Kelompok: *${kel.nama}* (${kel.tipe})
+Lokasi: ${lokasi}
+DPL: ${dosen.nama}
+Periode: ${args.periodeLabel}
+
+*Ringkasan:* Total ${total} | Hadir ${hadir} | Izin ${izin} | Sakit ${sakit} | Alpha ${alpha}
+
+*Detail Mahasiswa:*
+${detail}
+
+— SIM KKN & PLP Universitas Nusantara Jaya`
+
+    const result = await sendWhatsApp({ to: dosen.noHp, message })
+
+    console.log(
+      `[WA-REKAP] ${tipeLabel} | Kelompok: ${kel.nama} | Dosen: ${dosen.nama} ` +
+        `(${result.recipient ?? dosen.noHp}) | Mode: ${result.mode} | ` +
+        `Status: ${result.ok ? 'OK' : 'GAGAL — ' + (result.detail ?? '')}`,
+    )
+
+    return result
+  } catch (e: any) {
+    console.error('[notifyDosenRekap] error:', e)
+    return { ok: false, mode: 'disabled', detail: e?.message || 'unknown error' }
+  }
+}
+
+/**
  * Kirim notifikasi absensi ke dosen pembimbing kelompok mahasiswa.
  * Dipanggil dari API absensi setelah record dibuat/diupdate.
  *
@@ -208,8 +320,30 @@ export async function notifyDosenAbsensi(args: {
       }
     }
 
-    const tipeLabel = args.tipe === 'MASUK' ? 'CHECK-IN MASUK' : 'CHECK-OUT PULANG'
-    const tipeEmoji = args.tipe === 'MASUK' ? '🟢' : '🟠'
+    // Label header menyesuaikan status absensi:
+    //  - HADIR + MASUK → "CHECK-IN MASUK"
+    //  - HADIR + PULANG → "CHECK-OUT PULANG"
+    //  - IZIN/SAKIT/ALPHA → label sesuai status (tidak ada jam check-in/out)
+    let tipeLabel: string
+    let tipeEmoji: string
+    if (absen.status === 'HADIR') {
+      if (args.tipe === 'MASUK') {
+        tipeLabel = 'CHECK-IN MASUK'
+        tipeEmoji = '🟢'
+      } else {
+        tipeLabel = 'CHECK-OUT PULANG'
+        tipeEmoji = '🟠'
+      }
+    } else if (absen.status === 'IZIN') {
+      tipeLabel = 'IZIN'
+      tipeEmoji = '🟨'
+    } else if (absen.status === 'SAKIT') {
+      tipeLabel = 'SAKIT'
+      tipeEmoji = '🩺'
+    } else {
+      tipeLabel = 'ALPHA'
+      tipeEmoji = '⬛'
+    }
 
     const jamSource = args.tipe === 'MASUK' ? absen.jamMasuk : absen.jamPulang
     const jam = jamSource
@@ -229,6 +363,8 @@ export async function notifyDosenAbsensi(args: {
 
     const lokasi = absen.kelompok?.desa?.nama || absen.kelompok?.sekolah?.nama || '-'
 
+    const ketLine = absen.keterangan ? `\nKeterangan: ${absen.keterangan}` : ''
+
     const message = `${tipeEmoji} *NOTIFIKASI ABSENSI ${tipeLabel}*
 
 Mahasiswa: *${absen.mahasiswa.nama}*
@@ -240,7 +376,7 @@ Lokasi: ${lokasi}
 
 Tanggal: ${tgl}
 Jam: ${jam} WIB
-Status: ${absen.status}
+Status: ${absen.status}${ketLine}
 
 — SIM KKN & PLP Universitas Nusantara Jaya`
 
