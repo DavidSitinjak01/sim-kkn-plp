@@ -23,7 +23,7 @@ import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import {
   IdCard as IdCardIcon, Search, Printer, Loader2, Users, CheckCheck,
-  X, ChevronLeft, ChevronRight, Layout, AlertCircle, User,
+  X, ChevronLeft, ChevronRight, Layout, AlertCircle, User, Camera,
 } from 'lucide-react'
 
 import { PageHeader } from '@/components/shared/page-header'
@@ -43,6 +43,7 @@ import {
   imageUrlToBase64, getInitials,
   type TemplateId, type IdCardMahasiswa, type IdCardPengaturan, type IdCardLogos,
 } from '@/components/id-card/id-card-templates'
+import { PhotoEditorDialog } from '@/components/photo-editor/photo-editor-dialog'
 
 // ============ Default pengaturan (fallback) ============
 const DEFAULT_PENGATURAN: IdCardPengaturan = {
@@ -260,6 +261,35 @@ export function IdCardView() {
       toast.success(`Mencetak ID card: ${m.nama}`)
     } catch {
       toast.error('Gagal mencetak ID card')
+    }
+  }
+
+  // ============ Photo editor (atur foto presisi) ============
+  const [photoEditorOpen, setPhotoEditorOpen] = useState(false)
+  const [photoSaving, setPhotoSaving] = useState(false)
+
+  const handleSavePhoto = async (base64DataUrl: string) => {
+    if (!previewMhs) return
+    setPhotoSaving(true)
+    try {
+      const res = await fetch(`/api/mahasiswa/${previewMhs.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ foto: base64DataUrl }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.error || 'Gagal menyimpan foto')
+      // Update local mahasiswaList so preview + list reflect new foto immediately
+      setMahasiswaList(prev => prev.map(m =>
+        m.id === previewMhs.id ? { ...m, foto: base64DataUrl } : m
+      ))
+      toast.success('Foto berhasil diperbarui')
+      setPhotoEditorOpen(false)
+    } catch (err: any) {
+      toast.error(err?.message || 'Gagal menyimpan foto')
+      throw err
+    } finally {
+      setPhotoSaving(false)
     }
   }
 
@@ -612,10 +642,16 @@ export function IdCardView() {
                     <span className="mx-1.5">•</span>
                     <span>{previewMhs.prodi?.nama}</span>
                   </div>
-                  <Button size="sm" variant="outline" onClick={() => handlePrintOne(previewMhs)}>
-                    <Printer className="w-4 h-4 mr-1.5" />
-                    Cetak Kartu Ini
-                  </Button>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Button size="sm" variant="outline" onClick={() => setPhotoEditorOpen(true)}>
+                      <Camera className="w-4 h-4 mr-1.5" />
+                      Atur Foto
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => handlePrintOne(previewMhs)}>
+                      <Printer className="w-4 h-4 mr-1.5" />
+                      Cetak Kartu Ini
+                    </Button>
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -676,6 +712,15 @@ export function IdCardView() {
           </p>
         </div>
       )}
+
+      {/* Photo editor — atur posisi & zoom foto presisi agar wajah pas di ID Card */}
+      <PhotoEditorDialog
+        open={photoEditorOpen}
+        onOpenChange={setPhotoEditorOpen}
+        initialFoto={previewMhs?.foto ?? null}
+        studentName={previewMhs?.nama}
+        onSave={handleSavePhoto}
+      />
     </div>
   )
 }

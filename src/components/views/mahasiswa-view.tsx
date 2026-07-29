@@ -5,7 +5,9 @@ import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import {
   Users, Plus, FileSpreadsheet, FileText, Pencil, Trash2, Loader2, UserCheck, UserX, Venus, Mars,
+  ImageIcon, Camera,
 } from 'lucide-react'
+import { PhotoEditorDialog } from '@/components/photo-editor/photo-editor-dialog'
 
 import { PageHeader } from '@/components/shared/page-header'
 import { DataTable, type Column } from '@/components/shared/data-table'
@@ -109,6 +111,8 @@ export function MahasiswaView() {
 
   const [deleteTarget, setDeleteTarget] = useState<Mahasiswa | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [photoEditorOpen, setPhotoEditorOpen] = useState(false)
+  const [photoSaving, setPhotoSaving] = useState(false)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -228,6 +232,36 @@ export function MahasiswaView() {
       toast.error(err?.message || 'Gagal menghapus data')
     } finally {
       setDeleting(false)
+    }
+  }
+
+  // ============ Photo editor save ============
+  // Saves the cropped base64 foto to the backend immediately (PUT /api/mahasiswa/[id]).
+  // Also updates local `data` + `form.foto` so the preview stays in sync without a refetch.
+  const handleSavePhoto = async (base64DataUrl: string) => {
+    if (!editId) {
+      toast.error('Simpan data mahasiswa terlebih dahulu sebelum mengatur foto.')
+      return
+    }
+    setPhotoSaving(true)
+    try {
+      const res = await fetch(`/api/mahasiswa/${editId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ foto: base64DataUrl }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.error || 'Gagal menyimpan foto')
+      // Update local state
+      setData(prev => prev.map(m => m.id === editId ? { ...m, foto: base64DataUrl } : m))
+      setForm(prev => ({ ...prev, foto: base64DataUrl }))
+      toast.success('Foto berhasil diperbarui')
+      setPhotoEditorOpen(false)
+    } catch (err: any) {
+      toast.error(err?.message || 'Gagal menyimpan foto')
+      throw err  // re-throw so the dialog keeps its loading state honest
+    } finally {
+      setPhotoSaving(false)
     }
   }
 
@@ -492,8 +526,50 @@ export function MahasiswaView() {
                 <Textarea id="alamat" value={form.alamat} onChange={(e) => setForm({ ...form, alamat: e.target.value })} placeholder="Alamat lengkap" rows={2} />
               </div>
               <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="foto">URL Foto (opsional)</Label>
-                <Input id="foto" value={form.foto} onChange={(e) => setForm({ ...form, foto: e.target.value })} placeholder="https://..." />
+                <Label>Foto Mahasiswa</Label>
+                <div className="flex items-center gap-4 p-3 rounded-lg border border-input bg-muted/30">
+                  {/* Thumbnail preview */}
+                  <div className="w-20 h-20 rounded-full border-2 border-primary/30 bg-background overflow-hidden flex items-center justify-center shrink-0">
+                    {form.foto ? (
+                      <img
+                        src={form.foto}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                      />
+                    ) : (
+                      <ImageIcon className="w-8 h-8 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Atur posisi & zoom foto secara presisi agar wajah pas di lingkaran ID Card.
+                      {!editId && ' (Simpan data mahasiswa dulu sebelum mengatur foto.)'}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPhotoEditorOpen(true)}
+                        disabled={!editId}
+                      >
+                        <Camera className="w-4 h-4 mr-1.5" />
+                        {form.foto ? 'Atur Ulang Foto' : 'Unggah & Atur Foto'}
+                      </Button>
+                      {form.foto && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setForm({ ...form, foto: '' })}
+                        >
+                          Hapus Foto
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -533,6 +609,15 @@ export function MahasiswaView() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Photo editor dialog — lets admin pan/zoom/rotate foto precisely */}
+      <PhotoEditorDialog
+        open={photoEditorOpen}
+        onOpenChange={setPhotoEditorOpen}
+        initialFoto={form.foto || null}
+        studentName={form.nama}
+        onSave={handleSavePhoto}
+      />
     </div>
   )
 }
