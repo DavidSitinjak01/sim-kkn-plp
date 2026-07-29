@@ -11,7 +11,7 @@
  * Versioned via SW_CACHE_VERSION — bump to invalidate old caches.
  */
 
-const SW_CACHE_VERSION = 'v1.0.0'
+const SW_CACHE_VERSION = 'v1.1.0'
 const STATIC_CACHE = `simkkn-static-${SW_CACHE_VERSION}`
 const RUNTIME_CACHE = `simkkn-runtime-${SW_CACHE_VERSION}`
 const API_CACHE = `simkkn-api-${SW_CACHE_VERSION}`
