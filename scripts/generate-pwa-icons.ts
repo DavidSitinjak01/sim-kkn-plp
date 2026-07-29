@@ -1,11 +1,14 @@
 /**
- * Generate PWA icons using the Kampus Merdeka logo on a teal gradient
- * background (matches the app's primary theme color).
+ * Generate PWA icons using the official Universitas Nias Raya logo.
  *
  * Design:
- *   - Full-bleed teal gradient background (required for Android maskable)
- *   - Kampus Merdeka shield logo centered in the 80% safe zone (~70% size)
- *   - Logo retains its original blue shield + graduation cap + "KAMPUS MERDEKA" text
+ *   - Solid white background (maximizes logo contrast & legibility on Android)
+ *   - University logo (circular badge, 300×300 source PNG) centered at ~80%
+ *     of canvas — fills the safe zone edge-to-edge for maximum visibility
+ *
+ * The logo is a detailed circular emblem (orange/red with rice plant symbol
+ * + "UNIVERSITAS NIAS RAYA" text), so we use a white background rather than
+ * the teal gradient to avoid color clash and keep the logo recognizable.
  *
  * Outputs (in /public/icons/):
  *   - icon-192.png, icon-256.png, icon-512.png (any maskable)
@@ -15,82 +18,67 @@
  * Run:  bun scripts/generate-pwa-icons.ts
  */
 import sharp from 'sharp'
-import { readFileSync } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const PUBLIC_ICONS = resolve(__dirname, '../public/icons')
-const KM_SVG_PATH = resolve(__dirname, '../public/logo-kampus-merdeka.svg')
+const LOGO_PATH = resolve(__dirname, '../public/logo-universitas-nias-raya.png')
 
-// App theme gradient (matches bg-gradient-primary in globals.css)
-const GRAD_STOP_1 = '#0e7490' // teal-700
-const GRAD_STOP_2 = '#155e75' // teal-800
+async function buildIconBuffer(size: number): Promise<Buffer> {
+  // Logo fills ~80% of canvas — the full safe zone — for maximum
+  // legibility of the detailed emblem at small icon sizes.
+  const logoSize = Math.round(size * 0.8)
+  const logoOffset = Math.round((size - logoSize) / 2)
 
-// Read the Kampus Merdeka SVG source (viewBox 0 0 120 120)
-const kmSvgSource = readFileSync(KM_SVG_PATH, 'utf-8')
+  // Resize the source logo to the target size (fit: contain keeps aspect
+  // ratio; the source is square 300×300 so no distortion).
+  const logoResized = await sharp(LOGO_PATH)
+    .resize(logoSize, logoSize, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .png()
+    .toBuffer()
 
-/**
- * Build the composite icon SVG: teal gradient background + Kampus Merdeka
- * logo centered in the 80% safe zone.
- *
- * @param size  output canvas size in pixels
- */
-function buildIconSvg(size: number): string {
-  // Logo occupies ~70% of canvas — well inside the 80% safe zone.
-  // KM SVG viewBox is 120×120, so scale = 0.7 * size / 120
-  const logoScale = (size * 0.7) / 120
-  const logoSize = 120 * logoScale
-  const logoOffset = (size - logoSize) / 2
-
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">
-  <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="${GRAD_STOP_1}"/>
-      <stop offset="100%" stop-color="${GRAD_STOP_2}"/>
-    </linearGradient>
-  </defs>
-  <!-- Full-bleed teal gradient background — required for maskable -->
-  <rect width="${size}" height="${size}" fill="url(#bg)"/>
-  <!-- Subtle decorative circles (low opacity, don't compete with logo) -->
-  <circle cx="${size * 0.85}" cy="${size * 0.15}" r="${size * 0.35}" fill="#ffffff" opacity="0.04"/>
-  <circle cx="${size * 0.12}" cy="${size * 0.88}" r="${size * 0.28}" fill="#ffffff" opacity="0.03"/>
-  <!-- Kampus Merdeka logo — centered, inside safe zone -->
-  <g transform="translate(${logoOffset} ${logoOffset}) scale(${logoScale})">
-    ${kmSvgSource.match(/<svg[^>]*>([\s\S]*)<\/svg>/)?.[1] || ''}
-  </g>
-</svg>`
+  // Composite logo on solid white background.
+  return sharp({
+    create: {
+      width: size,
+      height: size,
+      channels: 4,
+      background: { r: 255, g: 255, b: 255, alpha: 1 }, // white
+    },
+  })
+    .composite([{ input: logoResized, left: logoOffset, top: logoOffset }])
+    .png({ compressionLevel: 9, quality: 90 })
+    .toBuffer()
 }
 
-async function render(svg: string, size: number, file: string) {
-  await sharp(Buffer.from(svg))
-    .resize(size, size, { fit: 'cover' })
-    .png({ compressionLevel: 9, quality: 90 })
-    .toFile(file)
+async function render(size: number, file: string) {
+  const buf = await buildIconBuffer(size)
+  await sharp(buf).toFile(file)
   console.log('  ✓', file)
 }
 
 async function main() {
   await mkdir(PUBLIC_ICONS, { recursive: true })
-  console.log('Generating PWA icons (Kampus Merdeka logo on teal bg) in', PUBLIC_ICONS)
+  console.log('Generating PWA icons (Universitas Nias Raya logo) in', PUBLIC_ICONS)
 
   // Canonical icons — single design works as both 'any' and 'maskable'
-  await render(buildIconSvg(192), 192, resolve(PUBLIC_ICONS, 'icon-192.png'))
-  await render(buildIconSvg(256), 256, resolve(PUBLIC_ICONS, 'icon-256.png'))
-  await render(buildIconSvg(512), 512, resolve(PUBLIC_ICONS, 'icon-512.png'))
+  await render(192, resolve(PUBLIC_ICONS, 'icon-192.png'))
+  await render(256, resolve(PUBLIC_ICONS, 'icon-256.png'))
+  await render(512, resolve(PUBLIC_ICONS, 'icon-512.png'))
 
-  // Maskable aliases (same image) for backward compat
-  await render(buildIconSvg(192), 192, resolve(PUBLIC_ICONS, 'icon-192-maskable.png'))
-  await render(buildIconSvg(512), 512, resolve(PUBLIC_ICONS, 'icon-512-maskable.png'))
+  // Maskable aliases (same image)
+  await render(192, resolve(PUBLIC_ICONS, 'icon-192-maskable.png'))
+  await render(512, resolve(PUBLIC_ICONS, 'icon-512-maskable.png'))
 
   // Apple touch icon (iOS applies its own rounded mask)
-  await render(buildIconSvg(180), 180, resolve(PUBLIC_ICONS, 'apple-touch-icon.png'))
+  await render(180, resolve(PUBLIC_ICONS, 'apple-touch-icon.png'))
 
   // Favicons
-  await render(buildIconSvg(64), 64, resolve(PUBLIC_ICONS, 'favicon-64.png'))
-  await render(buildIconSvg(32), 32, resolve(PUBLIC_ICONS, 'favicon-32.png'))
-  await render(buildIconSvg(16), 16, resolve(PUBLIC_ICONS, 'favicon-16.png'))
+  await render(64, resolve(PUBLIC_ICONS, 'favicon-64.png'))
+  await render(32, resolve(PUBLIC_ICONS, 'favicon-32.png'))
+  await render(16, resolve(PUBLIC_ICONS, 'favicon-16.png'))
 
   console.log('Done.')
 }
