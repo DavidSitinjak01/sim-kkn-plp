@@ -199,8 +199,8 @@ function RekapHarianTab() {
   const [notifSending, setNotifSending] = useState(false)
   const [notifConfirm, setNotifConfirm] = useState(false)
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
+  const fetchData = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true)
     try {
       const params = new URLSearchParams()
       params.set('tanggal', tanggal)
@@ -213,7 +213,7 @@ function RekapHarianTab() {
     } catch {
       toast.error('Gagal memuat absensi harian')
     } finally {
-      setLoading(false)
+      if (!opts?.silent) setLoading(false)
     }
   }, [tanggal, kelompokId, statusFilter])
 
@@ -248,7 +248,7 @@ function RekapHarianTab() {
       if (!res.ok) throw new Error(json?.error || 'Gagal menyimpan')
       toast.success('Status absensi diperbarui')
       setEditTarget(null)
-      fetchData()
+      fetchData({ silent: true })
     } catch (err: any) {
       toast.error(err?.message || 'Gagal menyimpan')
     } finally {
@@ -265,7 +265,7 @@ function RekapHarianTab() {
       if (!res.ok) throw new Error(json?.error || 'Gagal menghapus')
       toast.success('Absensi berhasil dihapus')
       setDeleteTarget(null)
-      fetchData()
+      fetchData({ silent: true })
     } catch (err: any) {
       toast.error(err?.message || 'Gagal menghapus')
     } finally {
@@ -933,8 +933,8 @@ function QrScannerTab() {
       .catch(() => setQrDataUrl(''))
   }, [dummyPayload])
 
-  const fetchRecent = useCallback(async () => {
-    setLoadingRecent(true)
+  const fetchRecent = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoadingRecent(true)
     try {
       // get last 10 created (no filter)
       const res = await fetch('/api/absensi?search=')
@@ -946,7 +946,7 @@ function QrScannerTab() {
     } catch {
       // silent
     } finally {
-      setLoadingRecent(false)
+      if (!opts?.silent) setLoadingRecent(false)
     }
   }, [])
 
@@ -1005,7 +1005,7 @@ function QrScannerTab() {
       setSelectedMhsId('')
       setStatus('HADIR')
       setFotoSelfie('')
-      fetchRecent()
+      fetchRecent({ silent: true })
     } catch (err: any) {
       toast.error(err?.message || 'Gagal menyimpan absensi')
     } finally {
@@ -1116,7 +1116,7 @@ function QrScannerTab() {
               <h3 className="text-sm font-semibold flex items-center gap-1.5">
                 <Clock className="w-4 h-4 text-primary" /> Scan Terbaru
               </h3>
-              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={fetchRecent} disabled={loadingRecent}>
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => fetchRecent()} disabled={loadingRecent}>
                 {loadingRecent ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Refresh'}
               </Button>
             </div>

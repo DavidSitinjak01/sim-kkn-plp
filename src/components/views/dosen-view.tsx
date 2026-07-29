@@ -104,8 +104,8 @@ export function DosenView() {
   const [deleteTarget, setDeleteTarget] = useState<Dosen | null>(null)
   const [deleting, setDeleting] = useState(false)
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
+  const fetchData = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true)
     try {
       const res = await fetch('/api/dosen')
       if (!res.ok) throw new Error('Gagal memuat data')
@@ -114,7 +114,7 @@ export function DosenView() {
     } catch {
       toast.error('Gagal memuat data dosen')
     } finally {
-      setLoading(false)
+      if (!opts?.silent) setLoading(false)
     }
   }, [])
 
@@ -236,7 +236,7 @@ export function DosenView() {
       }
       toast.success(editId ? 'Data dosen diperbarui' : 'Dosen berhasil ditambahkan')
       setDialogOpen(false)
-      fetchData()
+      fetchData({ silent: true })
     } catch (err: any) {
       toast.error(err?.message || 'Gagal menyimpan data')
     } finally {
@@ -253,7 +253,7 @@ export function DosenView() {
       if (!res.ok) throw new Error(json?.error || 'Gagal menghapus')
       toast.success(`Dosen ${deleteTarget.nama} berhasil dihapus`)
       setDeleteTarget(null)
-      fetchData()
+      fetchData({ silent: true })
     } catch (err: any) {
       toast.error(err?.message || 'Gagal menghapus data')
     } finally {

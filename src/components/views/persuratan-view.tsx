@@ -286,8 +286,8 @@ export function PersuratanView() {
 
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
+  const fetchData = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true)
     try {
       const res = await fetch('/api/surat')
       if (!res.ok) throw new Error('Gagal memuat')
@@ -296,7 +296,7 @@ export function PersuratanView() {
     } catch (e) {
       toast.error('Gagal memuat data surat')
     } finally {
-      setLoading(false)
+      if (!opts?.silent) setLoading(false)
     }
   }, [])
 
@@ -401,7 +401,7 @@ export function PersuratanView() {
       }
       toast.success(editing ? 'Surat berhasil diperbarui' : 'Surat berhasil dibuat')
       setFormOpen(false)
-      fetchData()
+      fetchData({ silent: true })
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Gagal menyimpan')
     } finally {
@@ -417,7 +417,7 @@ export function PersuratanView() {
       if (!res.ok) throw new Error('Gagal menghapus')
       toast.success('Surat berhasil dihapus')
       setDeleteId(null)
-      fetchData()
+      fetchData({ silent: true })
     } catch (e) {
       toast.error('Gagal menghapus surat')
     } finally {

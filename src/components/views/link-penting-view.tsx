@@ -104,8 +104,8 @@ export function LinkPentingView() {
 
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
+  const fetchData = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true)
     try {
       const res = await fetch('/api/link-penting')
       if (!res.ok) throw new Error('Gagal')
@@ -114,7 +114,7 @@ export function LinkPentingView() {
     } catch {
       toast.error('Gagal memuat link penting')
     } finally {
-      setLoading(false)
+      if (!opts?.silent) setLoading(false)
     }
   }, [])
 
@@ -212,7 +212,7 @@ export function LinkPentingView() {
       }
       toast.success(editing ? 'Link diperbarui' : 'Link ditambahkan')
       setFormOpen(false)
-      fetchData()
+      fetchData({ silent: true })
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Gagal menyimpan')
     } finally {
@@ -228,7 +228,7 @@ export function LinkPentingView() {
       if (!res.ok) throw new Error('Gagal')
       toast.success('Link dihapus')
       setDeleteTarget(null)
-      fetchData()
+      fetchData({ silent: true })
     } catch {
       toast.error('Gagal menghapus link')
     } finally {

@@ -93,8 +93,8 @@ export function SekolahView() {
 
   const [jenjangFilter, setJenjangFilter] = useState<string>('ALL')
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
+  const fetchData = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true)
     try {
       const res = await fetch('/api/sekolah')
       if (!res.ok) throw new Error('Gagal memuat data')
@@ -103,7 +103,7 @@ export function SekolahView() {
     } catch {
       toast.error('Gagal memuat data sekolah')
     } finally {
-      setLoading(false)
+      if (!opts?.silent) setLoading(false)
     }
   }, [])
 
@@ -186,7 +186,7 @@ export function SekolahView() {
       }
       toast.success(editId ? 'Data sekolah diperbarui' : 'Sekolah berhasil ditambahkan')
       setDialogOpen(false)
-      fetchData()
+      fetchData({ silent: true })
     } catch (err: any) {
       toast.error(err?.message || 'Gagal menyimpan data')
     } finally {
@@ -203,7 +203,7 @@ export function SekolahView() {
       if (!res.ok) throw new Error(json?.error || 'Gagal menghapus')
       toast.success(`Sekolah ${deleteTarget.nama} berhasil dihapus`)
       setDeleteTarget(null)
-      fetchData()
+      fetchData({ silent: true })
     } catch (err: any) {
       toast.error(err?.message || 'Gagal menghapus data')
     } finally {

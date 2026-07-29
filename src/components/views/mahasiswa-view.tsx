@@ -126,8 +126,8 @@ export function MahasiswaView() {
   const [linkGenerating, setLinkGenerating] = useState(false)
   const [linkCopied, setLinkCopied] = useState(false)
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
+  const fetchData = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true)
     try {
       const res = await fetch('/api/mahasiswa')
       if (!res.ok) throw new Error('Gagal memuat data')
@@ -136,7 +136,7 @@ export function MahasiswaView() {
     } catch {
       toast.error('Gagal memuat data mahasiswa')
     } finally {
-      setLoading(false)
+      if (!opts?.silent) setLoading(false)
     }
   }, [])
 
@@ -222,7 +222,7 @@ export function MahasiswaView() {
       }
       toast.success(editId ? 'Data mahasiswa diperbarui' : 'Mahasiswa berhasil ditambahkan')
       setDialogOpen(false)
-      fetchData()
+      fetchData({ silent: true })
     } catch (err: any) {
       toast.error(err?.message || 'Gagal menyimpan data')
     } finally {
@@ -239,7 +239,7 @@ export function MahasiswaView() {
       if (!res.ok) throw new Error(json?.error || 'Gagal menghapus')
       toast.success(`Mahasiswa ${deleteTarget.nama} berhasil dihapus`)
       setDeleteTarget(null)
-      fetchData()
+      fetchData({ silent: true })
     } catch (err: any) {
       toast.error(err?.message || 'Gagal menghapus data')
     } finally {

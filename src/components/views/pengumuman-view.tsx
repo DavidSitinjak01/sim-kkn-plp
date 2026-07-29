@@ -114,8 +114,8 @@ export function PengumumanView() {
 
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
+  const fetchData = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true)
     try {
       const res = await fetch('/api/pengumuman')
       if (!res.ok) throw new Error('Gagal')
@@ -124,7 +124,7 @@ export function PengumumanView() {
     } catch {
       toast.error('Gagal memuat pengumuman')
     } finally {
-      setLoading(false)
+      if (!opts?.silent) setLoading(false)
     }
   }, [])
 
@@ -188,7 +188,7 @@ export function PengumumanView() {
       }
       toast.success(editing ? 'Pengumuman diperbarui' : 'Pengumuman dibuat')
       setFormOpen(false)
-      fetchData()
+      fetchData({ silent: true })
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Gagal menyimpan')
     } finally {
@@ -204,7 +204,7 @@ export function PengumumanView() {
       if (!res.ok) throw new Error('Gagal')
       toast.success('Pengumuman dihapus')
       setDeleteTarget(null)
-      fetchData()
+      fetchData({ silent: true })
     } catch {
       toast.error('Gagal menghapus pengumuman')
     } finally {
