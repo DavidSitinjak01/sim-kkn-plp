@@ -3,27 +3,58 @@
 /**
  * id-card-templates.tsx
  *
- * Berisi 4 desain template Kartu Tanda Mahasiswa (KTM / ID Card):
- *   1. "Modern Landscape"  — Landscape, foto kiri, info kanan, aksen emerald
- *   2. "Classic Portrait"  — Portrait, header logo, foto tengah, tabel info, maroon klasik
- *   3. "Vertical Modern"   — Portrait, header gradient, foto lingkaran, aksen cyan
- *   4. "Minimalist"        — Landscape, bersih, aksen tipis slate/amber
+ * 4 desain template Kartu Tanda Mahasiswa (KTM / ID Card) — PORTRAIT CR80.
+ *
+ * Semua template mengikuti desain referensi pengguna:
+ *   - Orientasi portrait (54mm × 85.6mm, rasio ~2:3)
+ *   - Layout dua-warna (two-tone split): bagian atas warna terang, bagian bawah warna
+ *     jenuh, dengan foto lingkaran besar centered di batas kedua area.
+ *   - Logo kampus + nama kampus di panel header atas.
+ *   - Info mahasiswa center-aligned di bagian bawah:
+ *       Nama → NIM → Program Studi → Kelompok KKN → Lokasi → Dosen Pembimbing
+ *
+ * 4 template dengan kombinasi warna & variasi desain berbeda:
+ *   1. "Cyan Nias"     — Mint (#D4EDEB) + Cyan (#00BCD4), ring foto oranye, split lurus
+ *   2. "Royal Purple"  — Lavender (#EDE7F6) + Deep Purple (#6A1B9A), ring foto emas, split melengkung
+ *   3. "Sunset Coral"  — Cream (#FFF3E0) + Coral (#E53935), ring foto teal, split diagonal
+ *   4. "Forest Emerald"— Sage (#E8F5E9) + Emerald (#2E7D32), ring foto amber, pola titik dekoratif
  *
  * Setiap template memiliki:
- *   - <TemplateName>Preview  → komponen React untuk live preview di layar
- *   - build<Name>CardHtml()  → string HTML untuk satu kartu (digabung di print window)
+ *   - <Name>Preview  → komponen React untuk live preview di layar (pixel-scaled)
+ *   - build<Name>CardHtml() → string HTML untuk satu kartu (digabung di print window, ukuran mm)
  *
  * Export utama:
- *   - ID_CARD_TEMPLATES        → array metadata template (id, nama, deskripsi, orientasi)
+ *   - ID_CARD_TEMPLATES        → array metadata template (id, nama, deskripsi, accent)
  *   - TemplatePreview          → komponen yang merender preview sesuai templateId
  *   - buildPrintDocumentHtml() → menyusun dokumen HTML lengkap (semua kartu) untuk print window
  */
 
-import { IdCard as IdCardIcon, GraduationCap, ShieldCheck, Sparkles, Layout } from 'lucide-react'
+import {
+  IdCard as IdCardIcon, Sun, Leaf, Gem,
+} from 'lucide-react'
 
 // ============ Types ============
 interface Prodi { id: string; kode: string; nama: string; jenjang: string }
 interface Fakultas { id: string; kode: string; nama: string }
+interface Desa { id: string; nama: string; kecamatan: string | null; kabupaten: string | null }
+interface DosenLengkap {
+  id: string
+  nama: string
+  nidn: string
+  fakultas: Fakultas | null
+  prodi: Prodi | null
+}
+interface KelompokLengkap {
+  id: string
+  nama: string
+  tipe: string // KKN, PLP1, PLP2
+  desa: Desa | null
+  dosen: DosenLengkap | null
+}
+interface KelompokMemberLengkap {
+  id: string
+  kelompok: KelompokLengkap
+}
 
 export interface IdCardMahasiswa {
   id: string
@@ -40,6 +71,8 @@ export interface IdCardMahasiswa {
   angkatan: number
   status: string
   prodi: Prodi & { fakultas: Fakultas }
+  // Optional, hanya terisi jika fetch dengan ?withKelompok=true
+  kelompokMember?: KelompokMemberLengkap[]
 }
 
 export type IdCardPengaturan = Record<string, string>
@@ -48,49 +81,49 @@ export interface IdCardLogos {
   kampus: string
 }
 
-export type TemplateId = 'modern-landscape' | 'classic-portrait' | 'vertical-modern' | 'minimalist'
+export type TemplateId = 'cyan-nias' | 'royal-purple' | 'sunset-coral' | 'forest-emerald'
 
 export interface IdCardTemplateMeta {
   id: TemplateId
   nama: string
   deskripsi: string
-  orientasi: 'landscape' | 'portrait'
+  orientasi: 'portrait'
   accent: string // hex color preview swatch
   icon: typeof IdCardIcon
 }
 
 export const ID_CARD_TEMPLATES: IdCardTemplateMeta[] = [
   {
-    id: 'modern-landscape',
-    nama: 'Modern Landscape',
-    deskripsi: 'Orientasi landscape dengan foto di kiri dan info di kanan. Aksen emerald yang modern.',
-    orientasi: 'landscape',
-    accent: '#059669',
-    icon: Layout,
-  },
-  {
-    id: 'classic-portrait',
-    nama: 'Classic Portrait',
-    deskripsi: 'Orientasi portrait klasik dengan header logo, foto, dan tabel info. Aksen maroon akademik.',
+    id: 'cyan-nias',
+    nama: 'Cyan Nias',
+    deskripsi: 'Mint terang di atas + cyan jenuh di bawah, ring foto oranye. Inspirasi desain asli.',
     orientasi: 'portrait',
-    accent: '#991b1b',
-    icon: GraduationCap,
+    accent: '#00BCD4',
+    icon: IdCardIcon,
   },
   {
-    id: 'vertical-modern',
-    nama: 'Vertical Modern',
-    deskripsi: 'Portrait modern dengan header gradient, foto lingkaran, dan info di bawah. Aksen cyan segar.',
+    id: 'royal-purple',
+    nama: 'Royal Purple',
+    deskripsi: 'Lavender di atas + ungu royal di bawah, ring foto emas, separator melengkung elegan.',
     orientasi: 'portrait',
-    accent: '#0891b2',
-    icon: Sparkles,
+    accent: '#6A1B9A',
+    icon: Gem,
   },
   {
-    id: 'minimalist',
-    nama: 'Minimalist',
-    deskripsi: 'Landscape minimalis dengan whitespace lega dan aksen tipis. Profesional dan bersih.',
-    orientasi: 'landscape',
-    accent: '#475569',
-    icon: ShieldCheck,
+    id: 'sunset-coral',
+    nama: 'Sunset Coral',
+    deskripsi: 'Cream hangat di atas + coral merah di bawah, ring foto teal, aksen diagonal dinamis.',
+    orientasi: 'portrait',
+    accent: '#E53935',
+    icon: Sun,
+  },
+  {
+    id: 'forest-emerald',
+    nama: 'Forest Emerald',
+    deskripsi: 'Sage lembut di atas + emerald gelap di bawah, ring foto amber, pola titik dekoratif.',
+    orientasi: 'portrait',
+    accent: '#2E7D32',
+    icon: Leaf,
   },
 ]
 
@@ -125,11 +158,6 @@ export function formatTanggal(tgl: string | Date): string {
   }
 }
 
-/** Jenis kelamin label */
-function jkLabel(jk: string): string {
-  return jk === 'L' ? 'Laki-laki' : jk === 'P' ? 'Perempuan' : '-'
-}
-
 /** Convert image URL/dataURL to base64 data URL for print embedding */
 export async function imageUrlToBase64(url: string): Promise<string | null> {
   try {
@@ -147,689 +175,717 @@ export async function imageUrlToBase64(url: string): Promise<string | null> {
   }
 }
 
+// ============ Derived field helpers ============
+
+/** Ambil kelompok terbaru dari mahasiswa (latest KelompokMember) */
+function getKelompok(m: IdCardMahasiswa): KelompokLengkap | null {
+  if (!m.kelompokMember || m.kelompokMember.length === 0) return null
+  // API sudah orderBy createdAt desc + take 1, jadi ambil pertama
+  return m.kelompokMember[0]?.kelompok ?? null
+}
+
+/** Label kelompok, mis. "Kelompok KKN - 10" atau "Kelompok PLP 1 - 5" */
+function getKelompokLabel(m: IdCardMahasiswa): string {
+  const k = getKelompok(m)
+  if (!k) return '-'
+  const tipeLabel = k.tipe === 'KKN'
+    ? 'KKN'
+    : k.tipe === 'PLP1'
+    ? 'PLP 1'
+    : k.tipe === 'PLP2'
+    ? 'PLP 2'
+    : k.tipe
+  return `Kelompok ${tipeLabel} - ${k.nama}`
+}
+
+/** Nama desa/lokasi KKN */
+function getLokasiLabel(m: IdCardMahasiswa): string {
+  const k = getKelompok(m)
+  if (!k?.desa) return '-'
+  const d = k.desa
+  // "Desa Lahusa Balaekha" atau "SMA Negeri 1 ..." untuk PLP
+  if (k.tipe === 'KKN') return `Desa ${d.nama}`
+  return d.nama
+}
+
+/** "Dosen FKIP - Bahasa dan Sastra" format */
+function getDosenLabel(m: IdCardMahasiswa): string {
+  const k = getKelompok(m)
+  if (!k?.dosen) return '-'
+  const d = k.dosen
+  const fak = d.fakultas?.nama || ''
+  const prod = d.prodi?.nama || ''
+  // Singkatan fakultas: "Fakultas Keguruan dan Ilmu Pendidikan" → "FKIP"
+  const fakShort = fak
+    ? fak
+        .replace(/^Fakultas\s+/i, 'F')
+        .replace(/\bKeguruan\b/i, 'K')
+        .replace(/\bIlmu\b/i, 'I')
+        .replace(/\bPendidikan\b/i, 'P')
+        .replace(/\bdan\b/gi, '')
+        .replace(/\s+/g, '')
+        .toUpperCase()
+    : ''
+  const fakultasPart = fakShort ? `Dosen ${fakShort}` : 'Dosen Pembimbing'
+  return prod ? `${fakultasPart} - ${prod}` : fakultasPart
+}
+
 // ============================================================
-//  TEMPLATE 1: MODERN LANDSCAPE
+//  PALETTE — 4 template color schemes
 // ============================================================
 
-function ModernLandscapePreview({
-  m, p, logoUrl,
-}: { m: IdCardMahasiswa; p: IdCardPengaturan; logoUrl: string }) {
-  const namaKampus = p.nama_kampus || 'UNIVERSITAS'
-  const alamat = p.alamat_kampus || ''
-  const foto = m.foto
+interface TemplatePalette {
+  // Background colors
+  topBg: string         // light section background
+  bottomBg: string      // saturated section background
+  // Photo ring
+  ringColor: string     // outer ring around photo
+  // Text
+  textOnLight: string   // text color on light section
+  textOnSaturated: string // text color on saturated section
+  textLabel: string     // label text color on saturated section
+  textValue: string     // value text color on saturated section
+  // Header panel
+  headerBg: string      // white-ish panel bg behind logo
+  headerBorder: string
+  // Misc
+  shadowColor: string
+  accentSoft: string    // soft accent for decorative elements
+}
 
+const PALETTES: Record<TemplateId, TemplatePalette> = {
+  'cyan-nias': {
+    topBg: '#D4EDEB',
+    bottomBg: '#00BCD4',
+    ringColor: '#FF9800',
+    textOnLight: '#1a1a1a',
+    textOnSaturated: '#0a2a30',
+    textLabel: '#004d5a',
+    textValue: '#0a1a1d',
+    headerBg: '#ffffff',
+    headerBorder: '#b8e0dc',
+    shadowColor: 'rgba(0, 60, 70, 0.15)',
+    accentSoft: 'rgba(255, 152, 0, 0.18)',
+  },
+  'royal-purple': {
+    topBg: '#EDE7F6',
+    bottomBg: '#6A1B9A',
+    ringColor: '#FFD700',
+    textOnLight: '#1a0a2e',
+    textOnSaturated: '#ffffff',
+    textLabel: '#e1bee7',
+    textValue: '#ffffff',
+    headerBg: '#ffffff',
+    headerBorder: '#d1c4e9',
+    shadowColor: 'rgba(60, 0, 100, 0.25)',
+    accentSoft: 'rgba(255, 215, 0, 0.20)',
+  },
+  'sunset-coral': {
+    topBg: '#FFF3E0',
+    bottomBg: '#E53935',
+    ringColor: '#00897B',
+    textOnLight: '#2a0a0a',
+    textOnSaturated: '#ffffff',
+    textLabel: '#ffdfe0',
+    textValue: '#ffffff',
+    headerBg: '#ffffff',
+    headerBorder: '#ffe0b2',
+    shadowColor: 'rgba(120, 20, 20, 0.20)',
+    accentSoft: 'rgba(0, 137, 123, 0.18)',
+  },
+  'forest-emerald': {
+    topBg: '#E8F5E9',
+    bottomBg: '#2E7D32',
+    ringColor: '#FFB300',
+    textOnLight: '#0a2a0a',
+    textOnSaturated: '#ffffff',
+    textLabel: '#c8e6c9',
+    textValue: '#ffffff',
+    headerBg: '#ffffff',
+    headerBorder: '#c8e6c9',
+    shadowColor: 'rgba(20, 60, 20, 0.22)',
+    accentSoft: 'rgba(255, 179, 0, 0.20)',
+  },
+}
+
+// ============================================================
+//  SHARED CARD STRUCTURE
+// ============================================================
+//
+//  ┌─────────────────────────┐
+//  │  [TOP BG - light]        │
+//  │   ┌───────────────┐      │
+//  │   │  Logo Kampus  │      │  ← header panel (rounded)
+//  │   │  Nama Kampus  │      │
+//  │   └───────────────┘      │
+//  │      ╭───────╮           │  ← circular photo (overlapping split)
+//  │      │ foto  │           │
+//  │      ╰───────╯           │
+//  │  [BOTTOM BG - saturated] │
+//  │       NAMA LENGKAP       │  ← bold large
+//  │         NIM              │
+//  │      PROGRAM STUDI       │
+//  │                          │
+//  │   Kelompok KKN - 10      │
+//  │   Desa Lahusa ...        │
+//  │                          │
+//  │   Dosen FKIP - ...       │
+//  │   UNIVERSITAS NIAS RAYA  │  ← institution footer
+//  └─────────────────────────┘
+//
+// ============================================================
+
+interface CardData {
+  nama: string
+  nim: string
+  prodiNama: string
+  kelompokLabel: string
+  lokasiLabel: string
+  dosenLabel: string
+  namaKampus: string
+  foto: string | null
+  initials: string
+  tipeKkn: boolean // apakah ini kartu KKN (vs PLP)
+}
+
+function buildCardData(m: IdCardMahasiswa, p: IdCardPengaturan): CardData {
+  const k = getKelompok(m)
+  return {
+    nama: m.nama,
+    nim: m.nim,
+    prodiNama: m.prodi?.nama || '-',
+    kelompokLabel: getKelompokLabel(m),
+    lokasiLabel: getLokasiLabel(m),
+    dosenLabel: getDosenLabel(m),
+    namaKampus: p.nama_kampus || 'UNIVERSITAS',
+    foto: m.foto,
+    initials: getInitials(m.nama),
+    tipeKkn: k?.tipe === 'KKN' || !k, // default tampilkan KKN jika tidak ada kelompok
+  }
+}
+
+// ============================================================
+//  REACT PREVIEWS (pixel-scaled for screen)
+// ============================================================
+//
+//  Preview menggunakan ukuran pixel (bukan mm) agar tampil proporsional di layar.
+//  Rasio dipertahankan sama dengan print (54mm : 85.6mm ≈ 0.631 : 1).
+//  Preview size: 280px × 444px (rasio yang sama).
+
+const PREVIEW_W = 280
+const PREVIEW_H = 444 // 280 / 0.631 ≈ 444
+
+interface PreviewProps {
+  m: IdCardMahasiswa
+  p: IdCardPengaturan
+  logoUrl: string
+  palette: TemplatePalette
+  variant: TemplateId
+}
+
+function PhotoBlock({
+  foto, initials, ringColor, size, onErrorInitials,
+}: {
+  foto: string | null
+  initials: string
+  ringColor: string
+  size: number
+  onErrorInitials?: boolean
+}) {
+  const dim = size
   return (
     <div
       style={{
-        width: '340px',
-        height: '214px',
-        borderRadius: '14px',
-        overflow: 'hidden',
+        width: dim,
+        height: dim,
+        borderRadius: '50%',
         background: '#fff',
-        boxShadow: '0 10px 25px -5px rgba(0,0,0,0.15)',
-        fontFamily: 'Arial, Helvetica, sans-serif',
-        display: 'flex',
-        flexDirection: 'column',
-        position: 'relative',
+        padding: dim * 0.06,
+        boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
+        flexShrink: 0,
       }}
     >
       <div
         style={{
-          background: 'linear-gradient(135deg, #059669 0%, #047857 60%, #065f46 100%)',
-          height: '46px',
-          padding: '0 14px',
+          width: '100%',
+          height: '100%',
+          borderRadius: '50%',
+          border: `${Math.max(2, dim * 0.025)}px solid ${ringColor}`,
+          overflow: 'hidden',
+          background: '#e2e8f0',
           display: 'flex',
           alignItems: 'center',
-          gap: '10px',
-          color: '#fff',
+          justifyContent: 'center',
         }}
       >
-        {logoUrl && (
+        {foto ? (
           <img
-            src={logoUrl}
-            alt="Logo"
-            style={{ width: '30px', height: '30px', objectFit: 'contain', background: '#fff', borderRadius: '6px', padding: '2px' }}
-            onError={(e) => { (e.currentTarget.style.display = 'none') }}
-          />
-        )}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.3px', lineHeight: 1.1, textTransform: 'uppercase' }}>
-            {namaKampus}
-          </div>
-          <div style={{ fontSize: '8px', opacity: 0.85, marginTop: '1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {alamat}
-          </div>
-        </div>
-        <div style={{ fontSize: '8px', fontWeight: 700, background: 'rgba(255,255,255,0.2)', padding: '2px 6px', borderRadius: '4px', letterSpacing: '0.3px' }}>
-          KTM
-        </div>
-      </div>
-
-      <div style={{ flex: 1, display: 'flex', padding: '10px 12px', gap: '12px', alignItems: 'flex-start' }}>
-        <div
-          style={{
-            width: '78px',
-            height: '98px',
-            borderRadius: '8px',
-            overflow: 'hidden',
-            background: '#e2e8f0',
-            border: '2px solid #059669',
-            flexShrink: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          {foto ? (
-            <img
-              src={foto}
-              alt={m.nama}
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              onError={(e) => {
-                const t = e.currentTarget
-                t.style.display = 'none'
-                const parent = t.parentElement
-                if (parent) parent.innerHTML = `<span style="font-size:22px;font-weight:bold;color:#64748b">${getInitials(m.nama)}</span>`
-              }}
-            />
-          ) : (
-            <span style={{ fontSize: '22px', fontWeight: 'bold', color: '#64748b' }}>{getInitials(m.nama)}</span>
-          )}
-        </div>
-
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px' }}>
-          <div style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a', lineHeight: 1.15, wordBreak: 'break-word' }}>
-            {m.nama}
-          </div>
-          <div style={{ fontSize: '10px', fontWeight: 700, color: '#059669', fontFamily: 'monospace', letterSpacing: '0.5px' }}>
-            {m.nim}
-          </div>
-          <div style={{ height: '1px', background: '#e2e8f0', margin: '4px 0' }} />
-          <div style={{ display: 'grid', gridTemplateColumns: '52px 1fr', gap: '2px 6px', fontSize: '8.5px', lineHeight: 1.3 }}>
-            <span style={{ color: '#64748b', fontWeight: 600 }}>Prodi</span>
-            <span style={{ color: '#0f172a', fontWeight: 600 }}>{m.prodi.nama}</span>
-            <span style={{ color: '#64748b', fontWeight: 600 }}>Fakultas</span>
-            <span style={{ color: '#0f172a', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.prodi.fakultas.nama}</span>
-            <span style={{ color: '#64748b', fontWeight: 600 }}>TTL</span>
-            <span style={{ color: '#0f172a', fontWeight: 500 }}>{m.tempatLahir}, {formatTanggal(m.tanggalLahir)}</span>
-            <span style={{ color: '#64748b', fontWeight: 600 }}>Semester</span>
-            <span style={{ color: '#0f172a', fontWeight: 500 }}>{m.semester} &middot; Angkatan {m.angkatan}</span>
-          </div>
-        </div>
-      </div>
-
-      <div
-        style={{
-          background: '#f1f5f9',
-          borderTop: '1px solid #e2e8f0',
-          padding: '4px 14px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          fontSize: '7.5px',
-          color: '#475569',
-        }}
-      >
-        <span>{p.no_telepon || p.email_kampus || ''}</span>
-        <span style={{ fontWeight: 700, color: '#059669' }}>Berlaku selama masa studi</span>
-      </div>
-    </div>
-  )
-}
-
-function buildModernLandscapeCardHtml(m: IdCardMahasiswa, p: IdCardPengaturan, logoBase64: string): string {
-  const namaKampus = escapeHtml(p.nama_kampus || 'UNIVERSITAS')
-  const alamat = escapeHtml(p.alamat_kampus || '')
-  const foto = m.foto ? escapeHtml(m.foto) : ''
-  const fotoHtml = foto
-    ? `<img src="${foto}" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none';this.parentElement.innerHTML='<span style=\\'font-size:6mm;font-weight:bold;color:#64748b\\'>${getInitials(m.nama)}</span>'" />`
-    : `<span style="font-size:6mm;font-weight:bold;color:#64748b">${getInitials(m.nama)}</span>`
-  const logoImg = logoBase64
-    ? `<img src="${logoBase64}" alt="" style="width:9mm;height:9mm;object-fit:contain;background:#fff;border-radius:1.5mm;padding:0.5mm;" />`
-    : ''
-
-  return `
-  <div class="card card-landscape">
-    <div class="ml-header">
-      ${logoImg}
-      <div class="ml-header-text">
-        <div class="ml-kampus">${namaKampus}</div>
-        <div class="ml-alamat">${alamat}</div>
-      </div>
-      <div class="ml-badge">KTM</div>
-    </div>
-    <div class="ml-body">
-      <div class="ml-photo">${fotoHtml}</div>
-      <div class="ml-info">
-        <div class="ml-name">${escapeHtml(m.nama)}</div>
-        <div class="ml-nim">${escapeHtml(m.nim)}</div>
-        <div class="ml-divider"></div>
-        <div class="ml-grid">
-          <span class="ml-label">Prodi</span><span class="ml-val">${escapeHtml(m.prodi.nama)}</span>
-          <span class="ml-label">Fakultas</span><span class="ml-val">${escapeHtml(m.prodi.fakultas.nama)}</span>
-          <span class="ml-label">TTL</span><span class="ml-val">${escapeHtml(m.tempatLahir)}, ${formatTanggal(m.tanggalLahir)}</span>
-          <span class="ml-label">Semester</span><span class="ml-val">${m.semester} &middot; Angkatan ${m.angkatan}</span>
-        </div>
-      </div>
-    </div>
-    <div class="ml-footer">
-      <span>${escapeHtml(p.no_telepon || p.email_kampus || '')}</span>
-      <span class="ml-footer-accent">Berlaku selama masa studi</span>
-    </div>
-  </div>`
-}
-
-// ============================================================
-//  TEMPLATE 2: CLASSIC PORTRAIT
-// ============================================================
-
-function ClassicPortraitPreview({
-  m, p, logoUrl,
-}: { m: IdCardMahasiswa; p: IdCardPengaturan; logoUrl: string }) {
-  const namaKampus = p.nama_kampus || 'UNIVERSITAS'
-  const foto = m.foto
-
-  return (
-    <div
-      style={{
-        width: '300px',
-        height: '470px',
-        borderRadius: '12px',
-        overflow: 'hidden',
-        background: '#fff',
-        boxShadow: '0 10px 25px -5px rgba(0,0,0,0.15)',
-        fontFamily: 'Arial, Helvetica, sans-serif',
-        display: 'flex',
-        flexDirection: 'column',
-        border: '3px solid #991b1b',
-        position: 'relative',
-      }}
-    >
-      <div
-        style={{
-          background: 'linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%)',
-          padding: '10px 12px 8px',
-          color: '#fff',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-          {logoUrl && (
-            <img
-              src={logoUrl}
-              alt="Logo"
-              style={{ width: '34px', height: '34px', objectFit: 'contain', background: '#fff', borderRadius: '50%', padding: '2px' }}
-              onError={(e) => { (e.currentTarget.style.display = 'none') }}
-            />
-          )}
-          <div style={{ flex: 1, textAlign: 'left' }}>
-            <div style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.5px', lineHeight: 1.1, textTransform: 'uppercase' }}>
-              {namaKampus}
-            </div>
-            <div style={{ fontSize: '7.5px', opacity: 0.9, marginTop: '1px' }}>
-              Kartu Tanda Mahasiswa
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', justifyContent: 'center', padding: '14px 0 8px', background: '#fff' }}>
-        <div
-          style={{
-            width: '108px',
-            height: '128px',
-            border: '2px solid #991b1b',
-            padding: '2px',
-            background: '#fff',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-          }}
-        >
-          <div
-            style={{
-              width: '100%', height: '100%', overflow: 'hidden', background: '#f1f5f9',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            src={foto}
+            alt=""
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            onError={(e) => {
+              if (onErrorInitials === false) return
+              const t = e.currentTarget
+              t.style.display = 'none'
+              const parent = t.parentElement
+              if (parent) {
+                parent.innerHTML = `<span style="font-size:${dim * 0.36}px;font-weight:700;color:#475569">${initials}</span>`
+              }
             }}
-          >
-            {foto ? (
-              <img
-                src={foto}
-                alt={m.nama}
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                onError={(e) => {
-                  const t = e.currentTarget
-                  t.style.display = 'none'
-                  const parent = t.parentElement
-                  if (parent) parent.innerHTML = `<span style="font-size:28px;font-weight:bold;color:#94a3b8">${getInitials(m.nama)}</span>`
-                }}
-              />
-            ) : (
-              <span style={{ fontSize: '28px', fontWeight: 'bold', color: '#94a3b8' }}>{getInitials(m.nama)}</span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div style={{ flex: 1, padding: '8px 14px', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ textAlign: 'center', marginBottom: '6px' }}>
-          <div style={{ fontSize: '13px', fontWeight: 800, color: '#7f1d1d', lineHeight: 1.15, wordBreak: 'break-word', padding: '0 4px' }}>
-            {m.nama}
-          </div>
-          <div style={{ fontSize: '11px', fontWeight: 700, color: '#0f172a', fontFamily: 'monospace', marginTop: '2px' }}>
-            {m.nim}
-          </div>
-        </div>
-        <div style={{ height: '1px', background: '#991b1b', margin: '4px 0 6px' }} />
-        <table style={{ width: '100%', fontSize: '9px', borderCollapse: 'collapse' }}>
-          <tbody>
-            <tr><td style={{ padding: '2px 0', color: '#64748b', fontWeight: 600, width: '38%' }}>Tempat/Tgl Lahir</td><td style={{ padding: '2px 0', color: '#0f172a', fontWeight: 500 }}>: {m.tempatLahir}, {formatTanggal(m.tanggalLahir)}</td></tr>
-            <tr><td style={{ padding: '2px 0', color: '#64748b', fontWeight: 600 }}>Jenis Kelamin</td><td style={{ padding: '2px 0', color: '#0f172a', fontWeight: 500 }}>: {jkLabel(m.jenisKelamin)}</td></tr>
-            <tr><td style={{ padding: '2px 0', color: '#64748b', fontWeight: 600 }}>Program Studi</td><td style={{ padding: '2px 0', color: '#0f172a', fontWeight: 500 }}>: {m.prodi.nama}</td></tr>
-            <tr><td style={{ padding: '2px 0', color: '#64748b', fontWeight: 600 }}>Fakultas</td><td style={{ padding: '2px 0', color: '#0f172a', fontWeight: 500 }}>: {m.prodi.fakultas.nama}</td></tr>
-            <tr><td style={{ padding: '2px 0', color: '#64748b', fontWeight: 600, verticalAlign: 'top' }}>Alamat</td><td style={{ padding: '2px 0', color: '#0f172a', fontWeight: 500 }}>: {m.alamat}</td></tr>
-            <tr><td style={{ padding: '2px 0', color: '#64748b', fontWeight: 600 }}>No. HP</td><td style={{ padding: '2px 0', color: '#0f172a', fontWeight: 500 }}>: {m.noHp}</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div
-        style={{
-          background: '#7f1d1d',
-          padding: '6px 14px',
-          color: '#fff',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          fontSize: '8px',
-        }}
-      >
-        <span style={{ fontWeight: 600 }}>Semester {m.semester}</span>
-        <span style={{ fontWeight: 700, fontStyle: 'italic' }}>{p.website || ''}</span>
+          />
+        ) : (
+          <span style={{ fontSize: dim * 0.36, fontWeight: 700, color: '#475569' }}>{initials}</span>
+        )}
       </div>
     </div>
   )
 }
 
-function buildClassicPortraitCardHtml(m: IdCardMahasiswa, p: IdCardPengaturan, logoBase64: string): string {
-  const namaKampus = escapeHtml(p.nama_kampus || 'UNIVERSITAS')
-  const foto = m.foto ? escapeHtml(m.foto) : ''
-  const fotoHtml = foto
-    ? `<img src="${foto}" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none';this.parentElement.innerHTML='<span style=\\'font-size:7mm;font-weight:bold;color:#94a3b8\\'>${getInitials(m.nama)}</span>'" />`
-    : `<span style="font-size:7mm;font-weight:bold;color:#94a3b8">${getInitials(m.nama)}</span>`
-  const logoImg = logoBase64
-    ? `<img src="${logoBase64}" alt="" style="width:9mm;height:9mm;object-fit:contain;background:#fff;border-radius:50%;padding:0.5mm;" />`
-    : ''
-
-  return `
-  <div class="card card-portrait cp-card">
-    <div class="cp-header">
-      ${logoImg}
-      <div class="cp-header-text">
-        <div class="cp-kampus">${namaKampus}</div>
-        <div class="cp-sub">Kartu Tanda Mahasiswa</div>
-      </div>
-    </div>
-    <div class="cp-photo-wrap">
-      <div class="cp-photo">${fotoHtml}</div>
-    </div>
-    <div class="cp-body">
-      <div class="cp-name">${escapeHtml(m.nama)}</div>
-      <div class="cp-nim">${escapeHtml(m.nim)}</div>
-      <div class="cp-divider"></div>
-      <table class="cp-table">
-        <tr><td class="cp-label">Tempat/Tgl Lahir</td><td class="cp-val">: ${escapeHtml(m.tempatLahir)}, ${formatTanggal(m.tanggalLahir)}</td></tr>
-        <tr><td class="cp-label">Jenis Kelamin</td><td class="cp-val">: ${jkLabel(m.jenisKelamin)}</td></tr>
-        <tr><td class="cp-label">Program Studi</td><td class="cp-val">: ${escapeHtml(m.prodi.nama)}</td></tr>
-        <tr><td class="cp-label">Fakultas</td><td class="cp-val">: ${escapeHtml(m.prodi.fakultas.nama)}</td></tr>
-        <tr><td class="cp-label" style="vertical-align:top;">Alamat</td><td class="cp-val">: ${escapeHtml(m.alamat)}</td></tr>
-        <tr><td class="cp-label">No. HP</td><td class="cp-val">: ${escapeHtml(m.noHp)}</td></tr>
-      </table>
-    </div>
-    <div class="cp-footer">
-      <span>Semester ${m.semester}</span>
-      <span style="font-style:italic;">${escapeHtml(p.website || '')}</span>
-    </div>
-  </div>`
-}
-
-// ============================================================
-//  TEMPLATE 3: VERTICAL MODERN
-// ============================================================
-
-function VerticalModernPreview({
-  m, p, logoUrl,
-}: { m: IdCardMahasiswa; p: IdCardPengaturan; logoUrl: string }) {
-  const namaKampus = p.nama_kampus || 'UNIVERSITAS'
-  const foto = m.foto
-
+/** Header panel berisi logo + nama kampus */
+function HeaderPanel({
+  logoUrl, namaKampus, palette, width,
+}: {
+  logoUrl: string
+  namaKampus: string
+  palette: TemplatePalette
+  width: number
+}) {
+  const logoSize = width * 0.18
   return (
     <div
       style={{
-        width: '300px',
-        height: '460px',
-        borderRadius: '16px',
-        overflow: 'hidden',
-        background: '#fff',
-        boxShadow: '0 10px 25px -5px rgba(0,0,0,0.15)',
-        fontFamily: 'Arial, Helvetica, sans-serif',
+        background: palette.headerBg,
+        borderRadius: width * 0.04,
+        padding: `${width * 0.025}px ${width * 0.04}px`,
+        boxShadow: '0 2px 8px rgba(0,0,0,0.10)',
         display: 'flex',
-        flexDirection: 'column',
-        position: 'relative',
+        alignItems: 'center',
+        gap: width * 0.03,
+        maxWidth: '88%',
       }}
     >
-      <div
-        style={{
-          background: 'linear-gradient(135deg, #0891b2 0%, #06b6d4 50%, #22d3ee 100%)',
-          height: '140px',
-          position: 'relative',
-          padding: '14px 14px 0',
-          color: '#fff',
-        }}
-      >
-        <div style={{ position: 'absolute', top: '-20px', right: '-20px', width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(255,255,255,0.12)' }} />
-        <div style={{ position: 'absolute', top: '20px', right: '40px', width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)' }} />
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', position: 'relative', zIndex: 1 }}>
-          {logoUrl && (
-            <img
-              src={logoUrl}
-              alt="Logo"
-              style={{ width: '28px', height: '28px', objectFit: 'contain', background: '#fff', borderRadius: '6px', padding: '2px' }}
-              onError={(e) => { (e.currentTarget.style.display = 'none') }}
-            />
-          )}
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.4px', lineHeight: 1.1, textTransform: 'uppercase' }}>
-              {namaKampus}
-            </div>
-            <div style={{ fontSize: '7.5px', opacity: 0.9, marginTop: '1px' }}>Kartu Tanda Mahasiswa</div>
-          </div>
+      {logoUrl ? (
+        <img
+          src={logoUrl}
+          alt="Logo"
+          style={{
+            width: logoSize,
+            height: logoSize,
+            objectFit: 'contain',
+            flexShrink: 0,
+          }}
+          onError={(e) => { (e.currentTarget.style.display = 'none') }}
+        />
+      ) : null}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          style={{
+            fontSize: width * 0.038,
+            fontWeight: 800,
+            color: palette.textOnLight,
+            letterSpacing: '0.3px',
+            lineHeight: 1.1,
+            textTransform: 'uppercase',
+            wordBreak: 'break-word',
+          }}
+        >
+          {namaKampus}
         </div>
+        <div
+          style={{
+            fontSize: width * 0.028,
+            fontWeight: 600,
+            color: palette.textOnLight,
+            opacity: 0.7,
+            marginTop: 2,
+            letterSpacing: '0.5px',
+          }}
+        >
+          KARTU TANDA MAHASISWA
+        </div>
+      </div>
+    </div>
+  )
+}
 
+/** Info block di bagian bawah (saturated bg) */
+function InfoBlock({
+  data, palette, width,
+}: {
+  data: CardData
+  palette: TemplatePalette
+  width: number
+}) {
+  const labelStyle: React.CSSProperties = {
+    fontSize: width * 0.028,
+    fontWeight: 600,
+    color: palette.textLabel,
+    letterSpacing: '0.4px',
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  }
+  const valueStyle: React.CSSProperties = {
+    fontSize: width * 0.038,
+    fontWeight: 700,
+    color: palette.textValue,
+    lineHeight: 1.2,
+    wordBreak: 'break-word',
+  }
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        textAlign: 'center',
+        gap: width * 0.015,
+        width: '92%',
+      }}
+    >
+      {/* Name (largest) */}
+      <div style={{ ...valueStyle, fontSize: width * 0.05, fontWeight: 800, lineHeight: 1.15 }}>
+        {data.nama}
+      </div>
+      {/* NIM */}
+      <div style={{
+        fontSize: width * 0.042,
+        fontWeight: 700,
+        color: palette.textValue,
+        fontFamily: 'monospace',
+        letterSpacing: '0.5px',
+      }}>
+        {data.nim}
+      </div>
+      {/* Prodi */}
+      <div style={{
+        fontSize: width * 0.034,
+        fontWeight: 700,
+        color: palette.textValue,
+        textTransform: 'uppercase',
+        letterSpacing: '0.3px',
+        marginTop: 2,
+      }}>
+        {data.prodiNama}
+      </div>
+
+      {/* Divider */}
+      <div style={{
+        width: '40%',
+        height: 1,
+        background: palette.textLabel,
+        opacity: 0.4,
+        margin: `${width * 0.015}px 0`,
+      }} />
+
+      {/* Kelompok */}
+      <div style={{ width: '100%' }}>
+        <div style={labelStyle}>Kelompok</div>
+        <div style={valueStyle}>{data.kelompokLabel}</div>
+      </div>
+
+      {/* Lokasi */}
+      <div style={{ width: '100%', marginTop: width * 0.005 }}>
+        <div style={labelStyle}>Lokasi {data.tipeKkn ? 'KKN' : 'PLP'}</div>
+        <div style={valueStyle}>{data.lokasiLabel}</div>
+      </div>
+
+      {/* Dosen Pembimbing */}
+      <div style={{ width: '100%', marginTop: width * 0.005 }}>
+        <div style={labelStyle}>Dosen Pembimbing</div>
+        <div style={{ ...valueStyle, fontSize: width * 0.034 }}>{data.dosenLabel}</div>
+      </div>
+
+      {/* Institution footer */}
+      <div style={{
+        marginTop: width * 0.02,
+        padding: `${width * 0.012}px ${width * 0.03}px`,
+        background: 'rgba(255,255,255,0.12)',
+        borderRadius: width * 0.02,
+        fontSize: width * 0.03,
+        fontWeight: 700,
+        color: palette.textValue,
+        letterSpacing: '0.5px',
+        textTransform: 'uppercase',
+      }}>
+        {data.namaKampus}
+      </div>
+    </div>
+  )
+}
+
+function CardPreview({
+  m, p, logoUrl, palette, variant,
+}: PreviewProps) {
+  const data = buildCardData(m, p)
+  const W = PREVIEW_W
+  const H = PREVIEW_H
+
+  // Decorative element berbeda per variant
+  const renderDecoration = () => {
+    if (variant === 'cyan-nias') {
+      // Straight split, no extra decoration
+      return null
+    }
+    if (variant === 'royal-purple') {
+      // Curved wave separator
+      return (
+        <svg
+          style={{ position: 'absolute', top: H * 0.36, left: 0, width: '100%', height: H * 0.06, pointerEvents: 'none' }}
+          viewBox="0 0 280 28"
+          preserveAspectRatio="none"
+        >
+          <path d="M0,14 Q70,0 140,14 T280,14 L280,28 L0,28 Z" fill={palette.bottomBg} />
+        </svg>
+      )
+    }
+    if (variant === 'sunset-coral') {
+      // Diagonal stripe accent
+      return (
         <div
           style={{
             position: 'absolute',
-            bottom: '-38px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: '82px',
-            height: '82px',
-            borderRadius: '50%',
-            background: '#fff',
-            padding: '3px',
-            boxShadow: '0 4px 14px rgba(0,0,0,0.25)',
-            zIndex: 2,
+            top: H * 0.34,
+            left: 0,
+            width: '100%',
+            height: H * 0.04,
+            background: palette.ringColor,
+            opacity: 0.85,
+            transform: 'skewY(-2deg)',
+            transformOrigin: 'left center',
+            pointerEvents: 'none',
           }}
-        >
-          <div
-            style={{
-              width: '100%', height: '100%', borderRadius: '50%',
-              border: '2px solid #06b6d4',
-              overflow: 'hidden',
-              background: '#e2e8f0',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
-          >
-            {foto ? (
-              <img
-                src={foto}
-                alt={m.nama}
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                onError={(e) => {
-                  const t = e.currentTarget
-                  t.style.display = 'none'
-                  const parent = t.parentElement
-                  if (parent) parent.innerHTML = `<span style="font-size:22px;font-weight:bold;color:#64748b">${getInitials(m.nama)}</span>`
-                }}
-              />
-            ) : (
-              <span style={{ fontSize: '22px', fontWeight: 'bold', color: '#64748b' }}>{getInitials(m.nama)}</span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div style={{ flex: 1, padding: '46px 16px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-        <div style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a', lineHeight: 1.15, wordBreak: 'break-word', maxWidth: '260px' }}>
-          {m.nama}
-        </div>
-        <div style={{ fontSize: '11px', fontWeight: 700, color: '#0891b2', fontFamily: 'monospace', marginTop: '2px', letterSpacing: '0.5px' }}>
-          {m.nim}
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', width: '100%', marginTop: '10px' }}>
-          <div style={{ background: '#f0f9ff', borderLeft: '3px solid #06b6d4', borderRadius: '0 6px 6px 0', padding: '4px 8px', fontSize: '8.5px', textAlign: 'left' }}>
-            <span style={{ color: '#64748b', fontWeight: 600 }}>Prodi</span>
-            <span style={{ color: '#0f172a', fontWeight: 700, marginLeft: '4px' }}>{m.prodi.nama}</span>
-          </div>
-          <div style={{ background: '#f0f9ff', borderLeft: '3px solid #06b6d4', borderRadius: '0 6px 6px 0', padding: '4px 8px', fontSize: '8.5px', textAlign: 'left' }}>
-            <span style={{ color: '#64748b', fontWeight: 600 }}>Fakultas</span>
-            <span style={{ color: '#0f172a', fontWeight: 700, marginLeft: '4px' }}>{m.prodi.fakultas.nama}</span>
-          </div>
-          <div style={{ display: 'flex', gap: '4px' }}>
-            <div style={{ flex: 1, background: '#f0f9ff', borderLeft: '3px solid #06b6d4', borderRadius: '0 6px 6px 0', padding: '4px 8px', fontSize: '8.5px', textAlign: 'left' }}>
-              <span style={{ color: '#64748b', fontWeight: 600 }}>Sem</span>
-              <span style={{ color: '#0f172a', fontWeight: 700, marginLeft: '4px' }}>{m.semester}</span>
-            </div>
-            <div style={{ flex: 1, background: '#f0f9ff', borderLeft: '3px solid #06b6d4', borderRadius: '0 6px 6px 0', padding: '4px 8px', fontSize: '8.5px', textAlign: 'left' }}>
-              <span style={{ color: '#64748b', fontWeight: 600 }}>Angkatan</span>
-              <span style={{ color: '#0f172a', fontWeight: 700, marginLeft: '4px' }}>{m.angkatan}</span>
-            </div>
-          </div>
-          <div style={{ background: '#f0f9ff', borderLeft: '3px solid #06b6d4', borderRadius: '0 6px 6px 0', padding: '4px 8px', fontSize: '8.5px', textAlign: 'left' }}>
-            <span style={{ color: '#64748b', fontWeight: 600 }}>TTL</span>
-            <span style={{ color: '#0f172a', fontWeight: 700, marginLeft: '4px' }}>{m.tempatLahir}, {formatTanggal(m.tanggalLahir)}</span>
-          </div>
-        </div>
-      </div>
-
-      <div
-        style={{
-          background: 'linear-gradient(90deg, #0891b2 0%, #06b6d4 100%)',
-          padding: '6px 14px',
-          color: '#fff',
-          textAlign: 'center',
-          fontSize: '8px',
-          fontWeight: 700,
-          letterSpacing: '0.4px',
-        }}
-      >
-        {p.no_telepon ? `${p.no_telepon}  •  ` : ''}{p.email_kampus || ''}
-      </div>
-    </div>
-  )
-}
-
-function buildVerticalModernCardHtml(m: IdCardMahasiswa, p: IdCardPengaturan, logoBase64: string): string {
-  const namaKampus = escapeHtml(p.nama_kampus || 'UNIVERSITAS')
-  const foto = m.foto ? escapeHtml(m.foto) : ''
-  const fotoHtml = foto
-    ? `<img src="${foto}" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none';this.parentElement.innerHTML='<span style=\\'font-size:6mm;font-weight:bold;color:#64748b\\'>${getInitials(m.nama)}</span>'" />`
-    : `<span style="font-size:6mm;font-weight:bold;color:#64748b">${getInitials(m.nama)}</span>`
-  const logoImg = logoBase64
-    ? `<img src="${logoBase64}" alt="" style="width:8mm;height:8mm;object-fit:contain;background:#fff;border-radius:1.5mm;padding:0.5mm;" />`
-    : ''
-
-  return `
-  <div class="card card-portrait vm-card">
-    <div class="vm-header">
-      <div class="vm-deco1"></div>
-      <div class="vm-deco2"></div>
-      <div class="vm-header-row">
-        ${logoImg}
-        <div class="vm-header-text">
-          <div class="vm-kampus">${namaKampus}</div>
-          <div class="vm-sub">Kartu Tanda Mahasiswa</div>
-        </div>
-      </div>
-      <div class="vm-photo-wrap">
-        <div class="vm-photo">${fotoHtml}</div>
-      </div>
-    </div>
-    <div class="vm-body">
-      <div class="vm-name">${escapeHtml(m.nama)}</div>
-      <div class="vm-nim">${escapeHtml(m.nim)}</div>
-      <div class="vm-chips">
-        <div class="vm-chip"><span class="vm-chip-label">Prodi</span><span class="vm-chip-val">${escapeHtml(m.prodi.nama)}</span></div>
-        <div class="vm-chip"><span class="vm-chip-label">Fakultas</span><span class="vm-chip-val">${escapeHtml(m.prodi.fakultas.nama)}</span></div>
-        <div class="vm-chip-row">
-          <div class="vm-chip"><span class="vm-chip-label">Sem</span><span class="vm-chip-val">${m.semester}</span></div>
-          <div class="vm-chip"><span class="vm-chip-label">Angkatan</span><span class="vm-chip-val">${m.angkatan}</span></div>
-        </div>
-        <div class="vm-chip"><span class="vm-chip-label">TTL</span><span class="vm-chip-val">${escapeHtml(m.tempatLahir)}, ${formatTanggal(m.tanggalLahir)}</span></div>
-      </div>
-    </div>
-    <div class="vm-footer">${escapeHtml(p.no_telepon ? p.no_telepon + '  •  ' : '')}${escapeHtml(p.email_kampus || '')}</div>
-  </div>`
-}
-
-// ============================================================
-//  TEMPLATE 4: MINIMALIST
-// ============================================================
-
-function MinimalistPreview({
-  m, p, logoUrl,
-}: { m: IdCardMahasiswa; p: IdCardPengaturan; logoUrl: string }) {
-  const namaKampus = p.nama_kampus || 'UNIVERSITAS'
-  const foto = m.foto
+        />
+      )
+    }
+    if (variant === 'forest-emerald') {
+      // Dot pattern decoration in top-right corner
+      const dots: React.ReactNode[] = []
+      for (let r = 0; r < 3; r++) {
+        for (let c = 0; c < 3; c++) {
+          dots.push(
+            <div
+              key={`${r}-${c}`}
+              style={{
+                position: 'absolute',
+                top: 10 + r * 8,
+                right: 10 + c * 8,
+                width: 3,
+                height: 3,
+                borderRadius: '50%',
+                background: palette.ringColor,
+                opacity: 0.45,
+              }}
+            />
+          )
+        }
+      }
+      return <div style={{ position: 'absolute', top: 0, right: 0, width: 60, height: 60, pointerEvents: 'none' }}>{dots}</div>
+    }
+    return null
+  }
 
   return (
     <div
       style={{
-        width: '340px',
-        height: '214px',
-        borderRadius: '10px',
+        width: W,
+        height: H,
+        borderRadius: W * 0.04,
         overflow: 'hidden',
         background: '#fff',
-        boxShadow: '0 10px 25px -5px rgba(0,0,0,0.12)',
+        boxShadow: `0 12px 30px -8px ${palette.shadowColor}, 0 0 0 1px rgba(0,0,0,0.05)`,
         fontFamily: 'Arial, Helvetica, sans-serif',
-        display: 'flex',
         position: 'relative',
-        border: '1px solid #e2e8f0',
+        display: 'flex',
+        flexDirection: 'column',
       }}
     >
-      <div style={{ width: '96px', background: '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '12px 8px', borderRight: '1px solid #e2e8f0', position: 'relative' }}>
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: 'linear-gradient(90deg, #475569, #f59e0b)' }} />
-        <div
-          style={{
-            width: '74px',
-            height: '90px',
-            borderRadius: '6px',
-            overflow: 'hidden',
-            background: '#e2e8f0',
-            border: '1px solid #cbd5e1',
-          }}
-        >
-          {foto ? (
-            <img
-              src={foto}
-              alt={m.nama}
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              onError={(e) => {
-                const t = e.currentTarget
-                t.style.display = 'none'
-                const parent = t.parentElement
-                if (parent) parent.innerHTML = `<span style="display:flex;width:100%;height:100%;align-items:center;justify-content:center;font-size:20px;font-weight:bold;color:#94a3b8">${getInitials(m.nama)}</span>`
-              }}
-            />
-          ) : (
-            <span style={{ display: 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: 'bold', color: '#94a3b8' }}>{getInitials(m.nama)}</span>
-          )}
-        </div>
+      {/* TOP SECTION (light bg) */}
+      <div
+        style={{
+          background: palette.topBg,
+          height: H * 0.42,
+          position: 'relative',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          paddingTop: H * 0.04,
+        }}
+      >
+        <HeaderPanel logoUrl={logoUrl} namaKampus={data.namaKampus} palette={palette} width={W} />
+        {renderDecoration()}
       </div>
 
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '14px 16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-          {logoUrl && (
-            <img
-              src={logoUrl}
-              alt="Logo"
-              style={{ width: '20px', height: '20px', objectFit: 'contain' }}
-              onError={(e) => { (e.currentTarget.style.display = 'none') }}
-            />
-          )}
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: '9px', fontWeight: 800, color: '#0f172a', letterSpacing: '0.6px', textTransform: 'uppercase', lineHeight: 1.1 }}>
-              {namaKampus}
-            </div>
-            <div style={{ fontSize: '7px', color: '#94a3b8', marginTop: '1px', letterSpacing: '0.3px', textTransform: 'uppercase' }}>
-              Kartu Tanda Mahasiswa
-            </div>
-          </div>
-        </div>
+      {/* BOTTOM SECTION (saturated bg) */}
+      <div
+        style={{
+          background: palette.bottomBg,
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'flex-start',
+          paddingTop: H * 0.10, // space for overlapping photo
+          paddingBottom: H * 0.03,
+          position: 'relative',
+        }}
+      >
+        <InfoBlock data={data} palette={palette} width={W} />
+      </div>
 
-        <div style={{ height: '1px', background: '#e2e8f0', marginBottom: '8px' }} />
-
-        <div style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a', lineHeight: 1.15, wordBreak: 'break-word' }}>
-          {m.nama}
-        </div>
-        <div style={{ fontSize: '10px', fontWeight: 700, color: '#475569', fontFamily: 'monospace', marginTop: '1px', letterSpacing: '0.5px' }}>
-          {m.nim}
-        </div>
-
-        <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '8.5px' }}>
-          <div style={{ display: 'flex', gap: '6px' }}>
-            <span style={{ color: '#94a3b8', fontWeight: 600, minWidth: '48px' }}>Prodi</span>
-            <span style={{ color: '#334155', fontWeight: 500 }}>{m.prodi.nama}</span>
-          </div>
-          <div style={{ display: 'flex', gap: '6px' }}>
-            <span style={{ color: '#94a3b8', fontWeight: 600, minWidth: '48px' }}>Fakultas</span>
-            <span style={{ color: '#334155', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.prodi.fakultas.nama}</span>
-          </div>
-          <div style={{ display: 'flex', gap: '6px' }}>
-            <span style={{ color: '#94a3b8', fontWeight: 600, minWidth: '48px' }}>TTL</span>
-            <span style={{ color: '#334155', fontWeight: 500 }}>{m.tempatLahir}, {formatTanggal(m.tanggalLahir)}</span>
-          </div>
-        </div>
-
-        <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '6px', borderTop: '1px solid #f1f5f9' }}>
-          <span style={{ fontSize: '7px', color: '#94a3b8' }}>Sem {m.semester} / {m.angkatan}</span>
-          <span style={{ fontSize: '7px', fontWeight: 700, color: '#f59e0b' }}>BERLAKU SELAMA STUDI</span>
-        </div>
+      {/* PHOTO — absolute positioned, overlapping the split */}
+      <div
+        style={{
+          position: 'absolute',
+          top: H * 0.30,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 5,
+        }}
+      >
+        <PhotoBlock
+          foto={data.foto}
+          initials={data.initials}
+          ringColor={palette.ringColor}
+          size={W * 0.34}
+        />
       </div>
     </div>
   )
 }
 
-function buildMinimalistCardHtml(m: IdCardMahasiswa, p: IdCardPengaturan, logoBase64: string): string {
-  const namaKampus = escapeHtml(p.nama_kampus || 'UNIVERSITAS')
-  const foto = m.foto ? escapeHtml(m.foto) : ''
-  const fotoHtml = foto
-    ? `<img src="${foto}" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none';this.parentElement.innerHTML='<span style=\\'display:flex;width:100%;height:100%;align-items:center;justify-content:center;font-size:5mm;font-weight:bold;color:#94a3b8\\'>${getInitials(m.nama)}</span>'" />`
-    : `<span style="display:flex;width:100%;height:100%;align-items:center;justify-content:center;font-size:5mm;font-weight:bold;color:#94a3b8">${getInitials(m.nama)}</span>`
-  const logoImg = logoBase64
-    ? `<img src="${logoBase64}" alt="" style="width:6mm;height:6mm;object-fit:contain;" />`
-    : ''
-
-  return `
-  <div class="card card-landscape mn-card">
-    <div class="mn-left">
-      <div class="mn-accent"></div>
-      <div class="mn-photo">${fotoHtml}</div>
-    </div>
-    <div class="mn-right">
-      <div class="mn-header">
-        ${logoImg}
-        <div class="mn-header-text">
-          <div class="mn-kampus">${namaKampus}</div>
-          <div class="mn-sub">Kartu Tanda Mahasiswa</div>
-        </div>
-      </div>
-      <div class="mn-divider"></div>
-      <div class="mn-name">${escapeHtml(m.nama)}</div>
-      <div class="mn-nim">${escapeHtml(m.nim)}</div>
-      <div class="mn-info">
-        <div class="mn-row"><span class="mn-label">Prodi</span><span class="mn-val">${escapeHtml(m.prodi.nama)}</span></div>
-        <div class="mn-row"><span class="mn-label">Fakultas</span><span class="mn-val">${escapeHtml(m.prodi.fakultas.nama)}</span></div>
-        <div class="mn-row"><span class="mn-label">TTL</span><span class="mn-val">${escapeHtml(m.tempatLahir)}, ${formatTanggal(m.tanggalLahir)}</span></div>
-      </div>
-      <div class="mn-footer">
-        <span>Sem ${m.semester} / ${m.angkatan}</span>
-        <span class="mn-footer-accent">BERLAKU SELAMA STUDI</span>
-      </div>
-    </div>
-  </div>`
+function CyanNiasPreview(props: Omit<PreviewProps, 'palette' | 'variant'>) {
+  return <CardPreview {...props} palette={PALETTES['cyan-nias']} variant="cyan-nias" />
+}
+function RoyalPurplePreview(props: Omit<PreviewProps, 'palette' | 'variant'>) {
+  return <CardPreview {...props} palette={PALETTES['royal-purple']} variant="royal-purple" />
+}
+function SunsetCoralPreview(props: Omit<PreviewProps, 'palette' | 'variant'>) {
+  return <CardPreview {...props} palette={PALETTES['sunset-coral']} variant="sunset-coral" />
+}
+function ForestEmeraldPreview(props: Omit<PreviewProps, 'palette' | 'variant'>) {
+  return <CardPreview {...props} palette={PALETTES['forest-emerald']} variant="forest-emerald" />
 }
 
-// ============ Template Preview Dispatcher ============
+// ============================================================
+//  PRINT HTML BUILDERS (mm-based, for actual print)
+// ============================================================
+
+interface PrintProps {
+  m: IdCardMahasiswa
+  p: IdCardPengaturan
+  logoBase64: string
+}
+
+function photoHtml(foto: string | null, initials: string, ringColor: string, sizeMm: number): string {
+  const inner = foto
+    ? `<img src="${foto}" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none';this.parentElement.innerHTML='<span style=\\'font-size:${sizeMm * 0.36}mm;font-weight:700;color:#475569\\'>${initials}</span>'" />`
+    : `<span style="font-size:${sizeMm * 0.36}mm;font-weight:700;color:#475569">${initials}</span>`
+  return `
+    <div class="photo-wrap" style="width:${sizeMm}mm;height:${sizeMm}mm;">
+      <div class="photo-inner" style="border-color:${ringColor};">
+        ${inner}
+      </div>
+    </div>
+  `
+}
+
+function buildCardHtml(
+  m: IdCardMahasiswa, p: IdCardPengaturan, logoBase64: string,
+  palette: TemplatePalette, variant: TemplateId,
+): string {
+  const data = buildCardData(m, p)
+  const namaKampus = escapeHtml(data.namaKampus)
+  const nama = escapeHtml(data.nama)
+  const nim = escapeHtml(data.nim)
+  const prodiNama = escapeHtml(data.prodiNama)
+  const kelompokLabel = escapeHtml(data.kelompokLabel)
+  const lokasiLabel = escapeHtml(data.lokasiLabel)
+  const dosenLabel = escapeHtml(data.dosenLabel)
+  const foto = data.foto ? escapeHtml(data.foto) : ''
+  const logoImg = logoBase64
+    ? `<img src="${logoBase64}" alt="" style="width:9mm;height:9mm;object-fit:contain;flex-shrink:0;" onerror="this.style.display='none'" />`
+    : ''
+
+  // Decoration per variant (in mm)
+  let decorationHtml = ''
+  if (variant === 'royal-purple') {
+    decorationHtml = `
+      <svg class="deco-wave" viewBox="0 0 280 28" preserveAspectRatio="none">
+        <path d="M0,14 Q70,0 140,14 T280,14 L280,28 L0,28 Z" fill="${palette.bottomBg}" />
+      </svg>
+    `
+  } else if (variant === 'sunset-coral') {
+    decorationHtml = `<div class="deco-stripe" style="background:${palette.ringColor};"></div>`
+  } else if (variant === 'forest-emerald') {
+    decorationHtml = `<div class="deco-dots"></div>`
+  }
+
+  return `
+  <div class="card card-portrait ${variant}" style="
+    --top-bg:${palette.topBg};
+    --bottom-bg:${palette.bottomBg};
+    --ring:${palette.ringColor};
+    --text-light:${palette.textOnLight};
+    --text-sat:${palette.textOnSaturated};
+    --text-label:${palette.textLabel};
+    --text-value:${palette.textValue};
+    --header-bg:${palette.headerBg};
+    --shadow:${palette.shadowColor};
+  ">
+    <div class="top-section">
+      <div class="header-panel">
+        ${logoImg}
+        <div class="header-text">
+          <div class="header-kampus">${namaKampus}</div>
+          <div class="header-sub">KARTU TANDA MAHASISWA</div>
+        </div>
+      </div>
+      ${decorationHtml}
+    </div>
+    <div class="bottom-section">
+      <div class="info-block">
+        <div class="info-name">${nama}</div>
+        <div class="info-nim">${nim}</div>
+        <div class="info-prodi">${prodiNama}</div>
+        <div class="info-divider"></div>
+        <div class="info-row">
+          <div class="info-label">Kelompok</div>
+          <div class="info-value">${kelompokLabel}</div>
+        </div>
+        <div class="info-row">
+          <div class="info-label">Lokasi ${data.tipeKkn ? 'KKN' : 'PLP'}</div>
+          <div class="info-value">${lokasiLabel}</div>
+        </div>
+        <div class="info-row">
+          <div class="info-label">Dosen Pembimbing</div>
+          <div class="info-value info-value-sm">${dosenLabel}</div>
+        </div>
+        <div class="info-footer">${namaKampus}</div>
+      </div>
+    </div>
+    <div class="photo-anchor">
+      ${photoHtml(foto || null, data.initials, palette.ringColor, 18)}
+    </div>
+  </div>
+  `
+}
+
+function buildCyanNiasCardHtml(m: IdCardMahasiswa, p: IdCardPengaturan, logoBase64: string): string {
+  return buildCardHtml(m, p, logoBase64, PALETTES['cyan-nias'], 'cyan-nias')
+}
+function buildRoyalPurpleCardHtml(m: IdCardMahasiswa, p: IdCardPengaturan, logoBase64: string): string {
+  return buildCardHtml(m, p, logoBase64, PALETTES['royal-purple'], 'royal-purple')
+}
+function buildSunsetCoralCardHtml(m: IdCardMahasiswa, p: IdCardPengaturan, logoBase64: string): string {
+  return buildCardHtml(m, p, logoBase64, PALETTES['sunset-coral'], 'sunset-coral')
+}
+function buildForestEmeraldCardHtml(m: IdCardMahasiswa, p: IdCardPengaturan, logoBase64: string): string {
+  return buildCardHtml(m, p, logoBase64, PALETTES['forest-emerald'], 'forest-emerald')
+}
+
+// ============================================================
+//  TEMPLATE PREVIEW DISPATCHER
+// ============================================================
 interface TemplatePreviewProps {
   templateId: TemplateId
   m: IdCardMahasiswa
@@ -839,158 +895,246 @@ interface TemplatePreviewProps {
 
 export function TemplatePreview({ templateId, m, p, logoUrl }: TemplatePreviewProps) {
   switch (templateId) {
-    case 'modern-landscape':
-      return <ModernLandscapePreview m={m} p={p} logoUrl={logoUrl} />
-    case 'classic-portrait':
-      return <ClassicPortraitPreview m={m} p={p} logoUrl={logoUrl} />
-    case 'vertical-modern':
-      return <VerticalModernPreview m={m} p={p} logoUrl={logoUrl} />
-    case 'minimalist':
-      return <MinimalistPreview m={m} p={p} logoUrl={logoUrl} />
+    case 'cyan-nias':
+      return <CyanNiasPreview m={m} p={p} logoUrl={logoUrl} />
+    case 'royal-purple':
+      return <RoyalPurplePreview m={m} p={p} logoUrl={logoUrl} />
+    case 'sunset-coral':
+      return <SunsetCoralPreview m={m} p={p} logoUrl={logoUrl} />
+    case 'forest-emerald':
+      return <ForestEmeraldPreview m={m} p={p} logoUrl={logoUrl} />
     default:
-      return <ModernLandscapePreview m={m} p={p} logoUrl={logoUrl} />
+      return <CyanNiasPreview m={m} p={p} logoUrl={logoUrl} />
   }
 }
 
-// ============ Print HTML Builder (full document) ============
+// ============================================================
+//  PRINT HTML BUILDER (full document)
+// ============================================================
 function buildCardsForTemplate(
   templateId: TemplateId,
   list: IdCardMahasiswa[],
   p: IdCardPengaturan,
   logoBase64: string,
 ): string {
-  const fn = templateId === 'classic-portrait'
-    ? buildClassicPortraitCardHtml
-    : templateId === 'vertical-modern'
-    ? buildVerticalModernCardHtml
-    : templateId === 'minimalist'
-    ? buildMinimalistCardHtml
-    : buildModernLandscapeCardHtml
+  const fn = templateId === 'royal-purple'
+    ? buildRoyalPurpleCardHtml
+    : templateId === 'sunset-coral'
+    ? buildSunsetCoralCardHtml
+    : templateId === 'forest-emerald'
+    ? buildForestEmeraldCardHtml
+    : buildCyanNiasCardHtml
   return list.map((m) => fn(m, p, logoBase64)).join('\n')
 }
 
-/** CSS untuk print document. Berbeda per template (orientasi & ukuran). */
-function buildPrintCss(templateId: TemplateId): string {
-  const isPortrait = templateId === 'classic-portrait' || templateId === 'vertical-modern'
-
-  const base = `
+/** CSS untuk print document. Semua template portrait CR80. */
+function buildPrintCss(_templateId: TemplateId): string {
+  return `
     @page { size: A4; margin: 8mm; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: Arial, Helvetica, sans-serif; background: #fff; }
     .cards-grid {
       display: grid;
+      grid-template-columns: repeat(3, 1fr);
       gap: 4mm;
       justify-items: center;
     }
     .card {
+      width: 54mm;
+      height: 85.6mm;
+      border-radius: 3mm;
+      overflow: hidden;
+      background: #fff;
+      box-shadow: 0 0.5mm 1.5mm rgba(0,0,0,0.12);
       position: relative;
       page-break-inside: avoid;
-      overflow: hidden;
-      box-shadow: 0 0.5mm 1.5mm rgba(0,0,0,0.12);
+      font-family: Arial, Helvetica, sans-serif;
+      display: flex;
+      flex-direction: column;
     }
     @media print {
       .card { box-shadow: none; }
     }
+
+    /* ============ TOP SECTION (light bg) ============ */
+    .top-section {
+      background: var(--top-bg);
+      height: 36mm; /* ~42% of 85.6mm */
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: 3mm;
+    }
+
+    /* ============ HEADER PANEL ============ */
+    .header-panel {
+      background: var(--header-bg);
+      border-radius: 2mm;
+      padding: 1.5mm 2.5mm;
+      box-shadow: 0 0.6mm 1.5mm rgba(0,0,0,0.10);
+      display: flex;
+      align-items: center;
+      gap: 1.5mm;
+      max-width: 88%;
+    }
+    .header-text { flex: 1; min-width: 0; }
+    .header-kampus {
+      font-size: 2.1mm;
+      font-weight: 800;
+      color: var(--text-light);
+      letter-spacing: 0.1mm;
+      line-height: 1.1;
+      text-transform: uppercase;
+      word-break: break-word;
+    }
+    .header-sub {
+      font-size: 1.5mm;
+      font-weight: 600;
+      color: var(--text-light);
+      opacity: 0.7;
+      margin-top: 0.3mm;
+      letter-spacing: 0.2mm;
+    }
+
+    /* ============ DECORATIONS (per variant) ============ */
+    .deco-wave {
+      position: absolute;
+      top: 30mm;
+      left: 0;
+      width: 100%;
+      height: 5mm;
+      pointer-events: none;
+    }
+    .deco-stripe {
+      position: absolute;
+      top: 28mm;
+      left: 0;
+      width: 100%;
+      height: 3mm;
+      opacity: 0.85;
+      transform: skewY(-2deg);
+      transform-origin: left center;
+    }
+    .deco-dots {
+      position: absolute;
+      top: 1mm;
+      right: 1mm;
+      width: 12mm;
+      height: 12mm;
+      pointer-events: none;
+      background-image: radial-gradient(circle, var(--ring) 0.4mm, transparent 0.5mm);
+      background-size: 3mm 3mm;
+      background-position: 0 0;
+      opacity: 0.45;
+    }
+
+    /* ============ BOTTOM SECTION (saturated bg) ============ */
+    .bottom-section {
+      background: var(--bottom-bg);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding-top: 9mm; /* space for overlapping photo */
+      padding-bottom: 2.5mm;
+      position: relative;
+    }
+
+    /* ============ PHOTO (overlap) ============ */
+    .photo-anchor {
+      position: absolute;
+      top: 25mm;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 5;
+    }
+    .photo-wrap {
+      border-radius: 50%;
+      background: #fff;
+      padding: 1mm;
+      box-shadow: 0 0.8mm 2.5mm rgba(0,0,0,0.18);
+    }
+    .photo-inner {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      border: 0.5mm solid var(--ring);
+      overflow: hidden;
+      background: #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ============ INFO BLOCK ============ */
+    .info-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 0.5mm;
+      width: 92%;
+    }
+    .info-name {
+      font-size: 2.8mm;
+      font-weight: 800;
+      color: var(--text-value);
+      line-height: 1.15;
+      word-break: break-word;
+    }
+    .info-nim {
+      font-size: 2.4mm;
+      font-weight: 700;
+      color: var(--text-value);
+      font-family: monospace;
+      letter-spacing: 0.1mm;
+    }
+    .info-prodi {
+      font-size: 2mm;
+      font-weight: 700;
+      color: var(--text-value);
+      text-transform: uppercase;
+      letter-spacing: 0.1mm;
+      margin-top: 0.3mm;
+    }
+    .info-divider {
+      width: 40%;
+      height: 0.2mm;
+      background: var(--text-label);
+      opacity: 0.4;
+      margin: 0.8mm 0;
+    }
+    .info-row { width: 100%; margin-top: 0.3mm; }
+    .info-label {
+      font-size: 1.6mm;
+      font-weight: 600;
+      color: var(--text-label);
+      letter-spacing: 0.2mm;
+      text-transform: uppercase;
+      margin-bottom: 0.2mm;
+    }
+    .info-value {
+      font-size: 2.2mm;
+      font-weight: 700;
+      color: var(--text-value);
+      line-height: 1.2;
+      word-break: break-word;
+    }
+    .info-value-sm { font-size: 1.9mm; }
+    .info-footer {
+      margin-top: 1mm;
+      padding: 0.6mm 1.5mm;
+      background: rgba(255,255,255,0.12);
+      border-radius: 1mm;
+      font-size: 1.7mm;
+      font-weight: 700;
+      color: var(--text-value);
+      letter-spacing: 0.2mm;
+      text-transform: uppercase;
+    }
   `
-
-  const gridCols = isPortrait
-    ? `.cards-grid { grid-template-columns: repeat(3, 1fr); }`
-    : `.cards-grid { grid-template-columns: repeat(2, 1fr); }`
-
-  const dims = isPortrait
-    ? `.card { width: 54mm; height: 85.6mm; border-radius: 3mm; }`
-    : `.card { width: 85.6mm; height: 54mm; border-radius: 3mm; }`
-
-  let templateCss = ''
-  if (templateId === 'modern-landscape') {
-    templateCss = `
-      .card-landscape { display: flex; flex-direction: column; }
-      .ml-header { background: linear-gradient(135deg, #059669 0%, #047857 60%, #065f46 100%); height: 12mm; padding: 0 3.5mm; display: flex; align-items: center; gap: 2mm; color: #fff; }
-      .ml-header-text { flex: 1; min-width: 0; }
-      .ml-kampus { font-size: 2.8mm; font-weight: 800; letter-spacing: 0.1mm; line-height: 1.1; text-transform: uppercase; }
-      .ml-alamat { font-size: 1.9mm; opacity: 0.85; margin-top: 0.3mm; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .ml-badge { font-size: 2mm; font-weight: 700; background: rgba(255,255,255,0.2); padding: 0.5mm 1.5mm; border-radius: 1mm; letter-spacing: 0.1mm; }
-      .ml-body { flex: 1; display: flex; padding: 2.5mm 3mm; gap: 3mm; }
-      .ml-photo { width: 20mm; height: 25mm; border-radius: 2mm; overflow: hidden; background: #e2e8f0; border: 0.5mm solid #059669; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
-      .ml-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.3mm; }
-      .ml-name { font-size: 3.3mm; font-weight: 800; color: #0f172a; line-height: 1.15; word-break: break-word; }
-      .ml-nim { font-size: 2.6mm; font-weight: 700; color: #059669; font-family: monospace; letter-spacing: 0.1mm; }
-      .ml-divider { height: 0.2mm; background: #e2e8f0; margin: 1mm 0; }
-      .ml-grid { display: grid; grid-template-columns: 13mm 1fr; gap: 0.5mm 1.5mm; font-size: 2.2mm; line-height: 1.3; }
-      .ml-label { color: #64748b; font-weight: 600; }
-      .ml-val { color: #0f172a; font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
-      .ml-footer { background: #f1f5f9; border-top: 0.2mm solid #e2e8f0; padding: 1mm 3.5mm; display: flex; justify-content: space-between; align-items: center; font-size: 1.9mm; color: #475569; }
-      .ml-footer-accent { font-weight: 700; color: #059669; }
-    `
-  } else if (templateId === 'classic-portrait') {
-    templateCss = `
-      .card-portrait { display: flex; flex-direction: column; }
-      .cp-card { border: 0.8mm solid #991b1b; }
-      .cp-header { background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%); padding: 2.5mm 3mm 2mm; color: #fff; display: flex; align-items: center; gap: 2mm; }
-      .cp-header-text { flex: 1; }
-      .cp-kampus { font-size: 2.6mm; font-weight: 800; letter-spacing: 0.1mm; line-height: 1.1; text-transform: uppercase; }
-      .cp-sub { font-size: 1.9mm; opacity: 0.9; margin-top: 0.3mm; }
-      .cp-photo-wrap { display: flex; justify-content: center; padding: 3mm 0 2mm; background: #fff; }
-      .cp-photo { width: 27mm; height: 32mm; border: 0.5mm solid #991b1b; padding: 0.5mm; background: #fff; box-shadow: 0 0.5mm 2mm rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; overflow: hidden; }
-      .cp-body { flex: 1; padding: 2mm 3.5mm; display: flex; flex-direction: column; }
-      .cp-name { font-size: 3.3mm; font-weight: 800; color: #7f1d1d; line-height: 1.15; word-break: break-word; text-align: center; }
-      .cp-nim { font-size: 2.8mm; font-weight: 700; color: #0f172a; font-family: monospace; text-align: center; margin-top: 0.5mm; }
-      .cp-divider { height: 0.3mm; background: #991b1b; margin: 1.5mm 0; }
-      .cp-table { width: 100%; font-size: 2.2mm; border-collapse: collapse; }
-      .cp-table td { padding: 0.4mm 0; }
-      .cp-label { color: #64748b; font-weight: 600; width: 42%; }
-      .cp-val { color: #0f172a; font-weight: 500; }
-      .cp-footer { background: #7f1d1d; padding: 1.5mm 3.5mm; color: #fff; display: flex; justify-content: space-between; align-items: center; font-size: 2mm; }
-    `
-  } else if (templateId === 'vertical-modern') {
-    templateCss = `
-      .card-portrait { display: flex; flex-direction: column; }
-      .vm-header { background: linear-gradient(135deg, #0891b2 0%, #06b6d4 50%, #22d3ee 100%); height: 38mm; position: relative; padding: 3.5mm 3.5mm 0; color: #fff; overflow: hidden; }
-      .vm-deco1 { position: absolute; top: -5mm; right: -5mm; width: 20mm; height: 20mm; border-radius: 50%; background: rgba(255,255,255,0.12); }
-      .vm-deco2 { position: absolute; top: 5mm; right: 10mm; width: 10mm; height: 10mm; border-radius: 50%; background: rgba(255,255,255,0.08); }
-      .vm-header-row { display: flex; align-items: center; gap: 2mm; position: relative; z-index: 1; }
-      .vm-header-text { flex: 1; }
-      .vm-kampus { font-size: 2.6mm; font-weight: 800; letter-spacing: 0.1mm; line-height: 1.1; text-transform: uppercase; }
-      .vm-sub { font-size: 1.9mm; opacity: 0.9; margin-top: 0.3mm; }
-      .vm-photo-wrap { position: absolute; bottom: -10mm; left: 50%; transform: translateX(-50%); width: 22mm; height: 22mm; border-radius: 50%; background: #fff; padding: 0.8mm; box-shadow: 0 1mm 3.5mm rgba(0,0,0,0.25); z-index: 2; }
-      .vm-photo { width: 100%; height: 100%; border-radius: 50%; border: 0.5mm solid #06b6d4; overflow: hidden; background: #e2e8f0; display: flex; align-items: center; justify-content: center; }
-      .vm-body { flex: 1; padding: 12mm 4mm 3mm; display: flex; flex-direction: column; align-items: center; text-align: center; }
-      .vm-name { font-size: 3.5mm; font-weight: 800; color: #0f172a; line-height: 1.15; word-break: break-word; max-width: 65mm; }
-      .vm-nim { font-size: 2.8mm; font-weight: 700; color: #0891b2; font-family: monospace; margin-top: 0.5mm; letter-spacing: 0.1mm; }
-      .vm-chips { display: flex; flex-direction: column; gap: 1.2mm; width: 100%; margin-top: 2.5mm; }
-      .vm-chip { background: #f0f9ff; border-left: 0.8mm solid #06b6d4; border-radius: 0 1.5mm 1.5mm 0; padding: 1mm 2mm; font-size: 2.2mm; text-align: left; }
-      .vm-chip-label { color: #64748b; font-weight: 600; }
-      .vm-chip-val { color: #0f172a; font-weight: 700; margin-left: 1mm; }
-      .vm-chip-row { display: flex; gap: 1mm; }
-      .vm-chip-row .vm-chip { flex: 1; }
-      .vm-footer { background: linear-gradient(90deg, #0891b2 0%, #06b6d4 100%); padding: 1.5mm 3.5mm; color: #fff; text-align: center; font-size: 1.9mm; font-weight: 700; letter-spacing: 0.1mm; }
-    `
-  } else { // minimalist
-    templateCss = `
-      .card-landscape { display: flex; }
-      .mn-card { border: 0.2mm solid #e2e8f0; }
-      .mn-left { width: 24mm; background: #f8fafc; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3mm 2mm; border-right: 0.2mm solid #e2e8f0; position: relative; }
-      .mn-accent { position: absolute; top: 0; left: 0; right: 0; height: 1mm; background: linear-gradient(90deg, #475569, #f59e0b); }
-      .mn-photo { width: 18.5mm; height: 22.5mm; border-radius: 1.5mm; overflow: hidden; background: #e2e8f0; border: 0.2mm solid #cbd5e1; display: flex; align-items: center; justify-content: center; }
-      .mn-right { flex: 1; display: flex; flex-direction: column; padding: 3.5mm 4mm; }
-      .mn-header { display: flex; align-items: center; gap: 2mm; margin-bottom: 2mm; }
-      .mn-header-text { flex: 1; }
-      .mn-kampus { font-size: 2.3mm; font-weight: 800; color: #0f172a; letter-spacing: 0.15mm; text-transform: uppercase; line-height: 1.1; }
-      .mn-sub { font-size: 1.7mm; color: #94a3b8; margin-top: 0.3mm; letter-spacing: 0.08mm; text-transform: uppercase; }
-      .mn-divider { height: 0.2mm; background: #e2e8f0; margin-bottom: 2mm; }
-      .mn-name { font-size: 3.5mm; font-weight: 800; color: #0f172a; line-height: 1.15; word-break: break-word; }
-      .mn-nim { font-size: 2.6mm; font-weight: 700; color: #475569; font-family: monospace; margin-top: 0.3mm; letter-spacing: 0.1mm; }
-      .mn-info { margin-top: 2mm; display: flex; flex-direction: column; gap: 0.5mm; font-size: 2.1mm; }
-      .mn-row { display: flex; gap: 1.5mm; }
-      .mn-label { color: #94a3b8; font-weight: 600; min-width: 12mm; }
-      .mn-val { color: #334155; font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
-      .mn-footer { margin-top: auto; display: flex; justify-content: space-between; align-items: center; padding-top: 1.5mm; border-top: 0.2mm solid #f1f5f9; }
-      .mn-footer > span:first-child { font-size: 1.7mm; color: #94a3b8; }
-      .mn-footer-accent { font-size: 1.7mm; font-weight: 700; color: #f59e0b; }
-    `
-  }
-
-  return `${base}\n${gridCols}\n${dims}\n${templateCss}`
 }
 
 /** Susun dokumen HTML lengkap untuk print window */

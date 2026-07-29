@@ -6,8 +6,8 @@
  * Halaman cetak Kartu Tanda Mahasiswa (KTM / ID Card).
  *
  * Fitur:
- *  - Pilihan 4 desain template (Modern Landscape, Classic Portrait,
- *    Vertical Modern, Minimalist)
+ *  - Pilihan 4 desain template portrait CR80 (Cyan Nias, Royal Purple,
+ *    Sunset Coral, Forest Emerald) — semua mengikuti desain referensi pengguna
  *  - Pencarian mahasiswa berdasarkan nama / NIM / prodi
  *  - Multi-select mahasiswa untuk cetak batch
  *  - Live preview real-time sesuai template & mahasiswa yang dipilih
@@ -63,7 +63,7 @@ export function IdCardView() {
   const [printing, setPrinting] = useState(false)
   const [printingAll, setPrintingAll] = useState(false)
 
-  const [templateId, setTemplateId] = useState<TemplateId>('modern-landscape')
+  const [templateId, setTemplateId] = useState<TemplateId>('cyan-nias')
   const [search, setSearch] = useState('')
   const [filterProdi, setFilterProdi] = useState('ALL')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -74,7 +74,7 @@ export function IdCardView() {
     setLoading(true)
     try {
       const [mhsRes, setRes] = await Promise.all([
-        fetch('/api/mahasiswa', { cache: 'no-store' }),
+        fetch('/api/mahasiswa?withKelompok=true', { cache: 'no-store' }),
         fetch('/api/pengaturan', { cache: 'no-store' }),
       ])
       if (!mhsRes.ok) throw new Error('Gagal memuat data mahasiswa')
@@ -310,9 +310,7 @@ export function IdCardView() {
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">Pilih salah satu dari 4 desain template yang tersedia.</p>
             </div>
-            <Badge variant="outline" className="text-[10px]">
-              {currentTemplate.orientasi === 'landscape' ? 'Landscape' : 'Portrait'}
-            </Badge>
+            <Badge variant="outline" className="text-[10px]">Portrait · CR80</Badge>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {ID_CARD_TEMPLATES.map((t) => {
@@ -343,15 +341,30 @@ export function IdCardView() {
                     </div>
                     <span className={cn('text-sm font-semibold', active && 'text-primary')}>{t.nama}</span>
                   </div>
-                  {/* Mini preview swatch */}
+                  {/* Mini preview swatch — two-tone portrait dengan ring foto */}
                   <div
-                    className="rounded-md mb-2 flex items-center justify-center text-[8px] font-bold text-white/90"
-                    style={{
-                      background: `linear-gradient(135deg, ${t.accent}, ${t.accent}cc)`,
-                      height: t.orientasi === 'portrait' ? '52px' : '34px',
-                    }}
+                    className="rounded-md mb-2 relative overflow-hidden"
+                    style={{ height: '56px', background: '#fff' }}
                   >
-                    {t.orientasi === 'portrait' ? 'PORTRAIT' : 'LANDSCAPE'}
+                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '40%', background: `${t.accent}25` }} />
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '65%', background: t.accent }} />
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '28%',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        width: '20px',
+                        height: '20px',
+                        borderRadius: '50%',
+                        background: '#fff',
+                        border: '2px solid #FF9800',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                      }}
+                    />
+                    <div style={{ position: 'absolute', bottom: 4, left: 0, right: 0, textAlign: 'center', fontSize: '7px', fontWeight: 700, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+                      {t.nama.split(' ')[0]}
+                    </div>
                   </div>
                   <p className="text-[11px] text-muted-foreground leading-tight line-clamp-2">{t.deskripsi}</p>
                 </button>

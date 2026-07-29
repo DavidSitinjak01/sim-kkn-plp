@@ -2,10 +2,15 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
 // GET - list all mahasiswa with prodi + fakultas
+// Query params:
+//   - search: filter by nim/nama/email
+//   - withKelompok: "true" → include latest KelompokMember + kelompok (with desa & dosen.fakultas)
+//                   Used by ID Card printer to show Kelompok KKN, Lokasi, Dosen Pembimbing.
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url)
     const search = searchParams.get('search')?.trim() ?? ''
+    const withKelompok = searchParams.get('withKelompok') === 'true'
 
     const where = search
       ? {
@@ -21,6 +26,22 @@ export async function GET(req: Request) {
       where,
       include: {
         prodi: { include: { fakultas: true } },
+        ...(withKelompok
+          ? {
+              kelompokMember: {
+                include: {
+                  kelompok: {
+                    include: {
+                      desa: true,
+                      dosen: { include: { fakultas: true, prodi: true } },
+                    },
+                  },
+                },
+                orderBy: { createdAt: 'desc' },
+                take: 1, // latest assignment only
+              },
+            }
+          : {}),
       },
       orderBy: [{ angkatan: 'desc' }, { nama: 'asc' }],
     })
