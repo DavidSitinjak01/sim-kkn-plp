@@ -930,7 +930,7 @@ export function PersuratanView() {
 
       {/* ===== Daftar Peserta PLP Letter Dialog ===== */}
       <Dialog open={!!letterKelompokId} onOpenChange={(o) => { if (!o) setLetterKelompokId(null) }}>
-        <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-4xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Daftar Peserta KKN/PLP</DialogTitle>
             <DialogDescription>
@@ -946,7 +946,7 @@ export function PersuratanView() {
 
       {/* ===== Kartu Peserta (ID Card) Dialog ===== */}
       <Dialog open={!!kartuKelompokId} onOpenChange={(o) => { if (!o) setKartuKelompokId(null) }}>
-        <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-5xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Kartu Peserta (ID Card)</DialogTitle>
             <DialogDescription>

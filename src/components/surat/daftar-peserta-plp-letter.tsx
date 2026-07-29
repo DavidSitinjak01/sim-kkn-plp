@@ -271,11 +271,13 @@ export function DaftarPesertaPLPLetter({ kelompokId }: Props) {
       <div className="bg-white text-black rounded-lg border shadow-inner overflow-auto" style={{ maxHeight: '70vh' }}>
         <div className="mx-auto bg-white" style={{ width: '100%', maxWidth: '794px', padding: '40px 50px', fontFamily: 'Times New Roman, serif' }}>
           {/* ===== KOP SURAT =====
-             Layout: logo absolute di kiri (90px), blok teks KOP diberi margin
-             kiri-kanan 100px agar teks (terutama baris alamat yang panjang)
-             TIDAK tertutup logo. Karena margin kiri = margin kanan (simetris),
-             titik tengah teks tetap sama dengan titik tengah judul surat di
-             bawahnya → KOP & keterangan surat tetap SEJAJAR. */}
+             Layout: logo absolute di kiri (90px), blok teks KOP digeser ke
+             kanan dengan margin-left:100px (hanya kiri, BUKAN kiri-kanan).
+             Tujuan: teks KOP (terutama baris alamat + telp yang panjang)
+             TIDAK tertutup logo DAN tetap pada SATU baris (tidak wrap).
+             margin kiri saja = "geser" sesuai permintaan user; area teks
+             tetap cukup lebar (lebar penuh - 100px) sehingga alamat+telp
+             tidak turun ke baris bawah. */}
           <div style={{ position: 'relative', borderBottom: '3px double #000', paddingBottom: '10px', marginBottom: '6px', minHeight: '90px' }}>
             {logoUrl && (
               <img
@@ -285,7 +287,7 @@ export function DaftarPesertaPLPLetter({ kelompokId }: Props) {
                 onError={(e) => { (e.currentTarget.style.display = 'none') }}
               />
             )}
-            <div style={{ margin: '0 100px', textAlign: 'center' }}>
+            <div style={{ marginLeft: '100px', textAlign: 'center' }}>
               <div style={{ fontSize: '12px', fontWeight: 'normal', letterSpacing: '0.5px', textTransform: 'uppercase' }}>{pengaturan.yayasan}</div>
               <div style={{ fontSize: '20px', fontWeight: 'bold', letterSpacing: '0.5px', textTransform: 'uppercase' }}>{pengaturan.nama_kampus}</div>
               <div style={{ fontSize: '12px', fontWeight: 'bold', letterSpacing: '0.3px', textTransform: 'uppercase' }}>{panitiaText}</div>
@@ -413,7 +415,7 @@ function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logoBase64: string): 
     margin-bottom: 18px;
     min-height: 90px;
   }
-  .kop .text { margin: 0 100px; text-align: center; }
+  .kop .text { margin-left: 100px; text-align: center; }
   .kop img { position: absolute; left: 0; top: 0; width: 90px; height: 90px; object-fit: contain; }
   .yayasan { font-size: 12px; font-weight: normal; letter-spacing: 0.5px; text-transform: uppercase; }
   .universitas { font-size: 20px; font-weight: bold; letter-spacing: 0.5px; text-transform: uppercase; }
