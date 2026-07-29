@@ -7,6 +7,7 @@ import { LoginScreen } from '@/components/app/login-screen'
 import { AppShell } from '@/components/app/app-shell'
 import { ThemeProvider } from '@/components/app/theme-provider'
 import { PendaftaranFormDinamis } from '@/components/pendaftaran/pendaftaran-form-dinamis'
+import { AbsensiWajahPublic } from '@/components/absensi-wajah/absensi-wajah-public'
 
 function HomeContent() {
   const user = useAppStore((s) => s.user)
@@ -16,6 +17,9 @@ function HomeContent() {
   // This lets admins share a single link (e.g. https://app/?daftar=true) to
   // prospective KKN/PLP participants — no login required.
   const isDaftarMode = searchParams.get('daftar') === 'true'
+  // Public face attendance page shown when ?absensi=wajah&token=xxx is present.
+  // Superadmin generates a unique token per mahasiswa and shares the link.
+  const isAbsensiWajahMode = searchParams.get('absensi') === 'wajah' && !!searchParams.get('token')
 
   useEffect(() => {
     if (theme === 'dark') {
@@ -24,6 +28,15 @@ function HomeContent() {
       document.documentElement.classList.remove('dark')
     }
   }, [theme])
+
+  // Public face attendance takes priority — no auth required.
+  if (isAbsensiWajahMode) {
+    return (
+      <ThemeProvider>
+        <AbsensiWajahPublic />
+      </ThemeProvider>
+    )
+  }
 
   // Public registration form takes priority — no auth required.
   if (isDaftarMode) {

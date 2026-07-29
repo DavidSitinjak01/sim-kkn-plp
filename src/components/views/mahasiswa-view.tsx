@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import {
   Users, Plus, FileSpreadsheet, FileText, Pencil, Trash2, Loader2, UserCheck, UserX, Venus, Mars,
-  ImageIcon, Camera,
+  ImageIcon, Camera, ScanFace, Link2, Copy, Check, X,
 } from 'lucide-react'
 import { PhotoEditorDialog } from '@/components/photo-editor/photo-editor-dialog'
 
@@ -59,6 +59,8 @@ interface Mahasiswa {
   angkatan: number
   status: string
   foto: string | null
+  fotoWajah: string | null
+  absensiToken: string | null
   createdAt: string
   updatedAt: string
 }
@@ -113,6 +115,16 @@ export function MahasiswaView() {
   const [deleting, setDeleting] = useState(false)
   const [photoEditorOpen, setPhotoEditorOpen] = useState(false)
   const [photoSaving, setPhotoSaving] = useState(false)
+
+  // === State Daftar Wajah (face registration) ===
+  const [wajahTarget, setWajahTarget] = useState<Mahasiswa | null>(null)
+  const [wajahFoto, setWajahFoto] = useState<string>('')
+  const [wajahSaving, setWajahSaving] = useState(false)
+
+  // === State Link Absensi ===
+  const [linkTarget, setLinkTarget] = useState<Mahasiswa | null>(null)
+  const [linkGenerating, setLinkGenerating] = useState(false)
+  const [linkCopied, setLinkCopied] = useState(false)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -265,6 +277,128 @@ export function MahasiswaView() {
     }
   }
 
+  // ============ Daftar Wajah (face registration) ============
+  const openWajahDialog = (m: Mahasiswa) => {
+    setWajahTarget(m)
+    setWajahFoto(m.fotoWajah ?? '')
+  }
+
+  const handleUploadWajah = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      toast.error('File harus berupa gambar')
+      return
+    }
+    if (file.size > 3_500_000) {
+      toast.error('Ukuran gambar terlalu besar (maks ~2.5MB)')
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => setWajahFoto(reader.result as string)
+    reader.onerror = () => toast.error('Gagal membaca file')
+    reader.readAsDataURL(file)
+  }
+
+  const handleSaveWajah = async () => {
+    if (!wajahTarget) return
+    if (!wajahFoto) {
+      toast.error('Silakan unggah foto wajah terlebih dahulu')
+      return
+    }
+    setWajahSaving(true)
+    try {
+      const res = await fetch(`/api/mahasiswa/${wajahTarget.id}/daftar-wajah`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fotoWajah: wajahFoto }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.error || 'Gagal mendaftarkan wajah')
+      setData(prev => prev.map(m => m.id === wajahTarget.id ? { ...m, fotoWajah: wajahFoto } : m))
+      toast.success(`Wajah ${wajahTarget.nama} berhasil didaftarkan`)
+      setWajahTarget({ ...wajahTarget, fotoWajah: wajahFoto })
+    } catch (err: any) {
+      toast.error(err?.message || 'Gagal mendaftarkan wajah')
+    } finally {
+      setWajahSaving(false)
+    }
+  }
+
+  const handleHapusWajah = async () => {
+    if (!wajahTarget) return
+    setWajahSaving(true)
+    try {
+      const res = await fetch(`/api/mahasiswa/${wajahTarget.id}/daftar-wajah`, { method: 'DELETE' })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.error || 'Gagal menghapus wajah')
+      setData(prev => prev.map(m => m.id === wajahTarget.id ? { ...m, fotoWajah: null, absensiToken: null } : m))
+      toast.success('Foto wajah & link absensi dihapus')
+      setWajahTarget({ ...wajahTarget, fotoWajah: null, absensiToken: null })
+      setWajahFoto('')
+    } catch (err: any) {
+      toast.error(err?.message || 'Gagal menghapus wajah')
+    } finally {
+      setWajahSaving(false)
+    }
+  }
+
+  // ============ Link Absensi Wajah ============
+  const openLinkDialog = (m: Mahasiswa) => {
+    setLinkTarget(m)
+    setLinkCopied(false)
+  }
+
+  const handleGenerateLink = async () => {
+    if (!linkTarget) return
+    setLinkGenerating(true)
+    try {
+      const res = await fetch(`/api/mahasiswa/${linkTarget.id}/generate-link`, { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.error || 'Gagal membuat link')
+      setData(prev => prev.map(m => m.id === linkTarget.id ? { ...m, absensiToken: json.token } : m))
+      setLinkTarget({ ...linkTarget, absensiToken: json.token })
+      toast.success('Link absensi berhasil dibuat')
+    } catch (err: any) {
+      toast.error(err?.message || 'Gagal membuat link')
+    } finally {
+      setLinkGenerating(false)
+    }
+  }
+
+  const handleRevokeLink = async () => {
+    if (!linkTarget) return
+    setLinkGenerating(true)
+    try {
+      const res = await fetch(`/api/mahasiswa/${linkTarget.id}/generate-link`, { method: 'DELETE' })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.error || 'Gagal mencabut link')
+      setData(prev => prev.map(m => m.id === linkTarget.id ? { ...m, absensiToken: null } : m))
+      setLinkTarget({ ...linkTarget, absensiToken: null })
+      toast.success('Link absensi dicabut')
+    } catch (err: any) {
+      toast.error(err?.message || 'Gagal mencabut link')
+    } finally {
+      setLinkGenerating(false)
+    }
+  }
+
+  const linkUrl = linkTarget?.absensiToken
+    ? `${typeof window !== 'undefined' ? window.location.origin : ''}/?absensi=wajah&token=${linkTarget.absensiToken}`
+    : ''
+
+  const handleCopyLink = async () => {
+    if (!linkUrl) return
+    try {
+      await navigator.clipboard.writeText(linkUrl)
+      setLinkCopied(true)
+      toast.success('Link disalin ke clipboard')
+      setTimeout(() => setLinkCopied(false), 2000)
+    } catch {
+      toast.error('Gagal menyalin link')
+    }
+  }
+
   // ============ Export ============
   const handleExportCSV = () => {
     if (!data.length) {
@@ -304,6 +438,25 @@ export function MahasiswaView() {
         <div className="flex items-center justify-start gap-1">
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(m)} title="Edit">
             <Pencil className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => openWajahDialog(m)}
+            title={m.fotoWajah ? 'Lihat / Edit Wajah Terdaftar' : 'Daftarkan Wajah'}
+          >
+            <ScanFace className={`w-4 h-4 ${m.fotoWajah ? 'text-emerald-600' : 'text-muted-foreground'}`} />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => openLinkDialog(m)}
+            title={m.absensiToken ? 'Lihat / Bagikan Link Absensi' : 'Generate Link Absensi'}
+            disabled={!m.fotoWajah}
+          >
+            <Link2 className={`w-4 h-4 ${m.absensiToken ? 'text-primary' : 'text-muted-foreground'}`} />
           </Button>
           <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-900/20" onClick={() => setDeleteTarget(m)} title="Hapus">
             <Trash2 className="w-4 h-4" />
@@ -618,6 +771,152 @@ export function MahasiswaView() {
         studentName={form.nama}
         onSave={handleSavePhoto}
       />
+
+      {/* === Dialog Daftar Wajah (Face Registration) === */}
+      <Dialog open={!!wajahTarget} onOpenChange={(o) => { if (!o) { setWajahTarget(null); setWajahFoto('') } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ScanFace className="w-5 h-5 text-primary" /> Daftar Wajah Mahasiswa
+            </DialogTitle>
+            <DialogDescription>
+              {wajahTarget && (
+                <>Daftarkan foto wajah untuk <strong>{wajahTarget.nama}</strong> ({wajahTarget.nim}).<br />
+                Foto ini dipakai untuk verifikasi saat mahasiswa melakukan absensi wajah.</>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Preview foto wajah */}
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-40 h-40 rounded-2xl border-2 border-dashed border-border flex items-center justify-center overflow-hidden bg-muted/30">
+                {wajahFoto ? (
+                  <img src={wajahFoto} alt="Foto wajah" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="text-center text-muted-foreground p-4">
+                    <ScanFace className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                    <p className="text-xs">Belum ada foto wajah</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-2 w-full">
+                <Button variant="outline" size="sm" className="flex-1" asChild>
+                  <label className="cursor-pointer">
+                    <ImageIcon className="w-4 h-4 mr-1.5" />
+                    {wajahFoto ? 'Ganti Foto' : 'Unggah Foto'}
+                    <input type="file" accept="image/png,image/jpeg,image/jpg,image/webp" className="hidden" onChange={handleUploadWajah} />
+                  </label>
+                </Button>
+                {wajahFoto && (
+                  <Button variant="outline" size="sm" onClick={() => setWajahFoto('')} disabled={wajahSaving}>
+                    <X className="w-4 h-4 mr-1.5" /> Reset
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Tips */}
+            <div className="text-xs text-muted-foreground bg-muted/40 rounded-lg p-3 space-y-1">
+              <p className="font-semibold text-foreground">Tips foto wajah:</p>
+              <ul className="list-disc list-inside space-y-0.5 ml-1">
+                <li>Pastikan wajah terlihat jelas, tegak, menghadap kamera</li>
+                <li>Pencahayaan cukup, tidak gelap/backlight</li>
+                <li>Tanpa kacamata gelap / masker / topi yang menutupi wajah</li>
+                <li>Ekspresi netral, mulut tertutup</li>
+              </ul>
+            </div>
+
+            {wajahTarget?.absensiToken && (
+              <div className="text-xs bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-2 text-amber-800 dark:text-amber-300">
+                ⚠️ Mengubah foto wajah akan memengaruhi verifikasi absensi. Link absensi yang sudah ada tetap aktif.
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-2">
+            {wajahTarget?.fotoWajah && (
+              <Button variant="outline" onClick={handleHapusWajah} disabled={wajahSaving} className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-900/20 mr-auto">
+                {wajahSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                Hapus
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => { setWajahTarget(null); setWajahFoto('') }} disabled={wajahSaving}>
+              Tutup
+            </Button>
+            <Button onClick={handleSaveWajah} disabled={!wajahFoto || wajahSaving}>
+              {wajahSaving && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
+              Simpan Wajah
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* === Dialog Link Absensi Wajah === */}
+      <Dialog open={!!linkTarget} onOpenChange={(o) => { if (!o) setLinkTarget(null) }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Link2 className="w-5 h-5 text-primary" /> Link Absensi Wajah
+            </DialogTitle>
+            <DialogDescription>
+              {linkTarget && (
+                <>Bagikan link ini ke <strong>{linkTarget.nama}</strong> ({linkTarget.nim}). Mahasiswa cukup buka link & lakukan absensi wajah — tidak perlu login.</>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {linkTarget && !linkTarget.fotoWajah ? (
+              <div className="text-sm bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-amber-800 dark:text-amber-300">
+                ⚠️ Mahasiswa ini belum mendaftarkan wajah. Silakan daftarkan wajah terlebih dahulu (ikon <ScanFace className="w-4 h-4 inline" /> di kolom Aksi) sebelum membuat link absensi.
+              </div>
+            ) : linkTarget?.absensiToken ? (
+              <>
+                <div className="space-y-2">
+                  <Label className="text-xs">Link Absensi (klik untuk salin)</Label>
+                  <div className="flex gap-2">
+                    <Input readOnly value={linkUrl} className="font-mono text-xs flex-1" onFocus={(e) => e.currentTarget.select()} />
+                    <Button size="icon" onClick={handleCopyLink} title="Salin link">
+                      {linkCopied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="text-xs bg-muted/40 rounded-lg p-3 space-y-1">
+                  <p className="font-semibold text-foreground">Status:</p>
+                  <p>✅ Wajah terdaftar</p>
+                  <p>✅ Link aktif & dapat dibagikan ke mahasiswa</p>
+                  <p className="text-muted-foreground">Mahasiswa dapat absen 1× per hari (status HADIR).</p>
+                </div>
+              </>
+            ) : (
+              <div className="text-sm bg-muted/40 rounded-lg p-3 space-y-1">
+                <p>Belum ada link aktif. Klik <strong>"Buat Link Absensi"</strong> untuk membuat link unik.</p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-2">
+            {linkTarget?.absensiToken && (
+              <Button variant="outline" onClick={handleRevokeLink} disabled={linkGenerating} className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-900/20 mr-auto">
+                {linkGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
+                Cabut Link
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => setLinkTarget(null)} disabled={linkGenerating}>
+              Tutup
+            </Button>
+            {!linkTarget?.absensiToken && linkTarget?.fotoWajah && (
+              <Button onClick={handleGenerateLink} disabled={linkGenerating}>
+                {linkGenerating && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
+                Buat Link Absensi
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

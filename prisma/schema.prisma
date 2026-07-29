@@ -85,6 +85,9 @@ model Mahasiswa {
   angkatan      Int
   status        String        @default("AKTIF") // AKTIF, LULUS, CUTI, DO
   foto          String?
+  // === Absensi Wajah (Face Attendance) ===
+  fotoWajah     String?       // base64 data URL foto wajah terdaftar (untuk verifikasi)
+  absensiToken  String?       @unique // token unik untuk link absensi wajah publik
   userId        String?       @unique
   user          User?         @relation(fields: [userId], references: [id])
   createdAt     DateTime      @default(now())
