@@ -562,7 +562,7 @@ export function IdCardView() {
               </div>
 
               {/* Preview canvas */}
-              <div className="bg-muted/30 rounded-lg border p-6 flex items-center justify-center min-h-[520px] overflow-auto">
+              <div className="bg-muted/30 rounded-lg border p-6 flex items-center justify-center min-h-[580px] overflow-auto">
                 {previewMhs ? (
                   <motion.div
                     key={`${templateId}-${previewMhs.id}`}
