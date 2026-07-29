@@ -63,16 +63,26 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'kknplp-store',
-      version: 2,
-      partialize: (s) => ({ user: s.user, currentView: s.currentView, theme: s.theme, sidebarCollapsed: s.sidebarCollapsed }),
+      version: 3,
+      // Only persist auth + theme + sidebar state. `currentView` is
+      // intentionally NOT persisted so that a browser refresh always
+      // returns the user to the dashboard (initial state = 'dashboard'),
+      // regardless of which view was open before the refresh.
+      partialize: (s) => ({ user: s.user, theme: s.theme, sidebarCollapsed: s.sidebarCollapsed }),
       // v1 -> v2: AuthUser changed from `email` (required) to `username` (required).
       // Old persisted sessions have no `username`, so force logout to require fresh login
       // with the new username-based credential.
+      // v2 -> v3: `currentView` is no longer persisted. Clear any stale value
+      // from older sessions so the dashboard is always shown after refresh.
       migrate: (persisted: any, version: number) => {
         if (version < 2 && persisted?.user) {
           // Old shape: user.email existed, user.username did not. Clear session.
           persisted.user = null
-          persisted.currentView = 'dashboard'
+        }
+        if (version < 3 && persisted) {
+          // Drop the persisted view so the app falls back to the default
+          // 'dashboard' on the next hydration.
+          delete persisted.currentView
         }
         return persisted
       },
