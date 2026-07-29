@@ -292,7 +292,11 @@ export function DaftarPesertaPLPLetter({ kelompokId }: Props) {
               <div style={{ fontSize: '20px', fontWeight: 'bold', letterSpacing: '0.5px', textTransform: 'uppercase' }}>{pengaturan.nama_kampus}</div>
               <div style={{ fontSize: '12px', fontWeight: 'bold', letterSpacing: '0.3px', textTransform: 'uppercase' }}>{panitiaText}</div>
               <div style={{ fontSize: '10px', fontStyle: 'italic', marginTop: '2px' }}>Izin Operasional: {pengaturan.izin_operasional}</div>
-              <div style={{ fontSize: '10px', marginTop: '2px' }}>{pengaturan.alamat_kampus}</div>
+              {/* Alamat: LEFT-ALIGNED mulai setelah logo (sesuai PDF asli).
+                  Di PDF, baris alamat TIDAK rata tengah seperti baris di atasnya,
+                  melainkan rata kiri dimulai tepat setelah tepi kanan logo,
+                  sehingga TIDAK PERNAH tertimpa logo sepanjang apapun alamatnya. */}
+              <div style={{ fontSize: '10px', marginTop: '2px', textAlign: 'left', paddingLeft: '100px', paddingRight: '10px' }}>{pengaturan.alamat_kampus}</div>
             </div>
           </div>
 
@@ -421,7 +425,7 @@ function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logoBase64: string): 
   .universitas { font-size: 20px; font-weight: bold; letter-spacing: 0.5px; text-transform: uppercase; }
   .panitia { font-size: 12px; font-weight: bold; letter-spacing: 0.3px; text-transform: uppercase; }
   .izin { font-size: 10px; font-style: italic; margin-top: 2px; }
-  .alamat { font-size: 10px; margin-top: 2px; }
+  .alamat { font-size: 10px; margin-top: 2px; text-align: left; padding-left: 100px; padding-right: 10px; }
   .judul { text-align: center; margin: 28px 0 18px; }
   .judul .line1 { font-size: 14px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
   .judul .line2 { font-size: 14px; font-weight: bold; text-transform: uppercase; }
