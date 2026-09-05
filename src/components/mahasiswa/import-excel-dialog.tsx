@@ -172,21 +172,27 @@ export function ImportExcelDialog({ open, onOpenChange, onSuccess }: ImportExcel
     }
   }
 
-  // ── Download template ────────────────────────────────────────────────────
-  const handleDownloadTemplate = () => {
-    const headers = ['Nama Lengkap', 'NIM', 'Jenis Kelamin', 'Program Studi', 'Nomor WA Aktif', 'Alamat Asal', 'Pasfoto (URL)']
-    const sample = [
-      ['Budi Santoso', '23200211001', 'Laki-laki', 'Pendidikan Bahasa Inggris', '081234567890', 'Desa Contoh, Kec. Contoh, Nias Selatan', ''],
-      ['Siti Aminah', '23200211002', 'Perempuan', 'Pendidikan Matematika', '081234567891', 'Jl. Contoh No. 1', ''],
-    ]
-    const csv = [headers, ...sample].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'template-import-mahasiswa.csv'
-    a.click()
-    URL.revokeObjectURL(url)
+  // ── Download template Excel (.xlsx) ─────────────────────────────────────
+  // Fetch dari API /api/mahasiswa/import/template yang generate file .xlsx
+  // dengan format 12 kolom (sesuai Google Forms response export).
+  const handleDownloadTemplate = async () => {
+    try {
+      toast.info('Mengunduh template Excel...')
+      const res = await fetch('/api/mahasiswa/import/template')
+      if (!res.ok) throw new Error('Gagal mengunduh template')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'template-import-mahasiswa.xlsx'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast.success('Template berhasil diunduh')
+    } catch (err: any) {
+      toast.error(err?.message || 'Gagal mengunduh template')
+    }
   }
 
   return (
@@ -259,7 +265,7 @@ export function ImportExcelDialog({ open, onOpenChange, onSuccess }: ImportExcel
 
                 <Button variant="outline" size="sm" onClick={handleDownloadTemplate} className="w-full">
                   <FileSpreadsheet className="w-4 h-4 mr-1.5" />
-                  Download Template CSV
+                  Download Template Excel (.xlsx)
                 </Button>
               </div>
             )}

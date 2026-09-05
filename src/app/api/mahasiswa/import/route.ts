@@ -176,12 +176,14 @@ export async function POST(req: Request) {
     }
     const headers = (rows[0] || []).map((h) => String(h || '').trim())
 
-    // Find column indices
+    // Find column indices. "No" column (nomor urut) is auto-skipped — not used.
     const colNama = findCol(headers, ['nama lengkap', 'nama'])
     const colNim = findCol(headers, ['nim'])
     const colJK = findCol(headers, ['jenis kelamin', 'jk'])
     const colProdi = findCol(headers, ['program studi', 'prodi'])
-    const colNoHp = findCol(headers, ['nomor wa', 'no wa', 'no hp', 'no. hp', 'nomor hp', 'nomor telepon', 'no telepon'])
+    // Nomor WA Aktif (mahasiswa's own phone) — avoid matching "Nomor HP/WA orangtua"
+    // by checking 'nomor wa aktif' first, fall back to generic 'nomor wa' / 'no wa'.
+    const colNoHp = findCol(headers, ['nomor wa aktif', 'nomor wa', 'no wa', 'no hp', 'no. hp', 'nomor hp', 'nomor telepon', 'no telepon'])
     const colAlamat = findCol(headers, ['alamat asal', 'alamat'])
     const colFoto = findCol(headers, ['pasfoto', 'foto'])
 
