@@ -237,7 +237,20 @@ export function MahasiswaView() {
       const res = await fetch(`/api/mahasiswa/${deleteTarget.id}`, { method: 'DELETE' })
       const json = await res.json()
       if (!res.ok) throw new Error(json?.error || 'Gagal menghapus')
-      toast.success(`Mahasiswa ${deleteTarget.nama} berhasil dihapus`)
+      // Tampilkan info cascade delete jika ada data terkait yang ikut dihapus
+      const cascaded = json?.cascaded
+      if (cascaded && (cascaded.absensi > 0 || cascaded.penilaian > 0 || cascaded.kelompokMember > 0)) {
+        const parts = []
+        if (cascaded.absensi > 0) parts.push(`${cascaded.absensi} absensi`)
+        if (cascaded.penilaian > 0) parts.push(`${cascaded.penilaian} penilaian`)
+        if (cascaded.kelompokMember > 0) parts.push(`${cascaded.kelompokMember} keanggotaan kelompok`)
+        toast.success(`Mahasiswa ${deleteTarget.nama} berhasil dihapus`, {
+          description: `Data terkait juga dihapus: ${parts.join(', ')}`,
+          duration: 6000,
+        })
+      } else {
+        toast.success(`Mahasiswa ${deleteTarget.nama} berhasil dihapus`)
+      }
       setDeleteTarget(null)
       fetchData({ silent: true })
     } catch (err: any) {
@@ -746,7 +759,17 @@ export function MahasiswaView() {
             <AlertDialogTitle>Hapus Mahasiswa</AlertDialogTitle>
             <AlertDialogDescription>
               Apakah Anda yakin ingin menghapus <strong>{deleteTarget?.nama}</strong> ({deleteTarget?.nim})?
-              Tindakan ini tidak dapat dibatalkan.
+              <br /><br />
+              <span className="text-rose-600 font-medium">
+                ⚠️ Semua data terkait mahasiswa ini juga akan dihapus:
+              </span>
+              <br />
+              • Riwayat absensi<br />
+              • Data penilaian<br />
+              • Keanggotaan kelompok KKN/PLP<br /><br />
+              <span className="text-muted-foreground text-xs">
+                Tindakan ini tidak dapat dibatalkan.
+              </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -757,7 +780,7 @@ export function MahasiswaView() {
               className="bg-rose-600 hover:bg-rose-700 text-white"
             >
               {deleting && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
-              Hapus
+              Ya, Hapus Semua
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

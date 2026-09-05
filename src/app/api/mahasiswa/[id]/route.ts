@@ -80,21 +80,52 @@ export async function PUT(req: Request, { params }: Params) {
 }
 
 // DELETE - remove mahasiswa
+// Cascade-manual: hapus data terkait (absensi, penilaian, kelompokMember)
+// dalam transaksi agar atomik. Tanpa ini, foreign key constraint P2003
+// akan menolak delete jika mahasiswa punya absensi/penilaian/kelompok.
 export async function DELETE(_req: Request, { params }: Params) {
   try {
     const { id } = await params
-    const existing = await db.mahasiswa.findUnique({ where: { id } })
+    const existing = await db.mahasiswa.findUnique({
+      where: { id },
+      include: {
+        _count: { select: { absensi: true, penilaian: true, kelompokMember: true } },
+      },
+    })
     if (!existing) {
       return NextResponse.json({ error: 'Mahasiswa tidak ditemukan' }, { status: 404 })
     }
 
-    await db.mahasiswa.delete({ where: { id } })
-    return NextResponse.json({ success: true, message: 'Mahasiswa berhasil dihapus' })
+    const { absensi: absCount, penilaian: nilCount, kelompokMember: kelCount } = existing._count
+
+    // Eksekusi dalam transaksi — semua atau tidak sama sekali.
+    await db.$transaction([
+      // 1. Hapus semua absensi mahasiswa ini
+      db.absensi.deleteMany({ where: { mahasiswaId: id } }),
+      // 2. Hapus semua penilaian mahasiswa ini
+      db.penilaian.deleteMany({ where: { mahasiswaId: id } }),
+      // 3. Hapus keanggotaan kelompok mahasiswa ini (KelompokMember sudah
+      //    pakai onDelete: Cascade di schema, tapi kita hapus eksplisit agar
+      //    aman di DB yang tidak enforce cascade)
+      db.kelompokMember.deleteMany({ where: { mahasiswaId: id } }),
+      // 4. Terakhir, hapus mahasiswa itu sendiri
+      db.mahasiswa.delete({ where: { id } }),
+    ])
+
+    return NextResponse.json({
+      success: true,
+      message: `Mahasiswa ${existing.nama} berhasil dihapus`,
+      cascaded: {
+        absensi: absCount,
+        penilaian: nilCount,
+        kelompokMember: kelCount,
+      },
+    })
   } catch (e: any) {
     console.error('[DELETE /api/mahasiswa/:id]', e)
     if (e?.code === 'P2003') {
       return NextResponse.json(
-        { error: 'Mahasiswa tidak dapat dihapus karena masih memiliki data terkait (absensi/penilaian/kelompok)' },
+        { error: 'Mahasiswa tidak dapat dihapus karena masih memiliki data terkait yang tidak tercascade. Hubungi admin.' },
         { status: 400 }
       )
     }
