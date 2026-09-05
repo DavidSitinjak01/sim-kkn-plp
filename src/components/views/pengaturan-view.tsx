@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/select'
 import { useAppStore } from '@/lib/store'
 import { refreshBranding } from '@/lib/branding'
+import { WipeDataCard } from '@/components/pengaturan/wipe-data-card'
 
 // ============ Types ============
 type SettingsMap = Record<string, string>
@@ -272,6 +273,7 @@ export function PengaturanView() {
           <TabsTrigger value="integrasi"><Plug className="w-4 h-4" />Integrasi</TabsTrigger>
           <TabsTrigger value="tampilan"><Palette className="w-4 h-4" />Tampilan</TabsTrigger>
           <TabsTrigger value="backup"><Database className="w-4 h-4" />Backup & Restore</TabsTrigger>
+          <TabsTrigger value="reset-data" className="text-rose-600 dark:text-rose-400"><Trash2 className="w-4 h-4" />Reset Data</TabsTrigger>
         </TabsList>
 
         {/* Profil Universitas */}
@@ -762,6 +764,17 @@ export function PengaturanView() {
                 />
               </CardContent>
             </Card>
+          </motion.div>
+        </TabsContent>
+
+        {/* ─── Reset Data (Danger Zone) ─── */}
+        <TabsContent value="reset-data">
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-4"
+          >
+            <WipeDataCard />
           </motion.div>
         </TabsContent>
       </Tabs>
