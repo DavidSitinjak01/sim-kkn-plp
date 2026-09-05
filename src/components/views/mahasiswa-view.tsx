@@ -5,9 +5,10 @@ import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import {
   Users, Plus, FileSpreadsheet, FileText, Pencil, Trash2, Loader2, UserCheck, UserX, Venus, Mars,
-  ImageIcon, Camera, ScanFace, Link2, Copy, Check, X,
+  ImageIcon, Camera, ScanFace, Link2, Copy, Check, X, Upload,
 } from 'lucide-react'
 import { PhotoEditorDialog } from '@/components/photo-editor/photo-editor-dialog'
+import { ImportExcelDialog } from '@/components/mahasiswa/import-excel-dialog'
 
 import { PageHeader } from '@/components/shared/page-header'
 import { DataTable, type Column } from '@/components/shared/data-table'
@@ -125,6 +126,7 @@ export function MahasiswaView() {
   const [linkTarget, setLinkTarget] = useState<Mahasiswa | null>(null)
   const [linkGenerating, setLinkGenerating] = useState(false)
   const [linkCopied, setLinkCopied] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
 
   const fetchData = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true)
@@ -549,6 +551,9 @@ export function MahasiswaView() {
         breadcrumb={['Data Master', 'Data Mahasiswa']}
         actions={
           <>
+            <Button variant="outline" size="sm" onClick={() => setImportOpen(true)} className="text-emerald-700 border-emerald-300 hover:bg-emerald-50 dark:text-emerald-300 dark:border-emerald-700 dark:hover:bg-emerald-900/20">
+              <Upload className="w-4 h-4" /> Import Excel
+            </Button>
             <Button variant="outline" size="sm" onClick={handleExportCSV}>
               <FileSpreadsheet className="w-4 h-4" /> Export Excel
             </Button>
@@ -793,6 +798,13 @@ export function MahasiswaView() {
         initialFoto={form.foto || null}
         studentName={form.nama}
         onSave={handleSavePhoto}
+      />
+
+      {/* === Dialog Import Excel === */}
+      <ImportExcelDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onSuccess={() => fetchData({ silent: true })}
       />
 
       {/* === Dialog Daftar Wajah (Face Registration) === */}
