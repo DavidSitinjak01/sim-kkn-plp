@@ -34,6 +34,8 @@ const VIEW_TITLES: Record<ViewKey, string> = {
   aktivitas: 'Log Aktivitas',
   pendaftaran: 'Pendaftaran Peserta',
   formPendaftaran: 'Formulir Pendaftaran',
+  linkPenting: 'Link Penting',
+  idCard: 'Cetak ID Card',
 }
 
 export function Header({ onMenuClick }: { onMenuClick: () => void }) {

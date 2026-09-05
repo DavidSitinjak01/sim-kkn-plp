@@ -1,9 +1,10 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { BrandingProvider } from "@/components/app/branding-provider";
 import { ChunkErrorRecovery } from "@/components/app/chunk-error-recovery";
+import { PWAInstaller } from "@/components/app/pwa-installer";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,6 +28,20 @@ export const metadata: Metadata = {
   authors: [{ name: "Universitas Nias Raya" }],
   creator: "Universitas Nias Raya",
   publisher: "Universitas Nias Raya",
+  // ── PWA manifest ─────────────────────────────────────────────────────
+  // Enables "Add to Home Screen" on Android and "Install" prompt in
+  // Chrome/Edge. The manifest.json in /public declares icons (192/512,
+  // maskable variants), theme color, display mode (standalone), and
+  // app shortcuts (Dashboard / Absensi / Persuratan).
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    title: "SIM KKN",
+    statusBarStyle: "default",
+  },
+  formatDetection: {
+    telephone: false,
+  },
   // Single canonical icon entry. Previously this was an array of two SVGs
   // which produced TWO <link rel="icon"> tags in <head>; browsers picked
   // whichever they preferred and the BrandingProvider only updated the
@@ -36,9 +51,13 @@ export const metadata: Metadata = {
   // BrandingProvider still overrides this href at runtime if an admin
   // sets a custom logo_url / favicon_url via Pengaturan.
   icons: {
-    icon: [{ url: "/favicon.png", type: "image/png" }],
+    icon: [
+      { url: "/favicon.png", type: "image/png", sizes: "64x64" },
+      { url: "/icons/favicon-32.png", type: "image/png", sizes: "32x32" },
+      { url: "/icons/favicon-16.png", type: "image/png", sizes: "16x16" },
+    ],
     shortcut: [{ url: "/favicon.png", type: "image/png" }],
-    apple: [{ url: "/logo.png" }],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
   },
   openGraph: {
     title: "SIM KKN & PLP — Universitas Nias Raya",
@@ -67,8 +86,23 @@ export default function RootLayout({
         <ChunkErrorRecovery />
         <BrandingProvider />
         {children}
+        <PWAInstaller />
         <Toaster richColors position="top-right" />
       </body>
     </html>
   );
 }
+
+// ── Viewport / theme color (Next.js 16 requires this in a separate export) ──
+// themeColor tints the Android status bar / task switcher when the app is
+// installed as a PWA. Matches the app's primary gradient (teal-700).
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#0e7490" },
+    { media: "(prefers-color-scheme: dark)", color: "#0e7490" },
+  ],
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: "cover",
+};

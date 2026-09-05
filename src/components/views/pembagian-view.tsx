@@ -140,8 +140,8 @@ export function PembagianView() {
 
   const [membersTarget, setMembersTarget] = useState<Kelompok | null>(null)
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
+  const fetchData = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true)
     try {
       const params = new URLSearchParams()
       if (tipeFilter !== 'ALL') params.set('tipe', tipeFilter)
@@ -153,11 +153,35 @@ export function PembagianView() {
     } catch {
       toast.error('Gagal memuat data kelompok')
     } finally {
-      setLoading(false)
+      if (!opts?.silent) setLoading(false)
     }
   }, [tipeFilter, tahunFilter])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  // Patch count member secara optimistic (instant) tanpa reload seluruh tabel.
+  // Dipakai oleh dialog KelolaAnggotaDialog saat add/remove/transfer.
+  const patchMemberCount = useCallback((kelompokId: string, delta: number) => {
+    setData((prev) => prev.map((k) => {
+      if (k.id !== kelompokId) return k
+      const cur = k._count?.members ?? 0
+      return { ...k, _count: { members: Math.max(0, cur + delta) } }
+    }))
+  }, [])
+
+  // Silent refresh di background setelah dialog anggota ditutup — memastikan
+  // angka di tabel sinkron dengan server (defensive, tanpa loading state).
+  const silentRefresh = useCallback(async () => {
+    try {
+      const params = new URLSearchParams()
+      if (tipeFilter !== 'ALL') params.set('tipe', tipeFilter)
+      if (tahunFilter) params.set('tahunAkademik', tahunFilter)
+      const res = await fetch(`/api/kelompok?${params.toString()}`)
+      if (res.ok) setData(await res.json())
+    } catch {
+      // silent
+    }
+  }, [tipeFilter, tahunFilter])
 
   // Load supporting lists
   useEffect(() => {
@@ -240,7 +264,7 @@ export function PembagianView() {
       if (!res.ok) throw new Error(json?.error || 'Gagal menyimpan')
       toast.success(editId ? 'Kelompok diperbarui' : 'Kelompok berhasil ditambahkan')
       setDialogOpen(false)
-      fetchData()
+      fetchData({ silent: true })
     } catch (err: any) {
       toast.error(err?.message || 'Gagal menyimpan')
     } finally {
@@ -257,7 +281,7 @@ export function PembagianView() {
       if (!res.ok) throw new Error(json?.error || 'Gagal menghapus')
       toast.success(`Kelompok ${deleteTarget.nama} dihapus`)
       setDeleteTarget(null)
-      fetchData()
+      fetchData({ silent: true })
     } catch (err: any) {
       toast.error(err?.message || 'Gagal menghapus')
     } finally {
@@ -694,7 +718,13 @@ export function PembagianView() {
       {membersTarget && (
         <KelolaAnggotaDialog
           kelompok={membersTarget}
-          onClose={() => setMembersTarget(null)}
+          onClose={() => {
+            setMembersTarget(null)
+            // Setelah dialog ditutup, silent refresh supaya tabel tetap akurat
+            // (mencegah drift bila ada operasi yang tidak terduga)
+            silentRefresh()
+          }}
+          onMemberCountChange={patchMemberCount}
         />
       )}
 
@@ -730,16 +760,24 @@ export function PembagianView() {
 //  - Panel kanan menampilkan badge "Di: Kelompok X" untuk mhs yang sudah ada di kelompok lain
 //  - Klik "+" pada mhs yang sudah di kelompok lain → konfirmasi → atomic transfer
 //  - Panel kiri: tombol "Pindah" per anggota → buka dialog pilih kelompok tujuan
-function KelolaAnggotaDialog({ kelompok, onClose }: { kelompok: Kelompok; onClose: () => void }) {
+function KelolaAnggotaDialog({
+  kelompok,
+  onClose,
+  onMemberCountChange,
+}: {
+  kelompok: Kelompok
+  onClose: () => void
+  onMemberCountChange?: (kelompokId: string, delta: number) => void
+}) {
   const [detail, setDetail] = useState<Kelompok | null>(null)
   const [loading, setLoading] = useState(true)
   const [mhsList, setMhsList] = useState<Mahasiswa[]>([])
-  // Map mahasiswaId -> kelompok lain tempat dia terdaftar (same tipe, tahunAkademik)
-  const [otherMembership, setOtherMembership] = useState<Record<string, { id: string; nama: string }>>({})
+  // Map mahasiswaId -> kelompok lain tempat dia terdaftar (same tahunAkademik, semua tipe)
+  const [otherMembership, setOtherMembership] = useState<Record<string, { id: string; nama: string; tipe: string }>>({})
   const [search, setSearch] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
   // Transfer confirmation state
-  const [pendingMove, setPendingMove] = useState<{ mhs: Mahasiswa; fromKelompok: { id: string; nama: string } } | null>(null)
+  const [pendingMove, setPendingMove] = useState<{ mhs: Mahasiswa; fromKelompok: { id: string; nama: string; tipe: string } } | null>(null)
   // Move-to dialog state (pindah dari current member ke kelompok lain)
   const [moveToTarget, setMoveToTarget] = useState<Mahasiswa | null>(null)
   const [peerKelompok, setPeerKelompok] = useState<Kelompok[]>([])
@@ -761,14 +799,16 @@ function KelolaAnggotaDialog({ kelompok, onClose }: { kelompok: Kelompok; onClos
 
   useEffect(() => { fetchDetail() }, [fetchDetail])
 
-  // Load all mahasiswa + peer kelompok (same tipe + tahunAkademik)
+  // Load all mahasiswa + peer kelompok (SEMUA tipe, same tahunAkademik)
+  // Anti-duplikasi: mahasiswa tidak boleh ada di 2 kelompok pada tahun akademik yang sama,
+  // walau tipenya berbeda (KKN vs PLP1 vs PLP2). Karena itu peer fetch TIDAK difilter per tipe.
   // Then figure out each mahasiswa's other-group membership so we can show badges + enable transfer.
   useEffect(() => {
     (async () => {
       try {
         const [mhsRes, peerRes] = await Promise.all([
           fetch('/api/mahasiswa'),
-          fetch(`/api/kelompok?tipe=${encodeURIComponent(kelompok.tipe)}`),
+          fetch('/api/kelompok'),
         ])
         if (mhsRes.ok) setMhsList(await mhsRes.json() as Mahasiswa[])
         if (peerRes.ok) {
@@ -778,7 +818,7 @@ function KelolaAnggotaDialog({ kelompok, onClose }: { kelompok: Kelompok; onClos
           setPeerKelompok(allK)
           // Fetch each peer's members to build the membership map
           // (do it in parallel — typically just a few kelompok)
-          const entries: Record<string, { id: string; nama: string }> = {}
+          const entries: Record<string, { id: string; nama: string; tipe: string }> = {}
           await Promise.all(
             allK.map(async (k) => {
               try {
@@ -786,7 +826,7 @@ function KelolaAnggotaDialog({ kelompok, onClose }: { kelompok: Kelompok; onClos
                 if (!r.ok) return
                 const full = await r.json() as Kelompok
                 for (const m of full.members ?? []) {
-                  entries[m.mahasiswaId] = { id: k.id, nama: k.nama }
+                  entries[m.mahasiswaId] = { id: k.id, nama: k.nama, tipe: k.tipe }
                 }
               } catch {
                 // silent — skip this kelompok on error
@@ -799,7 +839,7 @@ function KelolaAnggotaDialog({ kelompok, onClose }: { kelompok: Kelompok; onClos
         // silent
       }
     })()
-  }, [kelompok.id, kelompok.tipe, kelompok.tahunAkademik])
+  }, [kelompok.id, kelompok.tahunAkademik])
 
   const memberIds = useMemo(() => new Set((detail?.members ?? []).map((m) => m.mahasiswaId)), [detail])
 
@@ -833,6 +873,8 @@ function KelolaAnggotaDialog({ kelompok, onClose }: { kelompok: Kelompok; onClos
 
   const doAdd = async (mhsId: string, moveFromKelompokId?: string) => {
     setBusy(mhsId)
+    // Snapshot mhs untuk optimistic UI (instant feedback di dialog)
+    const mhs = mhsList.find((m) => m.id === mhsId)
     try {
       const res = await fetch(`/api/kelompok/${kelompok.id}/members`, {
         method: 'POST',
@@ -841,17 +883,48 @@ function KelolaAnggotaDialog({ kelompok, onClose }: { kelompok: Kelompok; onClos
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json?.error || 'Gagal menambah')
+
+      // Optimistic count update untuk tabel parent (instant, tanpa refresh)
       if (json?.moved) {
+        // Transfer: target +1, source -1
+        onMemberCountChange?.(kelompok.id, +1)
+        if (moveFromKelompokId) onMemberCountChange?.(moveFromKelompokId, -1)
         toast.success(`Anggota dipindahkan dari "${pendingMove?.fromKelompok.nama ?? 'kelompok lain'}"`)
       } else {
+        // Add biasa: target +1
+        onMemberCountChange?.(kelompok.id, +1)
         toast.success('Anggota ditambahkan')
       }
+
+      // Optimistic update untuk dialog: langsung tambahkan ke detail.members
+      // supaya panel "Anggota Saat Ini" instan update (tanpa tunggu fetchDetail)
+      if (mhs) {
+        setDetail((prev) => prev ? {
+          ...prev,
+          members: [...(prev.members ?? []), {
+            id: `optimistic-${mhsId}-${Date.now()}`,
+            kelompokId: kelompok.id,
+            mahasiswaId: mhsId,
+            mahasiswa: mhs,
+            createdAt: new Date().toISOString(),
+          }],
+        } : prev)
+        // Hapus dari otherMembership karena sudah pindah ke sini
+        setOtherMembership((prev) => {
+          const next = { ...prev }
+          delete next[mhsId]
+          return next
+        })
+      }
+
       setPendingMove(null)
-      // Refresh detail + other-membership map (mahasiswa yang bergerak perlu update badge-nya)
+      // Background fetch untuk konfirmasi server (data sebenarnya)
       fetchDetail()
       refreshOtherMembership()
     } catch (err: any) {
       toast.error(err?.message || 'Gagal menambahkan anggota')
+      // Bila konflik (409) — refresh membership map supaya badge muncul
+      refreshOtherMembership()
     } finally {
       setBusy(null)
     }
@@ -859,7 +932,7 @@ function KelolaAnggotaDialog({ kelompok, onClose }: { kelompok: Kelompok; onClos
 
   const refreshOtherMembership = async () => {
     try {
-      const entries: Record<string, { id: string; nama: string }> = {}
+      const entries: Record<string, { id: string; nama: string; tipe: string }> = {}
       await Promise.all(
         peerKelompok.map(async (k) => {
           try {
@@ -867,7 +940,7 @@ function KelolaAnggotaDialog({ kelompok, onClose }: { kelompok: Kelompok; onClos
             if (!r.ok) return
             const full = await r.json() as Kelompok
             for (const m of full.members ?? []) {
-              entries[m.mahasiswaId] = { id: k.id, nama: k.nama }
+              entries[m.mahasiswaId] = { id: k.id, nama: k.nama, tipe: k.tipe }
             }
           } catch {
             // silent
@@ -888,11 +961,23 @@ function KelolaAnggotaDialog({ kelompok, onClose }: { kelompok: Kelompok; onClos
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json?.error || 'Gagal menghapus')
+
+      // Optimistic count update: target -1
+      onMemberCountChange?.(kelompok.id, -1)
+
+      // Optimistic update untuk dialog: langsung hapus dari detail.members
+      setDetail((prev) => prev ? {
+        ...prev,
+        members: (prev.members ?? []).filter((m) => m.mahasiswaId !== mhsId),
+      } : prev)
+
       toast.success('Anggota dihapus dari kelompok')
       fetchDetail()
       refreshOtherMembership()
     } catch (err: any) {
       toast.error(err?.message || 'Gagal menghapus anggota')
+      // Rollback optimistic update dengan re-fetch
+      fetchDetail()
     } finally {
       setBusy(null)
     }
@@ -901,15 +986,27 @@ function KelolaAnggotaDialog({ kelompok, onClose }: { kelompok: Kelompok; onClos
   // Handle "Pindah ke kelompok lain" dari panel kiri
   const handleMoveTo = async () => {
     if (!moveToTarget || !selectedTargetKelompok) return
-    setBusy(moveToTarget.id)
+    const movedMhsId = moveToTarget.id
+    setBusy(movedMhsId)
     try {
       const res = await fetch(`/api/kelompok/${selectedTargetKelompok}/members`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mahasiswaId: moveToTarget.id, moveFromKelompokId: kelompok.id }),
+        body: JSON.stringify({ mahasiswaId: movedMhsId, moveFromKelompokId: kelompok.id }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json?.error || 'Gagal memindahkan')
+
+      // Optimistic count update: source -1, target +1
+      onMemberCountChange?.(kelompok.id, -1)
+      onMemberCountChange?.(selectedTargetKelompok, +1)
+
+      // Optimistic update untuk dialog: hapus dari detail.members (karena dipindah keluar)
+      setDetail((prev) => prev ? {
+        ...prev,
+        members: (prev.members ?? []).filter((m) => m.mahasiswaId !== movedMhsId),
+      } : prev)
+
       const targetName = peerKelompok.find((k) => k.id === selectedTargetKelompok)?.nama ?? 'kelompok tujuan'
       toast.success(`Anggota dipindahkan ke "${targetName}"`)
       setMoveToTarget(null)
@@ -918,6 +1015,7 @@ function KelolaAnggotaDialog({ kelompok, onClose }: { kelompok: Kelompok; onClos
       refreshOtherMembership()
     } catch (err: any) {
       toast.error(err?.message || 'Gagal memindahkan anggota')
+      fetchDetail()
     } finally {
       setBusy(null)
     }
@@ -965,8 +1063,9 @@ function KelolaAnggotaDialog({ kelompok, onClose }: { kelompok: Kelompok; onClos
         <div className="rounded-md border border-sky-200 bg-sky-50 dark:border-sky-900 dark:bg-sky-950/30 px-3 py-2 text-xs text-sky-800 dark:text-sky-200 flex items-start gap-2">
           <ArrowRightLeft className="w-3.5 h-3.5 mt-0.5 shrink-0" />
           <span>
-            <strong>Pindah antar kelompok:</strong> Klik tombol <kbd className="px-1 rounded bg-white dark:bg-sky-900/50 border">+</kbd> pada mahasiswa yang tertera badge kelompok lain untuk memindahkannya ke sini.
-            Atau klik <kbd className="px-1 rounded bg-white dark:bg-sky-900/50 border">Pindah</kbd> pada anggota saat ini untuk memindahkannya ke kelompok lain.
+            <strong>Anti-duplikasi:</strong> Mahasiswa hanya boleh di <strong>satu kelompok per tahun akademik</strong> (tidak boleh di 2 kelompok, walau tipenya berbeda — KKN/PLP 1/PLP 2).
+            Klik tombol <kbd className="px-1 rounded bg-white dark:bg-sky-900/50 border">+</kbd> pada mahasiswa ber-badge kelompok lain untuk memindahkannya ke sini,
+            atau klik <kbd className="px-1 rounded bg-white dark:bg-sky-900/50 border">Pindah</kbd> pada anggota saat ini.
           </span>
         </div>
 
@@ -1069,7 +1168,7 @@ function KelolaAnggotaDialog({ kelompok, onClose }: { kelompok: Kelompok; onClos
                           <p className="text-xs text-muted-foreground font-mono">{m.nim}</p>
                           {other && (
                             <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300 border border-violet-200 dark:border-violet-800 truncate max-w-full">
-                              ↗ Di: {other.nama}
+                              ↗ Di: {other.tipe === 'KKN' ? 'KKN' : other.tipe === 'PLP1' ? 'PLP 1' : 'PLP 2'} · {other.nama}
                             </span>
                           )}
                         </div>
@@ -1106,9 +1205,20 @@ function KelolaAnggotaDialog({ kelompok, onClose }: { kelompok: Kelompok; onClos
             </AlertDialogTitle>
             <AlertDialogDescription>
               <strong>{pendingMove?.mhs.nama}</strong> ({pendingMove?.mhs.nim}) saat ini terdaftar di{' '}
-              <strong>&ldquo;{pendingMove?.fromKelompok.nama}&rdquo;</strong>.
+              <strong>
+                &ldquo;{pendingMove?.fromKelompok.nama}&rdquo;
+              </strong>
+              {pendingMove && (
+                <span className="ml-1 text-xs">
+                  ({pendingMove.fromKelompok.tipe === 'KKN' ? 'KKN' : pendingMove.fromKelompok.tipe === 'PLP1' ? 'PLP 1' : 'PLP 2'})
+                </span>
+              )}
+              .
               <br />
-              Pindahkan ke kelompok <strong>&ldquo;{kelompok.nama}&rdquo;</strong>?
+              Pindahkan ke kelompok <strong>&ldquo;{kelompok.nama}&rdquo;</strong>{' '}
+              <span className="text-xs">
+                ({kelompok.tipe === 'KKN' ? 'KKN' : kelompok.tipe === 'PLP1' ? 'PLP 1' : 'PLP 2'})
+              </span>?
               <br />
               <span className="text-xs text-muted-foreground">Mahasiswa akan otomatis dikeluarkan dari kelompok asal.</span>
             </AlertDialogDescription>
@@ -1140,7 +1250,7 @@ function KelolaAnggotaDialog({ kelompok, onClose }: { kelompok: Kelompok; onClos
           <div className="space-y-3 py-2">
             {peerKelompok.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">
-                Tidak ada kelompok lain dengan tipe &amp; tahun akademik yang sama.
+                Tidak ada kelompok lain dengan tahun akademik yang sama.
               </p>
             ) : (
               <Select value={selectedTargetKelompok} onValueChange={setSelectedTargetKelompok}>
@@ -1148,11 +1258,14 @@ function KelolaAnggotaDialog({ kelompok, onClose }: { kelompok: Kelompok; onClos
                   <SelectValue placeholder="Pilih kelompok tujuan..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {peerKelompok.map((k) => (
-                    <SelectItem key={k.id} value={k.id}>
-                      {k.nama} — {k._count?.members ?? 0} anggota · {k.desa?.nama ?? k.sekolah?.nama ?? '-'}
-                    </SelectItem>
-                  ))}
+                  {peerKelompok.map((k) => {
+                    const tipeLabel = k.tipe === 'KKN' ? 'KKN' : k.tipe === 'PLP1' ? 'PLP 1' : 'PLP 2'
+                    return (
+                      <SelectItem key={k.id} value={k.id}>
+                        {tipeLabel} · {k.nama} — {k._count?.members ?? 0} anggota · {k.desa?.nama ?? k.sekolah?.nama ?? '-'}
+                      </SelectItem>
+                    )
+                  })}
                 </SelectContent>
               </Select>
             )}

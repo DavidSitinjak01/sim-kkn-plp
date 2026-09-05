@@ -1,8 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { toast } from 'sonner'
 import { useAppStore } from '@/lib/store'
 import { useBranding } from '@/lib/branding'
+import { useIdleTimer } from '@/hooks/use-idle-timer'
 import { Sidebar } from '@/components/app/sidebar'
 import { Header } from '@/components/app/header'
 import { DashboardView } from '@/components/views/dashboard-view'
@@ -22,6 +24,8 @@ import { PengumumanView } from '@/components/views/pengumuman-view'
 import { AktivitasView } from '@/components/views/aktivitas-view'
 import { PendaftaranView } from '@/components/views/pendaftaran-view'
 import { FormPendaftaranView } from '@/components/views/form-pendaftaran-view'
+import { LinkPentingView } from '@/components/views/link-penting-view'
+import { IdCardView } from '@/components/views/id-card-view'
 
 const VIEW_MAP: Record<string, React.ComponentType> = {
   dashboard: DashboardView,
@@ -41,6 +45,8 @@ const VIEW_MAP: Record<string, React.ComponentType> = {
   aktivitas: AktivitasView,
   pendaftaran: PendaftaranView,
   formPendaftaran: FormPendaftaranView,
+  linkPenting: LinkPentingView,
+  idCard: IdCardView,
 }
 
 export function AppShell() {
@@ -48,6 +54,43 @@ export function AppShell() {
   const currentView = useAppStore((s) => s.currentView)
   const branding = useBranding()
   const ViewComponent = VIEW_MAP[currentView] || DashboardView
+
+  // Idle auto-logout: 5 minutes of inactivity → logout + toast.
+  useIdleTimer({
+    timeoutMs: 5 * 60_000,
+    warningMs: 60_000,
+    onWarning: () => {
+      toast.warning('Sesi Anda akan berakhir dalam 1 menit karena tidak ada aktivitas. Gerakkan mouse untuk memperpanjang.', {
+        duration: 45_000,
+      })
+    },
+    onTimeout: () => {
+      useAppStore.getState().logout()
+      toast.error('Sesi berakhir karena tidak ada aktivitas selama 5 menit. Silakan masuk kembali.', {
+        duration: 8_000,
+      })
+    },
+  })
+
+  // Cross-tab session sync: if the user logs out (manually or via idle
+  // timeout) in another tab, this tab follows suit.
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key !== 'kknplp-store') return
+      try {
+        const parsed = e.newValue ? JSON.parse(e.newValue) : null
+        const user = parsed?.state?.user
+        if (!user) {
+          // Another tab cleared the user — reflect it here too.
+          useAppStore.getState().logout()
+        }
+      } catch {
+        // Ignore malformed storage payloads.
+      }
+    }
+    window.addEventListener('storage', handleStorage)
+    return () => window.removeEventListener('storage', handleStorage)
+  }, [])
 
   return (
     <div className="min-h-screen flex bg-muted/30">

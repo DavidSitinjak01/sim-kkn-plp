@@ -85,6 +85,9 @@ model Mahasiswa {
   angkatan      Int
   status        String        @default("AKTIF") // AKTIF, LULUS, CUTI, DO
   foto          String?
+  // === Absensi Wajah (Face Attendance) ===
+  fotoWajah     String?       // base64 data URL foto wajah terdaftar (untuk verifikasi)
+  absensiToken  String?       @unique // token unik untuk link absensi wajah publik
   userId        String?       @unique
   user          User?         @relation(fields: [userId], references: [id])
   createdAt     DateTime      @default(now())
@@ -339,4 +342,21 @@ model PendaftaranResponse {
   importedMahasiswaId String?  // ID Mahasiswa jika sudah diimpor
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+}
+
+// ============ LINK PENTING ============
+// Kumpulan tautan eksternal untuk admin (SISTER, SIAKAD, e-learning, dll).
+// Dikelola oleh admin, ditampilkan dalam card grid berdasarkan kategori.
+
+model LinkPenting {
+  id        String   @id @default(cuid())
+  judul     String
+  url       String
+  deskripsi String?
+  kategori  String   @default("Umum") // Akademik, Kepegawaian, Umum, dll
+  icon      String?  // nama emoji atau lucide icon (opsional)
+  urutan    Int      @default(0) // untuk sorting manual
+  status    String   @default("AKTIF") // AKTIF, NONAKTIF
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

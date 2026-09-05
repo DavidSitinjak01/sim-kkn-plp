@@ -61,8 +61,8 @@ const DEFAULT_PENGATURAN: Record<string, string> = {
   sekretaris_panitia_nidn: '0101018409',
   koordinator_lapangan: 'Samalua Waoma, S.E., M.M., M.Ak.',
   nama_kampus: 'UNIVERSITAS NIAS RAYA',
-  // Alamat + Telp/Fax dalam SATU BARIS dengan separator ' • ' (sesuai PDF asli).
-  alamat_kampus: 'Jl. Pramuka, Nari-nari, Kehurahan Pasar Telukdalam 22865 • Kabupaten Nias Selatan, Sumatra Utara, Telp/Fax (0630) 7321325',
+  // Alamat + Telp/Fax dalam SATU BARIS dengan separator ' • ' (PERSIS sesuai PDF asli).
+  alamat_kampus: 'Jl. Pramuka. Nari-nari, Kelurahan Pasar Telukdalam 22865 • Kabupaten Nias Selatan, Sumatra Utara. Telp/Fax (0630) 7321325',
   no_telepon: '(0630) 7321325',
   email_kampus: '',
   tahun_akademik: '2024/2025',
@@ -270,22 +270,33 @@ export function DaftarPesertaPLPLetter({ kelompokId }: Props) {
       {/* Letter Preview (A4 ratio) */}
       <div className="bg-white text-black rounded-lg border shadow-inner overflow-auto" style={{ maxHeight: '70vh' }}>
         <div className="mx-auto bg-white" style={{ width: '100%', maxWidth: '794px', padding: '40px 50px', fontFamily: 'Times New Roman, serif' }}>
-          {/* ===== KOP SURAT ===== (sesuai PDF: logo kiri, teks rata tengah, alamat+telp 1 baris) */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '18px', borderBottom: '3px double #000', paddingBottom: '10px', marginBottom: '6px' }}>
+          {/* ===== KOP SURAT ===== (PERSIS sesuai PDF: logo absolute kiri-atas,
+             blok teks KOP width:100% rata tengah pada LEBAR HALAMAN PENUH
+             sehingga titik tengah teks KOP = titik tengah judul surat di
+             bawahnya → SEJAJAR. Alamat (baris ke-5) tetap 1 baris & TIDAK
+             tertutup logo karena: pada lebar A4 sebenarnya (794px, content
+             ~694px), alamat panjang (~475px) yang rata tengah memiliki tepi
+             kiri di ~(694-475)/2≈110px, sudah lewat dari tepi kanan logo
+             (90px). Garis bawah KOP = SINGLE solid (bukan double) sesuai PDF. */}
+          <div style={{ position: 'relative', borderBottom: '3px solid #000', paddingBottom: '10px', marginBottom: '6px', minHeight: '90px' }}>
             {logoUrl && (
               <img
                 src={logoUrl}
                 alt="Logo"
-                style={{ width: '90px', height: '90px', objectFit: 'contain', flexShrink: 0 }}
+                style={{ position: 'absolute', left: 0, top: 0, width: '90px', height: '90px', objectFit: 'contain' }}
                 onError={(e) => { (e.currentTarget.style.display = 'none') }}
               />
             )}
-            <div style={{ flex: 1, textAlign: 'center' }}>
+            <div style={{ width: '100%', textAlign: 'center' }}>
               <div style={{ fontSize: '12px', fontWeight: 'normal', letterSpacing: '0.5px', textTransform: 'uppercase' }}>{pengaturan.yayasan}</div>
               <div style={{ fontSize: '20px', fontWeight: 'bold', letterSpacing: '0.5px', textTransform: 'uppercase' }}>{pengaturan.nama_kampus}</div>
               <div style={{ fontSize: '12px', fontWeight: 'bold', letterSpacing: '0.3px', textTransform: 'uppercase' }}>{panitiaText}</div>
               <div style={{ fontSize: '10px', fontStyle: 'italic', marginTop: '2px' }}>Izin Operasional: {pengaturan.izin_operasional}</div>
-              <div style={{ fontSize: '10px', marginTop: '2px' }}>{pengaturan.alamat_kampus}</div>
+              {/* Alamat: LEFT-ALIGNED mulai setelah logo (sesuai PDF asli).
+                  Di PDF, baris alamat TIDAK rata tengah seperti baris di atasnya,
+                  melainkan rata kiri dimulai tepat setelah tepi kanan logo,
+                  sehingga TIDAK PERNAH tertimpa logo sepanjang apapun alamatnya. */}
+              <div style={{ fontSize: '10px', marginTop: '2px', textAlign: 'left', paddingLeft: '100px', paddingRight: '10px' }}>{pengaturan.alamat_kampus}</div>
             </div>
           </div>
 
@@ -402,20 +413,19 @@ function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logoBase64: string): 
     padding: 5mm;
   }
   .kop {
-    display: flex;
-    align-items: center;
-    gap: 18px;
-    border-bottom: 3px double #000;
+    position: relative;
+    border-bottom: 3px solid #000;
     padding-bottom: 10px;
     margin-bottom: 18px;
+    min-height: 90px;
   }
-  .kop .text { flex: 1; text-align: center; }
-  .kop img { width: 90px; height: 90px; object-fit: contain; flex-shrink: 0; }
+  .kop .text { width: 100%; text-align: center; }
+  .kop img { position: absolute; left: 0; top: 0; width: 90px; height: 90px; object-fit: contain; }
   .yayasan { font-size: 12px; font-weight: normal; letter-spacing: 0.5px; text-transform: uppercase; }
   .universitas { font-size: 20px; font-weight: bold; letter-spacing: 0.5px; text-transform: uppercase; }
   .panitia { font-size: 12px; font-weight: bold; letter-spacing: 0.3px; text-transform: uppercase; }
   .izin { font-size: 10px; font-style: italic; margin-top: 2px; }
-  .alamat { font-size: 10px; margin-top: 2px; }
+  .alamat { font-size: 10px; margin-top: 2px; text-align: left; padding-left: 100px; padding-right: 10px; }
   .judul { text-align: center; margin: 28px 0 18px; }
   .judul .line1 { font-size: 14px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
   .judul .line2 { font-size: 14px; font-weight: bold; text-transform: uppercase; }
@@ -423,7 +433,7 @@ function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logoBase64: string): 
   .info { font-size: 12px; margin-bottom: 14px; line-height: 1.7; }
   .info .label { display: inline-block; width: 180px; }
   table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px; }
-  th { border: 1px solid #000; padding: 6px 8px; text-align: center; background: #f0f0f0; }
+  th { border: 1px solid #000; padding: 6px 8px; text-align: center; }
   td { border: 1px solid #000; padding: 5px 8px; }
   .footer-title { text-align: center; margin-top: 24px; margin-bottom: 8px; }
   .footer-title .l1 { font-size: 12px; font-weight: bold; }

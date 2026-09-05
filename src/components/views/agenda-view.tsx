@@ -297,8 +297,8 @@ export function AgendaView() {
     lokasi: '', deskripsi: '', tipe: 'UMUM',
   })
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
+  const fetchData = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true)
     try {
       const res = await fetch('/api/agenda')
       if (!res.ok) throw new Error('Gagal')
@@ -308,7 +308,7 @@ export function AgendaView() {
     } catch {
       toast.error('Gagal memuat data agenda')
     } finally {
-      setLoading(false)
+      if (!opts?.silent) setLoading(false)
     }
   }, [])
 
@@ -366,7 +366,7 @@ export function AgendaView() {
       }
       toast.success(editing ? 'Agenda diperbarui' : 'Agenda ditambahkan')
       setFormOpen(false)
-      fetchData()
+      fetchData({ silent: true })
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Gagal menyimpan')
     } finally {
@@ -382,7 +382,7 @@ export function AgendaView() {
       if (!res.ok) throw new Error('Gagal')
       toast.success('Agenda dihapus')
       setDeleteTarget(null)
-      fetchData()
+      fetchData({ silent: true })
     } catch {
       toast.error('Gagal menghapus agenda')
     } finally {

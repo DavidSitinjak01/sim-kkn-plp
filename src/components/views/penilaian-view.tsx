@@ -165,8 +165,8 @@ export function PenilaianView() {
     })()
   }, [])
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
+  const fetchData = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true)
     try {
       const params = new URLSearchParams()
       if (filterJenis !== 'ALL') params.set('jenis', filterJenis)
@@ -178,7 +178,7 @@ export function PenilaianView() {
     } catch {
       toast.error('Gagal memuat data penilaian')
     } finally {
-      setLoading(false)
+      if (!opts?.silent) setLoading(false)
     }
   }, [filterJenis, filterKelompok])
 
@@ -327,7 +327,7 @@ export function PenilaianView() {
       }
       toast.success(editing ? 'Penilaian diperbarui' : 'Penilaian ditambahkan')
       setFormOpen(false)
-      fetchData()
+      fetchData({ silent: true })
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Gagal menyimpan')
     } finally {
@@ -343,7 +343,7 @@ export function PenilaianView() {
       if (!res.ok) throw new Error('Gagal')
       toast.success('Penilaian dihapus')
       setDeleteTarget(null)
-      fetchData()
+      fetchData({ silent: true })
     } catch {
       toast.error('Gagal menghapus penilaian')
     } finally {

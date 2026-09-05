@@ -122,8 +122,9 @@ export async function POST(req: Request) {
     })
 
     // 🔔 Notifikasi WhatsApp ke dosen pembimbing (fire-and-forget)
-    // Hanya untuk status HADIR (yang set jamMasuk). Jangan block response jika WA gagal.
-    if (body.status === 'HADIR') {
+    // Kirim untuk SEMUA status (HADIR/IZIN/SAKIT/ALPHA) supaya dosen selalu
+    // tahu aktivitas mahasiswa bimbingannya. Jangan block response jika WA gagal.
+    if (['HADIR', 'IZIN', 'SAKIT', 'ALPHA'].includes(body.status)) {
       notifyDosenAbsensi({ absensiId: created.id, tipe: 'MASUK' }).catch((e) => {
         console.error('[absensi POST] WA notify error:', e)
       })

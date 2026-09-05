@@ -185,8 +185,8 @@ export function AkunView() {
   const [resetCustomPassword, setResetCustomPassword] = useState('')
   const [showResetPassword, setShowResetPassword] = useState(false)
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
+  const fetchData = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true)
     try {
       const res = await fetch('/api/user')
       if (!res.ok) throw new Error('Gagal')
@@ -195,7 +195,7 @@ export function AkunView() {
     } catch {
       toast.error('Gagal memuat data user')
     } finally {
-      setLoading(false)
+      if (!opts?.silent) setLoading(false)
     }
   }, [])
 
@@ -290,7 +290,7 @@ export function AkunView() {
       if (!res.ok) throw new Error(json?.error || 'Gagal menyimpan')
       toast.success(isEdit ? 'User diperbarui' : 'User dibuat')
       setFormOpen(false)
-      fetchData()
+      fetchData({ silent: true })
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Gagal menyimpan')
     } finally {
@@ -307,7 +307,7 @@ export function AkunView() {
       if (!res.ok) throw new Error(json?.error || 'Gagal')
       toast.success(`User ${deleteTarget.name} dihapus`)
       setDeleteTarget(null)
-      fetchData()
+      fetchData({ silent: true })
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Gagal menghapus')
     } finally {
@@ -360,7 +360,7 @@ export function AkunView() {
       const json = await res.json()
       if (!res.ok) throw new Error(json?.error || 'Gagal')
       toast.success(`User ${u.name} ${next === 'AKTIF' ? 'diaktifkan' : 'dinonaktifkan'}`)
-      fetchData()
+      fetchData({ silent: true })
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Gagal mengubah status')
     } finally {
