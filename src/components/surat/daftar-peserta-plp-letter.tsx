@@ -340,20 +340,20 @@ export function DaftarPesertaPLPLetter({ kelompokId }: Props) {
           <table style={{ width: 'auto', fontSize: '12px', marginBottom: '14px', borderCollapse: 'collapse' }}>
             <tbody>
               <tr>
-                <td style={{ padding: '2px 8px 2px 0', whiteSpace: 'nowrap' }}><strong>Kelompok</strong> :</td>
-                <td style={{ padding: '2px 0' }}>{formatKelompokNama(kelompok.nama)}</td>
+                <td style={{ padding: '2px 8px 2px 0', whiteSpace: 'nowrap', width: '170px', border: 'none' }}><strong>Kelompok</strong> :</td>
+                <td style={{ padding: '2px 0', border: 'none' }}>{formatKelompokNama(kelompok.nama)}</td>
               </tr>
               <tr>
-                <td style={{ padding: '2px 8px 2px 0', whiteSpace: 'nowrap' }}><strong>Sekolah Mitra</strong> :</td>
-                <td style={{ padding: '2px 0' }}>{lokasi.nama}</td>
+                <td style={{ padding: '2px 8px 2px 0', whiteSpace: 'nowrap', width: '170px', border: 'none' }}><strong>Sekolah Mitra</strong> :</td>
+                <td style={{ padding: '2px 0', border: 'none' }}>{lokasi.nama}</td>
               </tr>
               <tr>
-                <td style={{ padding: '2px 8px 2px 0', whiteSpace: 'nowrap' }}><strong>DPL/WA</strong> :</td>
-                <td style={{ padding: '2px 0' }}>{kelompok.dosen ? `${kelompok.dosen.nama}/${kelompok.dosen.noHp}` : '-'}</td>
+                <td style={{ padding: '2px 8px 2px 0', whiteSpace: 'nowrap', width: '170px', border: 'none' }}><strong>DPL/WA</strong> :</td>
+                <td style={{ padding: '2px 0', border: 'none' }}>{kelompok.dosen ? `${kelompok.dosen.nama}/${kelompok.dosen.noHp}` : '-'}</td>
               </tr>
               <tr>
-                <td style={{ padding: '2px 8px 2px 0', whiteSpace: 'nowrap' }}><strong>Koordinator Lapangan</strong> :</td>
-                <td style={{ padding: '2px 0' }}>{kelompok.koordinator ? kelompok.koordinator.nama : '-'}</td>
+                <td style={{ padding: '2px 8px 2px 0', whiteSpace: 'nowrap', width: '170px', border: 'none' }}><strong>Koordinator Lapangan</strong> :</td>
+                <td style={{ padding: '2px 0', border: 'none' }}>{kelompok.koordinator ? kelompok.koordinator.nama : '-'}</td>
               </tr>
             </tbody>
           </table>
@@ -517,20 +517,20 @@ function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logoBase64: string): 
   <table style="width:auto;font-size:12px;margin-bottom:14px;border-collapse:collapse;">
     <tbody>
       <tr>
-        <td style="padding:2px 8px 2px 0;white-space:nowrap;"><b>Kelompok</b> :</td>
-        <td style="padding:2px 0;">${escapeHtml(formatKelompokNama(kelompok.nama))}</td>
+        <td style="padding:2px 8px 2px 0;white-space:nowrap;width:170px;border:none;"><b>Kelompok</b> :</td>
+        <td style="padding:2px 0;border:none;">${escapeHtml(formatKelompokNama(kelompok.nama))}</td>
       </tr>
       <tr>
-        <td style="padding:2px 8px 2px 0;white-space:nowrap;"><b>Sekolah Mitra</b> :</td>
-        <td style="padding:2px 0;">${escapeHtml(lokasi.nama)}</td>
+        <td style="padding:2px 8px 2px 0;white-space:nowrap;width:170px;border:none;"><b>Sekolah Mitra</b> :</td>
+        <td style="padding:2px 0;border:none;">${escapeHtml(lokasi.nama)}</td>
       </tr>
       <tr>
-        <td style="padding:2px 8px 2px 0;white-space:nowrap;"><b>DPL/WA</b> :</td>
-        <td style="padding:2px 0;">${kelompok.dosen ? escapeHtml(kelompok.dosen.nama) + '/' + escapeHtml(kelompok.dosen.noHp) : '-'}</td>
+        <td style="padding:2px 8px 2px 0;white-space:nowrap;width:170px;border:none;"><b>DPL/WA</b> :</td>
+        <td style="padding:2px 0;border:none;">${kelompok.dosen ? escapeHtml(kelompok.dosen.nama) + '/' + escapeHtml(kelompok.dosen.noHp) : '-'}</td>
       </tr>
       <tr>
-        <td style="padding:2px 8px 2px 0;white-space:nowrap;"><b>Koordinator Lapangan</b> :</td>
-        <td style="padding:2px 0;">${kelompok.koordinator ? escapeHtml(kelompok.koordinator.nama) : '-'}</td>
+        <td style="padding:2px 8px 2px 0;white-space:nowrap;width:170px;border:none;"><b>Koordinator Lapangan</b> :</td>
+        <td style="padding:2px 0;border:none;">${kelompok.koordinator ? escapeHtml(kelompok.koordinator.nama) : '-'}</td>
       </tr>
     </tbody>
   </table>
