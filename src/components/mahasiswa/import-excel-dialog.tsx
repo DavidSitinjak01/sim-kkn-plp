@@ -47,6 +47,7 @@ interface PreviewResult {
 interface ImportResult {
   success: boolean
   imported: number
+  updated: number
   skipped: number
   errors: Array<{ row: number; nim: string; nama: string; error: string }>
   totalRows: number
@@ -160,8 +161,8 @@ export function ImportExcelDialog({ open, onOpenChange, onSuccess }: ImportExcel
 
       setResult(json)
       setStep('done')
-      if (json.imported > 0) {
-        toast.success(`Berhasil mengimpor ${json.imported} mahasiswa`)
+      if (json.imported > 0 || json.updated > 0) {
+        toast.success(`Berhasil: ${json.imported} baru + ${json.updated} diperbarui`)
       }
       onSuccess()
     } catch (err: any) {
@@ -468,14 +469,14 @@ export function ImportExcelDialog({ open, onOpenChange, onSuccess }: ImportExcel
             {/* ─────────────── Step 4: Done ─────────────── */}
             {step === 'done' && result && (
               <div className="space-y-4">
-                <div className={`rounded-lg p-4 text-center ${result.imported > 0 ? 'bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800' : 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800'}`}>
-                  <CheckCircle2 className={`w-10 h-10 mx-auto mb-2 ${result.imported > 0 ? 'text-emerald-600' : 'text-amber-500'}`} />
+                <div className={`rounded-lg p-4 text-center ${result.imported > 0 || result.updated > 0 ? 'bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800' : 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800'}`}>
+                  <CheckCircle2 className={`w-10 h-10 mx-auto mb-2 ${result.imported > 0 || result.updated > 0 ? 'text-emerald-600' : 'text-amber-500'}`} />
                   <p className="text-lg font-bold">
-                    {result.imported} mahasiswa berhasil diimpor
+                    {result.imported} baru + {result.updated} diperbarui
                   </p>
-                  {result.skipped > 0 && (
+                  {result.errors.length === 0 && (
                     <p className="text-sm text-muted-foreground mt-1">
-                      {result.skipped} dilewati (NIM duplikat)
+                      Semua data berhasil diproses
                     </p>
                   )}
                 </div>

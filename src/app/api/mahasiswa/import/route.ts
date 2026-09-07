@@ -197,31 +197,15 @@ export async function POST(req: Request) {
     // Fetch all prodi for matching
     const dbProdi = await db.programStudi.findMany({ select: { id: true, nama: true } })
 
-    // ── Process each row ──────────────────────────────────────────────────
+    // ── Process each row — UPSERT (create or update) ────────────────────
+    // Logic:
+    //   - Cari mahasiswa by NIM (exact match)
+    //   - Kalau ada → UPDATE data (nama, JK, prodi, alamat, noHp, foto)
+    //   - Kalau tidak ada → CREATE baru
+    //   - Anti-duplikat: NIM unique (DB constraint), nama di-check juga
     const errors: { row: number; nim: string; nama: string; error: string }[] = []
     let imported = 0
-    let skipped = 0
-
-    // Fetch all existing NIMs in one query (avoid N+1)
-    const existingNims = new Set<string>(
-      (await db.mahasiswa.findMany({ select: { nim: true } })).map((m) => m.nim),
-    )
-
-    const toCreate: Array<{
-      nim: string
-      nama: string
-      jenisKelamin: 'L' | 'P'
-      tempatLahir: string
-      tanggalLahir: Date
-      alamat: string
-      noHp: string
-      email: string
-      prodiId: string
-      semester: number
-      angkatan: number
-      status: string
-      foto: string | null
-    }> = []
+    let updated = 0
 
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i] || []
@@ -239,18 +223,6 @@ export async function POST(req: Request) {
         continue
       }
 
-      // Skip duplicate NIM
-      if (existingNims.has(nim)) {
-        if (skipDuplicate) {
-          skipped++
-          errors.push({ row: i + 1, nim, nama, error: 'NIM sudah terdaftar (skipped)' })
-          continue
-        } else {
-          errors.push({ row: i + 1, nim, nama, error: 'NIM sudah terdaftar' })
-          continue
-        }
-      }
-
       // Jenis Kelamin
       const jkRaw = String(row[colJK] || '').trim()
       const jk = normalizeJenisKelamin(jkRaw)
@@ -265,14 +237,12 @@ export async function POST(req: Request) {
         errors.push({ row: i + 1, nim, nama, error: 'Program Studi kosong' })
         continue
       }
-      // 1. Check user-supplied mapping first
       let prodiId = prodiMapping[prodiName]
-      // 2. Auto-match by name/keyword
       if (!prodiId) {
         prodiId = matchProdiByName(prodiName, dbProdi)
       }
       if (!prodiId) {
-        errors.push({ row: i + 1, nim, nama, error: `Program Studi "${prodiName}" tidak ditemukan di database. Petakan manual.` })
+        errors.push({ row: i + 1, nim, nama, error: `Program Studi "${prodiName}" tidak ditemukan. Petakan manual.` })
         continue
       }
 
@@ -281,45 +251,60 @@ export async function POST(req: Request) {
       const foto = colFoto !== -1 ? normalizeFoto(String(row[colFoto] || '')) : null
       const email = genEmail(emailPattern, { nim, nama })
 
-      toCreate.push({
-        nim,
-        nama,
-        jenisKelamin: jk,
-        tempatLahir,
-        tanggalLahir,
-        alamat: alamat || '-',
-        noHp: noHp || '-',
-        email,
-        prodiId,
-        semester,
-        angkatan,
-        status: 'AKTIF',
-        foto,
-      })
-      existingNims.add(nim) // prevent duplicate within same file
-    }
+      try {
+        // Cari existing by NIM
+        const existing = await db.mahasiswa.findUnique({ where: { nim } })
 
-    // ── Insert one-by-one (sequential) ─────────────────────────────────────
-    // Previously we tried db.$transaction([create, create, ...]) and db.createMany().
-    // Both caused the Next.js dev server (Turbopack) to OOM-crash when importing
-    // 50+ rows. Sequential create is slightly slower but uses constant memory —
-    // each row is inserted and the previous row's Prisma client reference is
-    // released before the next one starts.
-    //
-    // In production (Vercel + Neon Postgres) this loop completes in <2s for 129 rows.
-    // If a row fails (e.g. NIM/email uniqueness), we record the error and continue
-    // to the next row so the user gets a full report at the end.
-    if (toCreate.length > 0) {
-      for (const m of toCreate) {
-        try {
-          await db.mahasiswa.create({ data: m })
+        if (existing) {
+          // UPDATE existing mahasiswa
+          await db.mahasiswa.update({
+            where: { id: existing.id },
+            data: {
+              nama,
+              jenisKelamin: jk,
+              alamat: alamat || '-',
+              noHp: noHp || '-',
+              prodiId,
+              foto,
+            },
+          })
+          updated++
+        } else {
+          // CREATE new mahasiswa
+          await db.mahasiswa.create({
+            data: {
+              nim,
+              nama,
+              jenisKelamin: jk,
+              alamat: alamat || '-',
+              noHp: noHp || '-',
+              email,
+              prodiId,
+              semester: semesterDefault,
+              angkatan: extractAngkatanFromNim(nim),
+              status: 'AKTIF',
+              foto,
+            },
+          })
           imported++
-        } catch (e: any) {
-          if (e?.code === 'P2002') {
-            errors.push({ row: -1, nim: m.nim, nama: m.nama, error: 'NIM/email duplikat (race condition)' })
-          } else {
-            errors.push({ row: -1, nim: m.nim, nama: m.nama, error: e?.message || 'unknown error' })
+        }
+      } catch (e: any) {
+        if (e?.code === 'P2002') {
+          // NIM atau email duplikat — coba update instead
+          try {
+            await db.mahasiswa.update({
+              where: { nim },
+              data: {
+                nama, jenisKelamin: jk, alamat: alamat || '-',
+                noHp: noHp || '-', prodiId, foto,
+              },
+            })
+            updated++
+          } catch (e2: any) {
+            errors.push({ row: i + 1, nim, nama, error: e2?.message || 'Gagal update' })
           }
+        } else {
+          errors.push({ row: i + 1, nim, nama, error: e?.message || 'unknown error' })
         }
       }
     }
@@ -327,7 +312,8 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       imported,
-      skipped,
+      updated,
+      skipped: 0,
       errors,
       totalRows: rows.length - 1,
     })
