@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { DEFAULT_MAX_PER_PRODI } from '@/lib/prodi-kuota'
 
 interface ProdiKuotaStatus {
@@ -141,7 +140,7 @@ export function ProdiKuotaManager({ lokasiType, lokasiId, lokasiNama, onSaved }:
       ) : list.length === 0 ? (
         <p className="text-xs text-muted-foreground py-3">Tidak ada prodi terdaftar.</p>
       ) : (
-        <ScrollArea className="max-h-72 rounded-md border">
+        <div className="max-h-80 overflow-y-auto rounded-md border">
           <div className="divide-y">
             {list.map((s) => {
               const val = editMap[s.prodiId] ?? String(s.max)
@@ -184,7 +183,7 @@ export function ProdiKuotaManager({ lokasiType, lokasiId, lokasiNama, onSaved }:
               )
             })}
           </div>
-        </ScrollArea>
+        </div>
       )}
 
       <div className="flex items-center gap-2 pt-1">

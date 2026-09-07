@@ -373,8 +373,8 @@ export function DesaView() {
 
       {/* Add/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) setEditId(null) }}>
-        <DialogContent className="sm:max-w-2xl max-h-[92vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-2xl max-h-[92vh] flex flex-col overflow-hidden">
+          <DialogHeader className="shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <MapPinned className="w-5 h-5 text-primary" />
               {editId ? 'Edit Desa' : 'Tambah Desa'}
@@ -383,56 +383,58 @@ export function DesaView() {
               {editId ? 'Perbarui informasi lokasi desa KKN.' : 'Lengkapi data desa lokasi penempatan KKN.'}
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="nama">Nama Desa <span className="text-rose-500">*</span></Label>
-                <Input id="nama" value={form.nama} onChange={(e) => setForm({ ...form, nama: e.target.value })} placeholder="Desa Sukamaju" required />
+          <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0 space-y-4">
+            <div className="flex-1 overflow-y-auto pr-1 -mr-1 space-y-4">
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="nama">Nama Desa <span className="text-rose-500">*</span></Label>
+                  <Input id="nama" value={form.nama} onChange={(e) => setForm({ ...form, nama: e.target.value })} placeholder="Desa Sukamaju" required />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="kecamatan">Kecamatan <span className="text-rose-500">*</span></Label>
+                  <Input id="kecamatan" value={form.kecamatan} onChange={(e) => setForm({ ...form, kecamatan: e.target.value })} placeholder="Cibadak" required />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="kabupaten">Kabupaten <span className="text-rose-500">*</span></Label>
+                  <Input id="kabupaten" value={form.kabupaten} onChange={(e) => setForm({ ...form, kabupaten: e.target.value })} placeholder="Sukabumi" required />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="provinsi">Provinsi <span className="text-rose-500">*</span></Label>
+                  <Input id="provinsi" value={form.provinsi} onChange={(e) => setForm({ ...form, provinsi: e.target.value })} placeholder="Jawa Barat" required />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="kodePos">Kode Pos</Label>
+                  <Input id="kodePos" value={form.kodePos} onChange={(e) => setForm({ ...form, kodePos: e.target.value })} placeholder="16710" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="latitude">Latitude</Label>
+                  <Input id="latitude" type="number" step="any" value={form.latitude} onChange={(e) => setForm({ ...form, latitude: e.target.value })} placeholder="-6.9278" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="longitude">Longitude</Label>
+                  <Input id="longitude" type="number" step="any" value={form.longitude} onChange={(e) => setForm({ ...form, longitude: e.target.value })} placeholder="107.6109" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="kuota">Kuota Mahasiswa</Label>
+                  <Input id="kuota" type="number" min={0} value={form.kuota} onChange={(e) => setForm({ ...form, kuota: e.target.value })} placeholder="20" />
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="keterangan">Keterangan</Label>
+                  <Textarea id="keterangan" value={form.keterangan} onChange={(e) => setForm({ ...form, keterangan: e.target.value })} placeholder="Karakteristik desa, akses jalan, potensi, dll." rows={3} />
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="kecamatan">Kecamatan <span className="text-rose-500">*</span></Label>
-                <Input id="kecamatan" value={form.kecamatan} onChange={(e) => setForm({ ...form, kecamatan: e.target.value })} placeholder="Cibadak" required />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="kabupaten">Kabupaten <span className="text-rose-500">*</span></Label>
-                <Input id="kabupaten" value={form.kabupaten} onChange={(e) => setForm({ ...form, kabupaten: e.target.value })} placeholder="Sukabumi" required />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="provinsi">Provinsi <span className="text-rose-500">*</span></Label>
-                <Input id="provinsi" value={form.provinsi} onChange={(e) => setForm({ ...form, provinsi: e.target.value })} placeholder="Jawa Barat" required />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="kodePos">Kode Pos</Label>
-                <Input id="kodePos" value={form.kodePos} onChange={(e) => setForm({ ...form, kodePos: e.target.value })} placeholder="16710" />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="latitude">Latitude</Label>
-                <Input id="latitude" type="number" step="any" value={form.latitude} onChange={(e) => setForm({ ...form, latitude: e.target.value })} placeholder="-6.9278" />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="longitude">Longitude</Label>
-                <Input id="longitude" type="number" step="any" value={form.longitude} onChange={(e) => setForm({ ...form, longitude: e.target.value })} placeholder="107.6109" />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="kuota">Kuota Mahasiswa</Label>
-                <Input id="kuota" type="number" min={0} value={form.kuota} onChange={(e) => setForm({ ...form, kuota: e.target.value })} placeholder="20" />
-              </div>
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="keterangan">Keterangan</Label>
-                <Textarea id="keterangan" value={form.keterangan} onChange={(e) => setForm({ ...form, keterangan: e.target.value })} placeholder="Karakteristik desa, akses jalan, potensi, dll." rows={3} />
-              </div>
+
+              {editId && (
+                <ProdiKuotaManager
+                  lokasiType="desa"
+                  lokasiId={editId}
+                  lokasiNama={form.nama}
+                  onSaved={() => fetchData({ silent: true })}
+                />
+              )}
             </div>
 
-            {editId && (
-              <ProdiKuotaManager
-                lokasiType="desa"
-                lokasiId={editId}
-                lokasiNama={form.nama}
-                onSaved={() => fetchData({ silent: true })}
-              />
-            )}
-
-            <DialogFooter>
+            <DialogFooter className="shrink-0 border-t pt-4 mt-0">
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
                 Batal
               </Button>
