@@ -99,21 +99,35 @@ export async function POST(req: Request) {
 
         // Cache first fakultas ID untuk placeholder
         const firstFakultas = await db.fakultas.findFirst({ select: { id: true } })
-
-        // Build retry data dengan placeholder
-        const retryData: any = { ...createData }
-        for (const f of violatedFields) {
-          if (f === 'fakultasId' && !retryData.fakultasId && firstFakultas) {
-            retryData.fakultasId = firstFakultas.id
-          } else if (f === 'email' && !retryData.email) {
-            const slug = (retryData.nidn || retryData.nama.toLowerCase().replace(/[^a-z0-9]+/g, '.')).slice(0, 30)
-            retryData.email = `${slug}@placeholder.ac.id`
-          } else if (f === 'noHp' && !retryData.noHp) {
-            retryData.noHp = '-'
-          } else if (f === 'nidn' && !retryData.nidn) {
-            retryData.nidn = `TMP${Date.now()}${Math.floor(Math.random() * 1000)}`
-          }
+        if (!firstFakultas) {
+          return NextResponse.json(
+            { error: 'Tidak ada fakultas di database. Tambahkan minimal 1 fakultas terlebih dahulu di menu Data Master → Fakultas.', code: 'NO_FAKULTAS' },
+            { status: 400 },
+          )
         }
+
+        // Build retry data dengan placeholder untuk SEMUA field opsional yang kosong.
+        // (Tidak hanya yang di violatedFields — supaya kalau DB punya multi NOT NULL
+        // constraints, semua keisi sekaligus dalam 1 retry.)
+        const retryData: any = { ...createData }
+        // NIDN placeholder kalau kosong
+        if (!retryData.nidn) {
+          retryData.nidn = `TMP${Date.now()}${Math.floor(Math.random() * 10000)}`
+        }
+        // Email placeholder kalau kosong
+        if (!retryData.email) {
+          const slug = (retryData.nidn || retryData.nama.toLowerCase().replace(/[^a-z0-9]+/g, '.')).slice(0, 30)
+          retryData.email = `${slug}@placeholder.ac.id`
+        }
+        // No HP placeholder kalau kosong
+        if (!retryData.noHp) {
+          retryData.noHp = '-'
+        }
+        // Fakultas placeholder kalau kosong
+        if (!retryData.fakultasId) {
+          retryData.fakultasId = firstFakultas.id
+        }
+
         try {
           created = await db.dosen.create({
             data: retryData,
@@ -122,12 +136,42 @@ export async function POST(req: Request) {
         } catch (retryErr: any) {
           console.error('[POST /api/dosen] retry juga gagal:', retryErr)
           if (retryErr?.code === 'P2002') {
-            return NextResponse.json({ error: 'NIDN atau email sudah terdaftar' }, { status: 400 })
+            // Unique constraint violation — mungkin NIDN/email placeholder tabrak
+            // dengan yang sudah ada. Tambah suffix random & coba lagi sekali.
+            const slug = (retryData.nama.toLowerCase().replace(/[^a-z0-9]+/g, '.')).slice(0, 20)
+            retryData.nidn = `TMP${Date.now()}${Math.floor(Math.random() * 99999)}`
+            retryData.email = `${slug}.${Date.now()}@placeholder.ac.id`
+            try {
+              created = await db.dosen.create({
+                data: retryData,
+                include: { fakultas: true, prodi: true },
+              })
+            } catch (retryErr2: any) {
+              console.error('[POST /api/dosen] retry ke-2 juga gagal:', retryErr2)
+              return NextResponse.json(
+                {
+                  error: `Gagal membuat dosen. Error: ${retryErr2?.message || 'unknown'}. Code: ${retryErr2?.code || '-'}`,
+                  code: 'CREATE_FAILED',
+                  detail: retryErr2?.message,
+                },
+                { status: 500 },
+              )
+            }
+          } else if (retryErr?.code === 'P2003') {
+            return NextResponse.json(
+              { error: 'Fakultas/prodi yang dipilih tidak valid (FK violation). Pilih fakultas yang ada di daftar.', code: 'FK_VIOLATION' },
+              { status: 400 },
+            )
+          } else {
+            return NextResponse.json(
+              {
+                error: `Gagal membuat dosen. Error: ${retryErr?.message || 'unknown'}. Code: ${retryErr?.code || '-'}`,
+                code: 'CREATE_FAILED',
+                detail: retryErr?.message,
+              },
+              { status: 500 },
+            )
           }
-          return NextResponse.json(
-            { error: 'Gagal membuat dosen setelah retry. Production DB mungkin belum di-migrate. Jalankan `prisma db push`.' },
-            { status: 500 },
-          )
         }
       } else {
         throw createErr
