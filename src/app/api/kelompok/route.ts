@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { buildKelompokInclude, buildKelompokData, withKoordinatorFallback } from '@/lib/kelompok-helpers'
 
 // GET - list all kelompok with desa/sekolah/dosen + _count members
 // Support ?tipe= filter (KKN/PLP1/PLP2)
+//
+// RESILIENT: Kalau kolom koordinatorId belum ada di DB (production belum
+// di-migrate), fallback ke query tanpa include koordinator.
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url)
@@ -15,16 +19,12 @@ export async function GET(req: Request) {
     if (tahun) where.tahunAkademik = { contains: tahun }
     if (search) where.nama = { contains: search }
 
-    const data = await db.kelompok.findMany({
-      where,
-      include: {
-        desa: true,
-        sekolah: true,
-        dosen: true,
-        koordinator: true,
-        _count: { select: { members: true } },
-      },
-      orderBy: [{ tipe: 'asc' }, { nama: 'asc' }],
+    const data = await withKoordinatorFallback(async (skip) => {
+      return db.kelompok.findMany({
+        where,
+        include: buildKelompokInclude(skip),
+        orderBy: [{ tipe: 'asc' }, { nama: 'asc' }],
+      })
     })
 
     return NextResponse.json(data)
@@ -35,6 +35,8 @@ export async function GET(req: Request) {
 }
 
 // POST - create new kelompok
+// RESILIENT: Kalau kolom koordinatorId belum ada di DB, create tanpa
+// koordinatorId (field diabaikan).
 export async function POST(req: Request) {
   try {
     const body = await req.json()
@@ -53,7 +55,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Semester tidak valid (GANJIL/GENAP)' }, { status: 400 })
     }
 
-    // KKN must have desaId, PLP must have sekolahId
     const isKKN = body.tipe === 'KKN'
     if (isKKN && !body.desaId) {
       return NextResponse.json({ error: 'Kelompok KKN wajib memiliki desa' }, { status: 400 })
@@ -62,31 +63,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Kelompok PLP wajib memiliki sekolah' }, { status: 400 })
     }
 
-    // Status default AKTIF
     const status = body.status ?? 'AKTIF'
     if (!['AKTIF', 'NONAKTIF', 'SELESAI'].includes(status)) {
       return NextResponse.json({ error: 'Status tidak valid' }, { status: 400 })
     }
 
-    const created = await db.kelompok.create({
-      data: {
-        nama: body.nama.trim(),
-        tipe: body.tipe,
-        tahunAkademik: body.tahunAkademik.trim(),
-        semester: body.semester,
-        desaId: isKKN ? body.desaId : null,
-        sekolahId: !isKKN ? body.sekolahId : null,
-        dosenId: body.dosenId || null,
-        koordinatorId: body.koordinatorId || null,
-        status,
-      },
-      include: {
-        desa: true,
-        sekolah: true,
-        dosen: true,
-        koordinator: true,
-        _count: { select: { members: true } },
-      },
+    // Fix: pastikan desaId/sekolahId di-set sesuai tipe
+    body.desaId = isKKN ? body.desaId : null
+    body.sekolahId = !isKKN ? body.sekolahId : null
+
+    const created = await withKoordinatorFallback(async (skip) => {
+      return db.kelompok.create({
+        data: buildKelompokData(body, skip),
+        include: buildKelompokInclude(skip),
+      })
     })
 
     return NextResponse.json(created, { status: 201 })

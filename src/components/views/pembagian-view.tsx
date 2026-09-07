@@ -679,10 +679,10 @@ export function PembagianView() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 sm:col-span-2">
                 <Label>Dosen Pendamping</Label>
                 <Select value={form.dosenId} onValueChange={(v) => setForm({ ...form, dosenId: v })}>
-                  <SelectTrigger><SelectValue placeholder="Pilih dosen pendamping" /></SelectTrigger>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Pilih dosen pendamping" /></SelectTrigger>
                   <SelectContent className="max-h-72">
                     {dosenList.filter((d) => d.jabatan === 'Dosen Pendamping' || d.jabatan === 'Dosen Pembimbing' || d.jabatan === 'Lainnya').map((d) => (
                       <SelectItem key={d.id} value={d.id}>{d.nama} ({d.jabatan})</SelectItem>
@@ -690,10 +690,10 @@ export function PembagianView() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 sm:col-span-2">
                 <Label>Koordinator Lapangan</Label>
                 <Select value={form.koordinatorId} onValueChange={(v) => setForm({ ...form, koordinatorId: v })}>
-                  <SelectTrigger><SelectValue placeholder="Pilih koordinator" /></SelectTrigger>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Pilih koordinator lapangan" /></SelectTrigger>
                   <SelectContent className="max-h-72">
                     {dosenList.filter((d) => d.jabatan === 'Koordinator Lapangan' || d.jabatan === 'Lainnya').map((d) => (
                       <SelectItem key={d.id} value={d.id}>{d.nama} ({d.jabatan})</SelectItem>

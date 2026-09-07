@@ -1,32 +1,24 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { buildKelompokDetailInclude, buildKelompokInclude, withKoordinatorFallback, isKoordinatorColumnMissing } from '@/lib/kelompok-helpers'
 
 type Params = { params: Promise<{ id: string }> }
 
 // GET - single kelompok with members (include mahasiswa+prodi), desa, sekolah, dosen
+// RESILIENT: fallback kalau kolom koordinatorId belum ada di DB.
 export async function GET(_req: Request, { params }: Params) {
   try {
     const { id } = await params
-    const data = await db.kelompok.findUnique({
-      where: { id },
-      include: {
-        desa: true,
-        sekolah: true,
-        dosen: true,
-        koordinator: true,
-        members: {
-          include: {
-            mahasiswa: { include: { prodi: { include: { fakultas: true } } } },
-          },
-        },
-        _count: { select: { members: true } },
-      },
+    const data = await withKoordinatorFallback(async (skip) => {
+      return db.kelompok.findUnique({
+        where: { id },
+        include: buildKelompokDetailInclude(skip),
+      })
     })
     if (!data) {
       return NextResponse.json({ error: 'Kelompok tidak ditemukan' }, { status: 404 })
     }
-    // Sort members by prodi (A-Z), then by nama (A-Z) — done in JS to avoid
-    // nested orderBy issues with PostgreSQL
+    // Sort members by prodi (A-Z), then by nama (A-Z)
     if (Array.isArray(data.members)) {
       data.members.sort((a, b) => {
         const prodiA = a.mahasiswa?.prodi?.nama ?? ''
@@ -45,6 +37,8 @@ export async function GET(_req: Request, { params }: Params) {
 }
 
 // PUT - update kelompok
+// RESILIENT: kalau body berisi koordinatorId tapi kolom belum ada di DB,
+// skip field tersebut & lanjutkan update field lain.
 export async function PUT(req: Request, { params }: Params) {
   try {
     const { id } = await params
@@ -86,16 +80,15 @@ export async function PUT(req: Request, { params }: Params) {
       updateData.status = body.status
     }
 
-    const updated = await db.kelompok.update({
-      where: { id },
-      data: updateData,
-      include: {
-        desa: true,
-        sekolah: true,
-        dosen: true,
-        koordinator: true,
-        _count: { select: { members: true } },
-      },
+    const updated = await withKoordinatorFallback(async (skip) => {
+      // Kalau skip (kolom belum ada), hapus koordinatorId dari updateData
+      const dataToUse = { ...updateData }
+      if (skip) delete dataToUse.koordinatorId
+      return db.kelompok.update({
+        where: { id },
+        data: dataToUse,
+        include: buildKelompokInclude(skip),
+      })
     })
 
     return NextResponse.json(updated)
