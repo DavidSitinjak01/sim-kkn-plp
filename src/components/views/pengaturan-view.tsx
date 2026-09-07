@@ -387,7 +387,7 @@ export function PengaturanView() {
                     </div>
                     <div className="space-y-1.5 sm:col-span-2">
                       <Label className="text-sm">Nama Panitia (dicetak di kop surat)</Label>
-                      <Input value={settings.panitia_plp ?? ''} onChange={(e) => update('panitia_plp', e.target.value)} placeholder="PANITIA PENGENALAN LAPANGAN PERSEKOLAHAN-II (PPLP-II)" />
+                      <Input value={settings.panitia_plp ?? ''} onChange={(e) => update('panitia_plp', e.target.value)} placeholder="PANITIA PENGENALAN LAPANGAN PERSEKOLAHAN (PPLP-II)" />
                       <p className="text-xs text-muted-foreground">Tuliskan lengkap dengan romawi (I atau II) sesuai periode PLP yang sedang berjalan.</p>
                     </div>
                     <div className="space-y-1.5 sm:col-span-2">
