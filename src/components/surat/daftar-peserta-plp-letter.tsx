@@ -117,12 +117,8 @@ function panitiaLabelFor(tipe: string, p: Pengaturan): string {
   if (tipe === 'KKN') {
     return p.panitia_kkn || 'PANITIA KULIAH KERJA NYATA'
   }
-  const roman = tipeLabel(tipe)
-  const base = p.panitia_plp || 'PANITIA PENGENALAN LAPANGAN PERSEKOLAHAN'
-  if (!roman) return base
-  // Remove any trailing Roman numeral (I, II, III, ...) and re-append correct one
-  const stripped = base.replace(/\s+I+\s*$/i, '').trimEnd()
-  return `${stripped} ${roman}`
+  // Return panitia_plp AS-IS. User sets full label in Pengaturan.
+  return p.panitia_plp || 'PANITIA PENGENALAN LAPANGAN PERSEKOLAHAN II (PLP-II)'
 }
 
 /** Lokasi label + nama based on tipe (KKN -> Desa, PLP -> Sekolah) */
