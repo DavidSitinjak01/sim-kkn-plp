@@ -45,6 +45,8 @@ model ProgramStudi {
   mahasiswa  Mahasiswa[]
   dosen      Dosen[]
   pendaftaran Pendaftaran[]
+  sekolahProdiKuota SekolahProdiKuota[]
+  desaProdiKuota    DesaProdiKuota[]
 }
 
 // ============ AUTENTIKASI & USER ============
@@ -136,6 +138,21 @@ model Desa {
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
   kelompok   Kelompok[]
+  prodiKuota DesaProdiKuota[]
+}
+
+// Sama seperti SekolahProdiKuota tapi untuk lokasi KKN (Desa).
+model DesaProdiKuota {
+  id        String   @id @default(cuid())
+  desaId    String
+  desa      Desa     @relation(fields: [desaId], references: [id], onDelete: Cascade)
+  prodiId   String
+  prodi     ProgramStudi @relation(fields: [prodiId], references: [id], onDelete: Cascade)
+  maxKuota  Int      @default(3)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([desaId, prodiId])
 }
 
 model Sekolah {
@@ -155,6 +172,23 @@ model Sekolah {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   kelompok      Kelompok[]
+  prodiKuota    SekolahProdiKuota[]
+}
+
+// Batas maksimal mahasiswa per prodi per sekolah (override per-sekolah per-prodi).
+// Kalau tidak ada row untuk kombinasi (sekolah, prodi) → pakai DEFAULT_MAX_PER_PRODI (3) di app.
+// 0 = sengaja disable (unlimited) untuk prodi itu di sekolah itu.
+model SekolahProdiKuota {
+  id        String   @id @default(cuid())
+  sekolahId String
+  sekolah   Sekolah  @relation(fields: [sekolahId], references: [id], onDelete: Cascade)
+  prodiId   String
+  prodi     ProgramStudi @relation(fields: [prodiId], references: [id], onDelete: Cascade)
+  maxKuota  Int      @default(3)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([sekolahId, prodiId])
 }
 
 // ============ PEMBAGIAN KKN & PLP ============

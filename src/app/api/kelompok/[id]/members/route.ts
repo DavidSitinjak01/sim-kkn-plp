@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { checkProdiKuota, type LokasiType } from '@/lib/prodi-kuota'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -8,6 +9,12 @@ type Params = { params: Promise<{ id: string }> }
 // Aturan ANTI-DUPLIKASI:
 //   Seorang mahasiswa hanya boleh terdaftar di SATU kelompok per tahun akademik,
 //   tidak boleh di 2 kelompok sekalipun tipenya berbeda (KKN vs PLP1 vs PLP2).
+//
+// Aturan BATAS PRODI PER LOKASI:
+//   Maksimal N mahasiswa dari prodi yang sama di sebuah lokasi (sekolah/desa).
+//   Default N = 3 (DEFAULT_MAX_PER_PRODI), bisa di-override per lokasi×prodi.
+//   Kalau kelompok tujuan & kelompok asal (mode pindah) berlokasi sama,
+//   cek di-skip karena tidak menambah anggota baru di lokasi tsb.
 //
 // Jika `moveFromKelompokId` diisi, ini adalah operasi PINDAH (transfer):
 //   1. Hapus mahasiswa dari kelompok asal (moveFromKelompokId)
@@ -34,6 +41,36 @@ export async function POST(req: Request, { params }: Params) {
     ])
     if (!kel) return NextResponse.json({ error: 'Kelompok tidak ditemukan' }, { status: 404 })
     if (!mhs) return NextResponse.json({ error: 'Mahasiswa tidak ditemukan' }, { status: 400 })
+
+    // ===== Cek batas prodi per lokasi (sekolah untuk PLP, desa untuk KKN) =====
+    // Skip kalau kelompok tujuan tidak punya lokasi (kasus edge — seharusnya tidak terjadi
+    // karena di-validasi saat create kelompok: KKN wajib desaId, PLP wajib sekolahId).
+    let lokasiType: LokasiType | null = null
+    let lokasiId: string | null = null
+    if (kel.sekolahId) {
+      lokasiType = 'sekolah'
+      lokasiId = kel.sekolahId
+    } else if (kel.desaId) {
+      lokasiType = 'desa'
+      lokasiId = kel.desaId
+    }
+
+    if (lokasiType && lokasiId && mhs.prodiId) {
+      const cek = await checkProdiKuota(lokasiType, lokasiId, mhs.prodiId, {
+        excludeKelompokId: body.moveFromKelompokId,
+      })
+      if (!cek.ok) {
+        return NextResponse.json(
+          {
+            error: cek.message,
+            code: 'MAX_PER_PRODI_EXCEEDED',
+            current: cek.current,
+            max: cek.max,
+          },
+          { status: 400 },
+        )
+      }
+    }
 
     // ===== Anti-duplikasi: cek kelompok lain pada tahun akademik yang sama =====
     // Mahasiswa tidak boleh ada di 2 kelompok (apapun tipenya) pada tahun akademik yang sama.

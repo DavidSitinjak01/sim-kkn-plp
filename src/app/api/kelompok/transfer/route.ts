@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { checkProdiKuota } from '@/lib/prodi-kuota'
 
 // POST - move or swap a mahasiswa between two kelompok (same tipe)
 // Body:
@@ -118,9 +119,10 @@ export async function POST(req: Request) {
       }
     }
 
-    // ---- kuota check for MOVE mode (SWAP doesn't change counts) ----
+    // ---- kuota check for MOVE mode (SWAP tidak mengubah total anggota, tapi bisa
+    //      mengubah distribusi prodi → cek prodi-kuota juga untuk SWAP) ----
+    // 1. Cek kuota kelompok tujuan (hanya MOVE)
     if (mode === 'MOVE') {
-      // 1. Cek kuota kelompok tujuan (toKel.kuota)
       if (toKel.kuota > 0 && toKel._count.members >= toKel.kuota) {
         return NextResponse.json(
           {
@@ -130,7 +132,7 @@ export async function POST(req: Request) {
           { status: 400 }
         )
       }
-      // 2. Cek kuota lokasi tujuan (desa/sekolah)
+      // 2. Cek kuota lokasi tujuan (desa/sekolah) — total anggota
       const kuotaLokasi = toKel.desa?.kuota ?? toKel.sekolah?.kuota ?? 0
       const lokasiField = toKel.tipe === 'KKN' ? 'desaId' : 'sekolahId'
       const lokasiId = toKel.tipe === 'KKN' ? toKel.desaId : toKel.sekolahId
@@ -146,6 +148,102 @@ export async function POST(req: Request) {
             },
             { status: 400 }
           )
+        }
+      }
+    }
+
+    // 3. Cek batas prodi per lokasi (MOVE & SWAP)
+    //    - MOVE: mahasiswa yang dipindah akan menambah anggota prodi-nya di lokasi tujuan
+    //    - SWAP: mahasiswa A pindah ke tujuan, mahasiswa B pindah ke asal → distribusi prodi bisa berubah
+    {
+      const mhs = await db.mahasiswa.findUnique({
+        where: { id: mahasiswaId },
+        select: { prodiId: true, nama: true, nim: true },
+      })
+      if (mhs?.prodiId) {
+        // MOVE: cek prodi mhs di lokasi tujuan
+        if (mode === 'MOVE') {
+          const lokasiType = toKel.sekolahId ? 'sekolah' : toKel.desaId ? 'desa' : null
+          const lokasiId = toKel.sekolahId ?? toKel.desaId ?? null
+          if (lokasiType && lokasiId) {
+            // Kalau asal & tujuan berlokasi sama, excludeKelompokId akan skip cek
+            const cek = await checkProdiKuota(lokasiType, lokasiId, mhs.prodiId, {
+              excludeKelompokId: fromKelompokId,
+            })
+            if (!cek.ok) {
+              return NextResponse.json(
+                {
+                  error: cek.message,
+                  code: 'MAX_PER_PRODI_EXCEEDED',
+                  current: cek.current,
+                  max: cek.max,
+                },
+                { status: 400 },
+              )
+            }
+          }
+        }
+        // SWAP: cek prodi A di lokasi tujuan & prodi B di lokasi asal
+        if (mode === 'SWAP' && swapWithMahasiswaId) {
+          const mhsB = await db.mahasiswa.findUnique({
+            where: { id: swapWithMahasiswaId },
+            select: { prodiId: true, nama: true },
+          })
+          if (mhsB?.prodiId) {
+            // A pindah ke toKel → cek prodi A di lokasi toKel
+            // B pindah ke fromKel → cek prodi B di lokasi fromKel
+            // (skip kalau toKel & fromKel berlokasi sama — total distribusi tidak berubah)
+            const sameLokasi =
+              (toKel.sekolahId && fromKel.sekolahId && toKel.sekolahId === fromKel.sekolahId) ||
+              (toKel.desaId && fromKel.desaId && toKel.desaId === fromKel.desaId)
+
+            if (!sameLokasi) {
+              // Cek A di toKel
+              if (toKel.sekolahId) {
+                const cekA = await checkProdiKuota('sekolah', toKel.sekolahId, mhs.prodiId, {
+                  excludeKelompokId: fromKelompokId,
+                })
+                if (!cekA.ok) {
+                  return NextResponse.json(
+                    { error: `[A→tujuan] ${cekA.message}`, code: 'MAX_PER_PRODI_EXCEEDED', current: cekA.current, max: cekA.max },
+                    { status: 400 },
+                  )
+                }
+              } else if (toKel.desaId) {
+                const cekA = await checkProdiKuota('desa', toKel.desaId, mhs.prodiId, {
+                  excludeKelompokId: fromKelompokId,
+                })
+                if (!cekA.ok) {
+                  return NextResponse.json(
+                    { error: `[A→tujuan] ${cekA.message}`, code: 'MAX_PER_PRODI_EXCEEDED', current: cekA.current, max: cekA.max },
+                    { status: 400 },
+                  )
+                }
+              }
+              // Cek B di fromKel (lokasi asal)
+              if (fromKel.sekolahId) {
+                const cekB = await checkProdiKuota('sekolah', fromKel.sekolahId, mhsB.prodiId, {
+                  excludeKelompokId: toKelompokId,
+                })
+                if (!cekB.ok) {
+                  return NextResponse.json(
+                    { error: `[B→asal] ${cekB.message}`, code: 'MAX_PER_PRODI_EXCEEDED', current: cekB.current, max: cekB.max },
+                    { status: 400 },
+                  )
+                }
+              } else if (fromKel.desaId) {
+                const cekB = await checkProdiKuota('desa', fromKel.desaId, mhsB.prodiId, {
+                  excludeKelompokId: toKelompokId,
+                })
+                if (!cekB.ok) {
+                  return NextResponse.json(
+                    { error: `[B→asal] ${cekB.message}`, code: 'MAX_PER_PRODI_EXCEEDED', current: cekB.current, max: cekB.max },
+                    { status: 400 },
+                  )
+                }
+              }
+            }
+          }
         }
       }
     }

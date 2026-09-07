@@ -10,6 +10,7 @@ import {
 
 import { PageHeader } from '@/components/shared/page-header'
 import { DataTable, type Column } from '@/components/shared/data-table'
+import { ProdiKuotaManager } from '@/components/shared/prodi-kuota-manager'
 import {
   exportToCSV, exportToPDF, generateTableHTML,
 } from '@/lib/export-utils'
@@ -421,6 +422,15 @@ export function DesaView() {
                 <Textarea id="keterangan" value={form.keterangan} onChange={(e) => setForm({ ...form, keterangan: e.target.value })} placeholder="Karakteristik desa, akses jalan, potensi, dll." rows={3} />
               </div>
             </div>
+
+            {editId && (
+              <ProdiKuotaManager
+                lokasiType="desa"
+                lokasiId={editId}
+                lokasiNama={form.nama}
+                onSaved={() => fetchData({ silent: true })}
+              />
+            )}
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>

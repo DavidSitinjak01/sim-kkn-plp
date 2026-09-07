@@ -816,6 +816,12 @@ function KelolaAnggotaDialog({
   const [peerKelompok, setPeerKelompok] = useState<Kelompok[]>([])
   const [selectedTargetKelompok, setSelectedTargetKelompok] = useState<string>('')
 
+  // === Prodi-kuota status per lokasi (untuk tampilkan counter & disable + bila penuh) ===
+  type ProdiStatus = { prodiId: string; prodiNama: string; current: number; max: number; exceeded: boolean }
+  const [prodiStatus, setProdiStatus] = useState<ProdiStatus[]>([])
+  const lokasiType = kelompok.sekolahId ? 'sekolah' : kelompok.desaId ? 'desa' : null
+  const lokasiId = kelompok.sekolahId ?? kelompok.desaId ?? null
+
   const fetchDetail = useCallback(async () => {
     setLoading(true)
     try {
@@ -830,7 +836,28 @@ function KelolaAnggotaDialog({
     }
   }, [kelompok.id])
 
+  // Fetch prodi-kuota status (current count per prodi vs max) untuk lokasi kelompok ini.
+  // Dipakai UI untuk tampilkan badge "(N/max)" per mahasiswa & disable tombol + kalau penuh.
+  const fetchProdiStatus = useCallback(async () => {
+    if (!lokasiType || !lokasiId) return
+    try {
+      const res = await fetch(`/api/${lokasiType}/${lokasiId}/prodi-kuota`, { cache: 'no-store' })
+      if (!res.ok) return
+      const json = await res.json()
+      setProdiStatus(json)
+    } catch {
+      // silent
+    }
+  }, [lokasiType, lokasiId])
+
   useEffect(() => { fetchDetail() }, [fetchDetail])
+  useEffect(() => { fetchProdiStatus() }, [fetchProdiStatus])
+
+  // Helper: dapatkan status kuota untuk prodi tertentu
+  const getProdiStatus = (prodiId: string | undefined | null): ProdiStatus | null => {
+    if (!prodiId) return null
+    return prodiStatus.find((s) => s.prodiId === prodiId) ?? null
+  }
 
   // Load all mahasiswa + peer kelompok (SEMUA tipe, same tahunAkademik)
   // Anti-duplikasi: mahasiswa tidak boleh ada di 2 kelompok pada tahun akademik yang sama,
@@ -954,10 +981,12 @@ function KelolaAnggotaDialog({
       // Background fetch untuk konfirmasi server (data sebenarnya)
       fetchDetail()
       refreshOtherMembership()
+      fetchProdiStatus() // refresh counter prodi-kuota
     } catch (err: any) {
       toast.error(err?.message || 'Gagal menambahkan anggota')
       // Bila konflik (409) — refresh membership map supaya badge muncul
       refreshOtherMembership()
+      fetchProdiStatus()
     } finally {
       setBusy(null)
     }
@@ -1007,10 +1036,12 @@ function KelolaAnggotaDialog({
       toast.success('Anggota dihapus dari kelompok')
       fetchDetail()
       refreshOtherMembership()
+      fetchProdiStatus() // refresh counter prodi-kuota
     } catch (err: any) {
       toast.error(err?.message || 'Gagal menghapus anggota')
       // Rollback optimistic update dengan re-fetch
       fetchDetail()
+      fetchProdiStatus()
     } finally {
       setBusy(null)
     }
@@ -1046,9 +1077,11 @@ function KelolaAnggotaDialog({
       setSelectedTargetKelompok('')
       fetchDetail()
       refreshOtherMembership()
+      fetchProdiStatus() // refresh counter prodi-kuota
     } catch (err: any) {
       toast.error(err?.message || 'Gagal memindahkan anggota')
       fetchDetail()
+      fetchProdiStatus()
     } finally {
       setBusy(null)
     }
@@ -1092,6 +1125,40 @@ function KelolaAnggotaDialog({
           </div>
         </div>
 
+        {/* Distribusi prodi di lokasi ini (current/max), sorot yang exceed dengan merah */}
+        {prodiStatus.length > 0 && (
+          <div className="rounded-md border border-border bg-muted/20 p-2.5">
+            <p className="text-[11px] font-semibold text-muted-foreground mb-1.5 flex items-center gap-1">
+              <Layers className="w-3 h-3" /> Distribusi Prodi di {lokasiType === 'sekolah' ? 'Sekolah' : 'Desa'} ini
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {prodiStatus
+                .filter((s) => s.current > 0 || s.exceeded)
+                .sort((a, b) => (b.current - b.max) - (a.current - a.max))
+                .map((s) => (
+                  <span
+                    key={s.prodiId}
+                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${
+                      s.exceeded
+                        ? 'bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-900/40 dark:text-rose-300 dark:border-rose-800'
+                        : s.current >= s.max
+                          ? 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-800'
+                          : 'bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-800'
+                    }`}
+                    title={`${s.prodiNama} — ${s.current}/${s.max}${s.exceeded ? ' (melebihi batas!)' : ''}`}
+                  >
+                    {s.prodiNama}
+                    <span className="font-mono">{s.current}/{s.max}</span>
+                    {s.exceeded && <span>⚠</span>}
+                  </span>
+                ))}
+              {prodiStatus.filter((s) => s.current > 0 || s.exceeded).length === 0 && (
+                <span className="text-[10px] text-muted-foreground italic">Belum ada anggota di lokasi ini.</span>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Helper hint */}
         <div className="rounded-md border border-sky-200 bg-sky-50 dark:border-sky-900 dark:bg-sky-950/30 px-3 py-2 text-xs text-sky-800 dark:text-sky-200 flex items-start gap-2">
           <ArrowRightLeft className="w-3.5 h-3.5 mt-0.5 shrink-0" />
@@ -1120,42 +1187,65 @@ function KelolaAnggotaDialog({
                 <div className="p-6 text-center text-xs text-muted-foreground">Belum ada anggota. Tambahkan dari daftar di samping.</div>
               ) : (
                 <div className="p-2 space-y-1.5">
-                  {detail?.members?.map((m) => (
-                    <div key={m.id} className="flex items-center gap-2 p-2 rounded-md border border-border hover:bg-accent/30 transition-colors">
-                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-primary text-xs font-semibold">
-                        {m.mahasiswa.nama.charAt(0)}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium truncate">{m.mahasiswa.nama}</p>
-                        <p className="text-xs text-muted-foreground font-mono">{m.mahasiswa.nim}</p>
-                      </div>
-                      {/* Pindah ke kelompok lain */}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-violet-600 hover:text-violet-700 hover:bg-violet-50 dark:hover:bg-violet-900/20"
-                        onClick={() => {
-                          setMoveToTarget(m.mahasiswa)
-                          setSelectedTargetKelompok('')
-                        }}
-                        disabled={busy === m.mahasiswaId || peerKelompok.length === 0}
-                        title={peerKelompok.length === 0 ? 'Tidak ada kelompok lain' : 'Pindah ke kelompok lain'}
+                  {detail?.members?.map((m) => {
+                    const ps = getProdiStatus(m.mahasiswa.prodi?.id)
+                    const isExceeded = !!ps?.exceeded
+                    return (
+                      <div
+                        key={m.id}
+                        className={`flex items-center gap-2 p-2 rounded-md border transition-colors ${
+                          isExceeded
+                            ? 'border-rose-200 bg-rose-50/50 dark:border-rose-900/50 dark:bg-rose-950/20'
+                            : 'border-border hover:bg-accent/30'
+                        }`}
                       >
-                        {busy === m.mahasiswaId ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRightLeft className="w-4 h-4" />}
-                      </Button>
-                      {/* Keluarkan */}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-900/20"
-                        onClick={() => handleRemove(m.mahasiswaId)}
-                        disabled={busy === m.mahasiswaId}
-                        title="Keluarkan"
-                      >
-                        {busy === m.mahasiswaId ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserMinus className="w-4 h-4" />}
-                      </Button>
-                    </div>
-                  ))}
+                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-primary text-xs font-semibold">
+                          {m.mahasiswa.nama.charAt(0)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate">{m.mahasiswa.nama}</p>
+                          <div className="flex items-center gap-1.5 flex-wrap text-[11px]">
+                            <span className="text-muted-foreground font-mono">{m.mahasiswa.nim}</span>
+                            {m.mahasiswa.prodi?.nama && (
+                              <span className="px-1 py-0.5 rounded bg-muted text-[9px] font-medium truncate max-w-[140px]" title={m.mahasiswa.prodi.nama}>
+                                {m.mahasiswa.prodi.nama}
+                              </span>
+                            )}
+                            {isExceeded && (
+                              <span className="px-1 py-0.5 rounded text-[9px] font-semibold bg-rose-600 text-white" title={`Batas ${ps?.max} sudah tercapai — pindahkan ke lokasi lain`}>
+                                ⚠ LEBIH
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {/* Pindah ke kelompok lain */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-violet-600 hover:text-violet-700 hover:bg-violet-50 dark:hover:bg-violet-900/20"
+                          onClick={() => {
+                            setMoveToTarget(m.mahasiswa)
+                            setSelectedTargetKelompok('')
+                          }}
+                          disabled={busy === m.mahasiswaId || peerKelompok.length === 0}
+                          title={peerKelompok.length === 0 ? 'Tidak ada kelompok lain' : 'Pindah ke kelompok lain'}
+                        >
+                          {busy === m.mahasiswaId ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRightLeft className="w-4 h-4" />}
+                        </Button>
+                        {/* Keluarkan */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-900/20"
+                          onClick={() => handleRemove(m.mahasiswaId)}
+                          disabled={busy === m.mahasiswaId}
+                          title="Keluarkan"
+                        >
+                          {busy === m.mahasiswaId ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserMinus className="w-4 h-4" />}
+                        </Button>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </ScrollArea>
@@ -1191,14 +1281,56 @@ function KelolaAnggotaDialog({
                 <div className="p-2 space-y-1.5">
                   {available.map((m) => {
                     const other = otherMembership[m.id]
+                    const ps = getProdiStatus(m.prodi?.id)
+                    // Disable tombol + kalau prodi sudah penuh (current >= max, max > 0)
+                    // KECUALI kalau mhs akan dipindah dari kelompok lain di lokasi yang sama
+                    // (otherMembership di lokasi sama → excludeKelompokId skip cek di backend).
+                    const otherInSameLokasi =
+                      other &&
+                      ((kelompok.sekolahId && peerKelompok.find((k) => k.id === other.id)?.sekolahId === kelompok.sekolahId) ||
+                       (kelompok.desaId && peerKelompok.find((k) => k.id === other.id)?.desaId === kelompok.desaId))
+                    const isProdiFull = !!ps && ps.max > 0 && ps.current >= ps.max && !otherInSameLokasi
                     return (
-                      <div key={m.id} className={`flex items-center gap-2 p-2 rounded-md border transition-colors ${other ? 'border-violet-200 bg-violet-50/40 dark:border-violet-900/50 dark:bg-violet-950/20' : 'border-border hover:bg-accent/30'}`}>
+                      <div
+                        key={m.id}
+                        className={`flex items-center gap-2 p-2 rounded-md border transition-colors ${
+                          isProdiFull
+                            ? 'border-rose-200 bg-rose-50/40 dark:border-rose-900/50 dark:bg-rose-950/20'
+                            : other
+                              ? 'border-violet-200 bg-violet-50/40 dark:border-violet-900/50 dark:bg-violet-950/20'
+                              : 'border-border hover:bg-accent/30'
+                        }`}
+                      >
                         <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0 text-xs font-semibold">
                           {m.nama.charAt(0)}
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium truncate">{m.nama}</p>
-                          <p className="text-xs text-muted-foreground font-mono">{m.nim}</p>
+                          <div className="flex items-center gap-1.5 flex-wrap text-[11px]">
+                            <span className="text-muted-foreground font-mono">{m.nim}</span>
+                            {m.prodi?.nama && (
+                              <span className="px-1 py-0.5 rounded bg-muted text-[9px] font-medium truncate max-w-[140px]" title={m.prodi.nama}>
+                                {m.prodi.nama}
+                              </span>
+                            )}
+                            {ps && (
+                              <span
+                                className={`px-1 py-0.5 rounded font-mono text-[9px] font-semibold border ${
+                                  ps.exceeded
+                                    ? 'bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-900/40 dark:text-rose-300 dark:border-rose-800'
+                                    : ps.current >= ps.max
+                                      ? 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-800'
+                                      : 'bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-800'
+                                }`}
+                                title={`${ps.current}/${ps.max} mahasiswa dari prodi ini sudah terdaftar`}
+                              >
+                                {ps.current}/{ps.max}
+                              </span>
+                            )}
+                            {isProdiFull && (
+                              <span className="px-1 py-0.5 rounded text-[9px] font-semibold bg-rose-600 text-white">PENUH</span>
+                            )}
+                          </div>
                           {other && (
                             <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300 border border-violet-200 dark:border-violet-800 truncate max-w-full">
                               ↗ Di: {other.tipe === 'KKN' ? 'KKN' : other.tipe === 'PLP1' ? 'PLP 1' : 'PLP 2'} · {other.nama}
@@ -1208,10 +1340,22 @@ function KelolaAnggotaDialog({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className={`h-8 w-8 ${other ? 'text-violet-600 hover:text-violet-700 hover:bg-violet-100 dark:hover:bg-violet-900/30' : 'text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'}`}
+                          className={`h-8 w-8 ${
+                            isProdiFull
+                              ? 'text-muted-foreground/50 cursor-not-allowed'
+                              : other
+                                ? 'text-violet-600 hover:text-violet-700 hover:bg-violet-100 dark:hover:bg-violet-900/30'
+                                : 'text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'
+                          }`}
                           onClick={() => handleAdd(m)}
-                          disabled={busy === m.id}
-                          title={other ? `Pindahkan dari ${other.nama}` : 'Tambahkan'}
+                          disabled={busy === m.id || isProdiFull}
+                          title={
+                            isProdiFull
+                              ? `Batas ${ps?.max} mahasiswa dari prodi "${m.prodi?.nama}" sudah tercapai di lokasi ini`
+                              : other
+                                ? `Pindahkan dari ${other.nama}`
+                                : 'Tambahkan'
+                          }
                         >
                           {busy === m.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
                         </Button>

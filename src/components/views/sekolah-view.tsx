@@ -10,6 +10,7 @@ import {
 
 import { PageHeader } from '@/components/shared/page-header'
 import { DataTable, type Column } from '@/components/shared/data-table'
+import { ProdiKuotaManager } from '@/components/shared/prodi-kuota-manager'
 import {
   exportToCSV, exportToPDF, generateTableHTML,
 } from '@/lib/export-utils'
@@ -521,6 +522,15 @@ export function SekolahView() {
                 <Input id="longitude" type="number" step="any" value={form.longitude} onChange={(e) => setForm({ ...form, longitude: e.target.value })} placeholder="107.6109" />
               </div>
             </div>
+
+            {editId && (
+              <ProdiKuotaManager
+                lokasiType="sekolah"
+                lokasiId={editId}
+                lokasiNama={form.nama}
+                onSaved={() => fetchData({ silent: true })}
+              />
+            )}
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
