@@ -21,6 +21,7 @@ export async function GET(req: Request) {
         desa: true,
         sekolah: true,
         dosen: true,
+        koordinator: true,
         _count: { select: { members: true } },
       },
       orderBy: [{ tipe: 'asc' }, { nama: 'asc' }],
@@ -76,12 +77,14 @@ export async function POST(req: Request) {
         desaId: isKKN ? body.desaId : null,
         sekolahId: !isKKN ? body.sekolahId : null,
         dosenId: body.dosenId || null,
+        koordinatorId: body.koordinatorId || null,
         status,
       },
       include: {
         desa: true,
         sekolah: true,
         dosen: true,
+        koordinator: true,
         _count: { select: { members: true } },
       },
     })

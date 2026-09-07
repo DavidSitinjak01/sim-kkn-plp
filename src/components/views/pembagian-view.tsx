@@ -66,6 +66,8 @@ interface Kelompok {
   sekolah: Sekolah | null
   dosenId: string | null
   dosen: Dosen | null
+  koordinatorId?: string | null
+  koordinator?: Dosen | null
   status: string
   createdAt: string
   updatedAt: string
@@ -112,13 +114,14 @@ interface FormState {
   tahunAkademik: string
   semester: string
   dosenId: string
+  koordinatorId: string
   desaId: string
   sekolahId: string
   status: string
 }
 const EMPTY_FORM: FormState = {
   nama: '', tipe: 'KKN', tahunAkademik: '2024/2025', semester: 'GANJIL',
-  dosenId: '', desaId: '', sekolahId: '', status: 'AKTIF',
+  dosenId: '', koordinatorId: '', desaId: '', sekolahId: '', status: 'AKTIF',
 }
 
 export function PembagianView() {
@@ -224,6 +227,7 @@ export function PembagianView() {
       tahunAkademik: k.tahunAkademik,
       semester: k.semester,
       dosenId: k.dosenId ?? '',
+      koordinatorId: k.koordinatorId ?? '',
       desaId: k.desaId ?? '',
       sekolahId: k.sekolahId ?? '',
       status: k.status,
@@ -252,6 +256,7 @@ export function PembagianView() {
       const payload = {
         ...form,
         dosenId: form.dosenId || undefined,
+        koordinatorId: form.koordinatorId || undefined,
         desaId: isKKN ? form.desaId : undefined,
         sekolahId: !isKKN ? form.sekolahId : undefined,
       }
@@ -687,7 +692,7 @@ export function PembagianView() {
               </div>
               <div className="space-y-1.5">
                 <Label>Koordinator Lapangan</Label>
-                <Select value={form.dosenId} onValueChange={(v) => setForm({ ...form, dosenId: v })}>
+                <Select value={form.koordinatorId} onValueChange={(v) => setForm({ ...form, koordinatorId: v })}>
                   <SelectTrigger><SelectValue placeholder="Pilih koordinator" /></SelectTrigger>
                   <SelectContent className="max-h-72">
                     {dosenList.filter((d) => d.jabatan === 'Koordinator Lapangan' || d.jabatan === 'Lainnya').map((d) => (

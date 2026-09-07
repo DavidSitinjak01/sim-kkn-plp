@@ -13,6 +13,7 @@ export async function GET(_req: Request, { params }: Params) {
         desa: true,
         sekolah: true,
         dosen: true,
+        koordinator: true,
         members: {
           include: {
             mahasiswa: { include: { prodi: { include: { fakultas: true } } } },
@@ -73,6 +74,9 @@ export async function PUT(req: Request, { params }: Params) {
     if (body.dosenId !== undefined) {
       updateData.dosenId = body.dosenId || null
     }
+    if (body.koordinatorId !== undefined) {
+      updateData.koordinatorId = body.koordinatorId || null
+    }
     if (body.desaId !== undefined) updateData.desaId = body.desaId || null
     if (body.sekolahId !== undefined) updateData.sekolahId = body.sekolahId || null
     if (body.status !== undefined) {
@@ -89,6 +93,7 @@ export async function PUT(req: Request, { params }: Params) {
         desa: true,
         sekolah: true,
         dosen: true,
+        koordinator: true,
         _count: { select: { members: true } },
       },
     })

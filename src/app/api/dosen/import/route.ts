@@ -117,6 +117,7 @@ export async function POST(req: Request) {
     let imported = 0
     let updated = 0
     let skipped = 0
+    let placeholderUsed = 0 // count rows that needed placeholder fallback
 
     // Track baris kosong berurutan untuk stop di section notes
     let consecutiveEmptyRows = 0
@@ -132,6 +133,82 @@ export async function POST(req: Request) {
       if (/^note:?$/i.test(firstCell)) return true
       if (/^keterangan:?$/i.test(firstCell)) return true
       return false
+    }
+
+    // Detect old DB schema (NOT NULL columns) & cache placeholder fakultasId
+    // Kalau P2011 terjadi di create, kita pakai placeholder & retry.
+    let cachedFirstFakultasId: string | null | undefined = undefined // undefined = belum di-cache
+
+    const tryCreateDosen = async (data: {
+      nidn: string | null
+      nama: string
+      email: string | null
+      noHp: string | null
+      fakultasId: string | null
+      prodiId: string | null
+      jabatan: string
+    }): Promise<{ ok: boolean; error?: string; placeholderUsed?: boolean }> => {
+      try {
+        await db.dosen.create({
+          data: {
+            nidn: data.nidn,
+            nama: data.nama,
+            email: data.email,
+            noHp: data.noHp,
+            fakultasId: data.fakultasId,
+            prodiId: data.prodiId,
+            jabatan: data.jabatan,
+            status: 'AKTIF',
+          },
+        })
+        return { ok: true }
+      } catch (e: any) {
+        // P2011 = null constraint violation → production DB masih NOT NULL
+        // untuk kolom yang sudah optional di schema. Retry dengan placeholder.
+        if (e?.code === 'P2011') {
+          const violatedFields: string[] = Array.isArray(e?.meta?.target) ? e.meta.target : []
+          // Cache first fakultas ID untuk placeholder (kalau belum di-cache)
+          if (cachedFirstFakultasId === undefined) {
+            const firstFak = await db.fakultas.findFirst({ select: { id: true } })
+            cachedFirstFakultasId = firstFak?.id ?? null
+          }
+          // Build retry data dengan placeholder untuk field yang violated
+          const retryData: any = { ...data }
+          for (const f of violatedFields) {
+            if (f === 'fakultasId' && !retryData.fakultasId && cachedFirstFakultasId) {
+              retryData.fakultasId = cachedFirstFakultasId
+            } else if (f === 'email' && !retryData.email) {
+              retryData.email = `${data.nidn || data.nama.toLowerCase().replace(/[^a-z0-9]+/g, '.')}@placeholder.ac.id`
+            } else if (f === 'noHp' && !retryData.noHp) {
+              retryData.noHp = '-'
+            } else if (f === 'nidn' && !retryData.nidn) {
+              retryData.nidn = `TMP${Date.now()}${Math.floor(Math.random() * 1000)}`
+            }
+          }
+          try {
+            await db.dosen.create({
+              data: {
+                nidn: retryData.nidn,
+                nama: retryData.nama,
+                email: retryData.email,
+                noHp: retryData.noHp,
+                fakultasId: retryData.fakultasId,
+                prodiId: retryData.prodiId,
+                jabatan: retryData.jabatan,
+                status: 'AKTIF',
+              },
+            })
+            return { ok: true, placeholderUsed: true }
+          } catch (e2: any) {
+            return { ok: false, error: e2?.message || 'unknown error after retry' }
+          }
+        }
+        // P2021 = table not exist
+        if (e?.code === 'P2021') {
+          return { ok: false, error: 'Tabel belum tersedia di DB. Jalankan `prisma db push` di production.' }
+        }
+        return { ok: false, error: e?.message || 'unknown error' }
+      }
     }
 
     for (let i = 1; i < rows.length; i++) {
@@ -155,11 +232,9 @@ export async function POST(req: Request) {
         const fakultasName = colFakultas !== -1 ? String(row[colFakultas] || '').trim() : ''
 
         // Jabatan: prioritas kolom "Jabatan" eksplisit > dari header kolom nama > override user.
-        // Kalau kolom Jabatan ada & berisi, pakai itu (paling tinggi prioritas).
         const jabatanFromCol = colJabatan !== -1 ? String(row[colJabatan] || '').trim() : ''
-        let jabatan = jabatanFromCol || nc.jabatan // dari header kolom nama
+        let jabatan = jabatanFromCol || nc.jabatan
         if (!jabatanFromCol && jabatanOverride && nameColumns.length === 1) {
-          // Kalau cuma 1 kolom nama, user set override, & kolom Jabatan kosong → pakai override
           jabatan = jabatanOverride
         }
 
@@ -188,7 +263,6 @@ export async function POST(req: Request) {
               if (noHp && !existing.noHp) updateData.noHp = noHp
               if (fakultasId && !existing.fakultasId) updateData.fakultasId = fakultasId
               if (prodiId && !existing.prodiId) updateData.prodiId = prodiId
-              // Update jabatan kalau existing kosong / beda
               if (jabatan && existing.jabatan !== jabatan) updateData.jabatan = jabatan
 
               if (Object.keys(updateData).length > 0) {
@@ -201,20 +275,22 @@ export async function POST(req: Request) {
               errors.push({ row: i + 1, nama: namaRaw, error: `Dosen sudah ada: "${existing.nama}" (NIDN: ${existing.nidn ?? '-'})` })
             }
           } else {
-            // Create baru
-            await db.dosen.create({
-              data: {
-                nidn,
-                nama: namaRaw,
-                email: email?.toLowerCase() || null,
-                noHp: noHp || null,
-                fakultasId: fakultasId || null,
-                prodiId: prodiId || null,
-                jabatan,
-                status: 'AKTIF',
-              },
+            // Create baru — pakai tryCreateDosen yang resilient terhadap old DB schema
+            const result = await tryCreateDosen({
+              nidn,
+              nama: namaRaw,
+              email: email?.toLowerCase() || null,
+              noHp: noHp || null,
+              fakultasId: fakultasId || null,
+              prodiId: prodiId || null,
+              jabatan,
             })
-            imported++
+            if (result.ok) {
+              imported++
+              if (result.placeholderUsed) placeholderUsed++
+            } else {
+              errors.push({ row: i + 1, nama: namaRaw, error: result.error || 'Gagal create' })
+            }
           }
         } catch (e: any) {
           if (e?.code === 'P2002') {
@@ -230,10 +306,7 @@ export async function POST(req: Request) {
         consecutiveEmptyRows = 0
       } else {
         consecutiveEmptyRows++
-        // Kalau 2 baris kosong berturut-turut, stop (kemungkinan besar section notes)
-        if (consecutiveEmptyRows >= MAX_CONSECUTIVE_EMPTY) {
-          break
-        }
+        if (consecutiveEmptyRows >= MAX_CONSECUTIVE_EMPTY) break
       }
     }
 
@@ -244,6 +317,7 @@ export async function POST(req: Request) {
       skipped,
       errors,
       totalRows: rows.length - 1,
+      placeholderUsed, // info: berapa row yang pakai placeholder fallback
     })
   } catch (e: any) {
     console.error('[POST /api/dosen/import]', e)

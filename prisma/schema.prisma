@@ -120,6 +120,7 @@ model Dosen {
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
   kelompok   Kelompok[]
+  kelompokKoor Kelompok[] @relation("KelompokKoordinator")
   penilaian  Penilaian[]
 }
 
@@ -205,8 +206,10 @@ model Kelompok {
   desa          Desa?    @relation(fields: [desaId], references: [id])
   sekolahId     String?
   sekolah       Sekolah? @relation(fields: [sekolahId], references: [id])
-  dosenId       String?
+  dosenId       String?  // Dosen Pendamping (pembimbing utama)
   dosen         Dosen?   @relation(fields: [dosenId], references: [id])
+  koordinatorId String?  // Koordinator Lapangan (terpisah dari dosen pendamping)
+  koordinator   Dosen?   @relation("KelompokKoordinator", fields: [koordinatorId], references: [id])
   status        String   @default("AKTIF")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
