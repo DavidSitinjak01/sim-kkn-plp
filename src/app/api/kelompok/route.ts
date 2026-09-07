@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { buildKelompokInclude, buildKelompokData, withKoordinatorFallback } from '@/lib/kelompok-helpers'
+import { buildKelompokSelect, buildKelompokData, withKoordinatorFallback } from '@/lib/kelompok-helpers'
 
 // GET - list all kelompok with desa/sekolah/dosen + _count members
 // Support ?tipe= filter (KKN/PLP1/PLP2)
 //
-// RESILIENT: Kalau kolom koordinatorId belum ada di DB (production belum
-// di-migrate), fallback ke query tanpa include koordinator.
+// RESILIENT: Pakai `select` (bukan `include`) supaya hanya field yang
+// dispesifikkan yang di-query. Kalau kolom koordinatorId belum ada di DB,
+// retry tanpa koordinator — tidak akan error.
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url)
@@ -22,7 +23,7 @@ export async function GET(req: Request) {
     const data = await withKoordinatorFallback(async (skip) => {
       return db.kelompok.findMany({
         where,
-        include: buildKelompokInclude(skip),
+        select: buildKelompokSelect(!skip),
         orderBy: [{ tipe: 'asc' }, { nama: 'asc' }],
       })
     })
@@ -36,7 +37,7 @@ export async function GET(req: Request) {
 
 // POST - create new kelompok
 // RESILIENT: Kalau kolom koordinatorId belum ada di DB, create tanpa
-// koordinatorId (field diabaikan).
+// koordinatorId (field diabaikan). Response pakai `select` (bukan include).
 export async function POST(req: Request) {
   try {
     const body = await req.json()
@@ -75,7 +76,7 @@ export async function POST(req: Request) {
     const created = await withKoordinatorFallback(async (skip) => {
       return db.kelompok.create({
         data: buildKelompokData(body, skip),
-        include: buildKelompokInclude(skip),
+        select: buildKelompokSelect(!skip),
       })
     })
 
@@ -85,6 +86,6 @@ export async function POST(req: Request) {
     if (e?.code === 'P2003') {
       return NextResponse.json({ error: 'Dosen/desa/sekolah yang dipilih tidak valid' }, { status: 400 })
     }
-    return NextResponse.json({ error: 'Gagal membuat kelompok' }, { status: 500 })
+    return NextResponse.json({ error: 'Gagal membuat kelompok. ' + (e?.message || '') }, { status: 500 })
   }
 }

@@ -1,26 +1,26 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { buildKelompokDetailInclude, buildKelompokInclude, withKoordinatorFallback, isKoordinatorColumnMissing } from '@/lib/kelompok-helpers'
+import { buildKelompokDetailSelect, buildKelompokSelect, buildKelompokData, withKoordinatorFallback } from '@/lib/kelompok-helpers'
 
 type Params = { params: Promise<{ id: string }> }
 
-// GET - single kelompok with members (include mahasiswa+prodi), desa, sekolah, dosen
-// RESILIENT: fallback kalau kolom koordinatorId belum ada di DB.
+// GET - single kelompok with members, desa, sekolah, dosen
+// RESILIENT: pakai `select` bukan `include`, fallback kalau koordinatorId belum ada.
 export async function GET(_req: Request, { params }: Params) {
   try {
     const { id } = await params
     const data = await withKoordinatorFallback(async (skip) => {
       return db.kelompok.findUnique({
         where: { id },
-        include: buildKelompokDetailInclude(skip),
+        select: buildKelompokDetailSelect(!skip),
       })
     })
     if (!data) {
       return NextResponse.json({ error: 'Kelompok tidak ditemukan' }, { status: 404 })
     }
     // Sort members by prodi (A-Z), then by nama (A-Z)
-    if (Array.isArray(data.members)) {
-      data.members.sort((a, b) => {
+    if (Array.isArray((data as any).members)) {
+      ;(data as any).members.sort((a: any, b: any) => {
         const prodiA = a.mahasiswa?.prodi?.nama ?? ''
         const prodiB = b.mahasiswa?.prodi?.nama ?? ''
         if (prodiA !== prodiB) return prodiA.localeCompare(prodiB)
@@ -81,13 +81,12 @@ export async function PUT(req: Request, { params }: Params) {
     }
 
     const updated = await withKoordinatorFallback(async (skip) => {
-      // Kalau skip (kolom belum ada), hapus koordinatorId dari updateData
       const dataToUse = { ...updateData }
       if (skip) delete dataToUse.koordinatorId
       return db.kelompok.update({
         where: { id },
         data: dataToUse,
-        include: buildKelompokInclude(skip),
+        select: buildKelompokSelect(!skip),
       })
     })
 
@@ -97,11 +96,11 @@ export async function PUT(req: Request, { params }: Params) {
     if (e?.code === 'P2003') {
       return NextResponse.json({ error: 'Referensi tidak valid' }, { status: 400 })
     }
-    return NextResponse.json({ error: 'Gagal memperbarui kelompok' }, { status: 500 })
+    return NextResponse.json({ error: 'Gagal memperbarui kelompok. ' + (e?.message || '') }, { status: 500 })
   }
 }
 
-// DELETE - remove kelompok (cascade will remove members & absensi relations are blocked)
+// DELETE - remove kelompok
 export async function DELETE(_req: Request, { params }: Params) {
   try {
     const { id } = await params
