@@ -1,11 +1,8 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
-// GET - list all kelompok with desa/sekolah/dosen + _count members
+// GET - list all kelompok with desa/sekolah/dosen/koordinator + _count members
 // Support ?tipe= filter (KKN/PLP1/PLP2)
-//
-// BULLETPROOF: pakai `select` dengan field yang PASTI ada di DB lama.
-// JANGAN include koordinatorId — kolom belum ada di production DB.
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url)
@@ -20,21 +17,11 @@ export async function GET(req: Request) {
 
     const data = await db.kelompok.findMany({
       where,
-      select: {
-        id: true,
-        nama: true,
-        tipe: true,
-        tahunAkademik: true,
-        semester: true,
-        desaId: true,
+      include: {
         desa: true,
-        sekolahId: true,
         sekolah: true,
-        dosenId: true,
         dosen: true,
-        status: true,
-        createdAt: true,
-        updatedAt: true,
+        koordinator: true,
         _count: { select: { members: true } },
       },
       orderBy: [{ tipe: 'asc' }, { nama: 'asc' }],
@@ -48,8 +35,6 @@ export async function GET(req: Request) {
 }
 
 // POST - create new kelompok
-// BULLETPROOF: JANGAN PERNAH include koordinatorId — kolom belum ada di DB.
-// Field ini di-skip sampai user menjalankan `prisma db push`.
 export async function POST(req: Request) {
   try {
     const body = await req.json()
@@ -81,37 +66,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Status tidak valid' }, { status: 400 })
     }
 
-    // Build create data — JANGAN include koordinatorId
-    const createData: Record<string, unknown> = {
-      nama: body.nama.trim(),
-      tipe: body.tipe,
-      tahunAkademik: body.tahunAkademik.trim(),
-      semester: body.semester,
-      desaId: isKKN ? body.desaId : null,
-      sekolahId: !isKKN ? body.sekolahId : null,
-      dosenId: body.dosenId || null,
-      status,
-    }
-    // ⚠️ koordinatorId TIDAK di-include — kolom belum ada di production DB.
-
-    // Create dengan select MINIMAL (TIDAK include koordinatorId)
     const created = await db.kelompok.create({
-      data: createData as any,
-      select: {
-        id: true,
-        nama: true,
-        tipe: true,
-        tahunAkademik: true,
-        semester: true,
-        desaId: true,
+      data: {
+        nama: body.nama.trim(),
+        tipe: body.tipe,
+        tahunAkademik: body.tahunAkademik.trim(),
+        semester: body.semester,
+        desaId: isKKN ? body.desaId : null,
+        sekolahId: !isKKN ? body.sekolahId : null,
+        dosenId: body.dosenId || null,
+        koordinatorId: body.koordinatorId || null,
+        status,
+      },
+      include: {
         desa: true,
-        sekolahId: true,
         sekolah: true,
-        dosenId: true,
         dosen: true,
-        status: true,
-        createdAt: true,
-        updatedAt: true,
+        koordinator: true,
         _count: { select: { members: true } },
       },
     })
@@ -122,6 +93,6 @@ export async function POST(req: Request) {
     if (e?.code === 'P2003') {
       return NextResponse.json({ error: 'Dosen/desa/sekolah yang dipilih tidak valid' }, { status: 400 })
     }
-    return NextResponse.json({ error: 'Gagal membuat kelompok. ' + (e?.message || '') }, { status: 500 })
+    return NextResponse.json({ error: 'Gagal membuat kelompok' }, { status: 500 })
   }
 }

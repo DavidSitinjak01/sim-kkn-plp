@@ -478,17 +478,28 @@ export function PembagianView() {
       ),
     },
     {
-      key: 'dosen', header: 'Dosen Pendamping', sortable: true, sortValue: (k) => k.dosen?.nama ?? '',
+      key: 'dosen', header: 'Pendamping & Koordinator', sortable: true, sortValue: (k) => k.dosen?.nama ?? '',
       render: (k) => (
-        k.dosen ? (
-          <div className="flex items-center gap-1.5 min-w-0">
-            <UserCheck className="w-4 h-4 text-primary shrink-0" />
-            <div className="min-w-0">
-              <p className="text-sm truncate">{k.dosen.nama}</p>
-              <p className="text-xs text-muted-foreground font-mono">{k.dosen.nidn}</p>
+        <div className="space-y-1">
+          {k.dosen ? (
+            <div className="flex items-center gap-1.5 min-w-0">
+              <UserCheck className="w-3.5 h-3.5 text-primary shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm truncate">{k.dosen.nama}</p>
+                <p className="text-[10px] text-muted-foreground">Dosen Pendamping</p>
+              </div>
             </div>
-          </div>
-        ) : <span className="text-xs text-muted-foreground">Belum ditetapkan</span>
+          ) : <span className="text-xs text-muted-foreground">—</span>}
+          {k.koordinator ? (
+            <div className="flex items-center gap-1.5 min-w-0">
+              <UserCheck className="w-3.5 h-3.5 text-violet-600 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm truncate">{k.koordinator.nama}</p>
+                <p className="text-[10px] text-muted-foreground">Koordinator</p>
+              </div>
+            </div>
+          ) : null}
+        </div>
       ),
     },
     {
