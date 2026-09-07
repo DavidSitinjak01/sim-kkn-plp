@@ -7,7 +7,7 @@ import {
 } from '@/lib/form-field-def'
 
 // ============ POST - import response to Mahasiswa ============
-// Body: { tempatLahir, tanggalLahir (ISO), email, semester (int), angkatan (int), prodiId }
+// Body: { email, semester (int), angkatan (int), prodiId }
 // Reads response.data JSON + form.fields, extracts system keys.
 // Validates all required system keys present (returns 400 with clear message if missing).
 // Creates Mahasiswa record. Marks response status='IMPORTED'.
@@ -19,19 +19,9 @@ export async function POST(req: Request, context: any) {
     if (!id) return NextResponse.json({ error: 'ID tidak valid' }, { status: 400 })
 
     const body = await req.json()
-    const { tempatLahir, tanggalLahir, email, semester, angkatan, prodiId } = body
+    const { email, semester, angkatan, prodiId } = body
 
     // Validate extra required fields for Mahasiswa
-    if (!tempatLahir || !String(tempatLahir).trim()) {
-      return NextResponse.json({ error: 'Tempat lahir wajib diisi' }, { status: 400 })
-    }
-    if (!tanggalLahir) {
-      return NextResponse.json({ error: 'Tanggal lahir wajib diisi' }, { status: 400 })
-    }
-    const parsedDate = new Date(tanggalLahir)
-    if (isNaN(parsedDate.getTime())) {
-      return NextResponse.json({ error: 'Tanggal lahir tidak valid' }, { status: 400 })
-    }
     if (!email || !String(email).trim()) {
       return NextResponse.json({ error: 'Email wajib diisi' }, { status: 400 })
     }
@@ -120,8 +110,6 @@ export async function POST(req: Request, context: any) {
         nim,
         nama: namaLengkap,
         jenisKelamin: jenisKelaminRaw as 'L' | 'P',
-        tempatLahir: String(tempatLahir).trim(),
-        tanggalLahir: parsedDate,
         alamat,
         noHp: noWa,
         email: String(email).trim(),

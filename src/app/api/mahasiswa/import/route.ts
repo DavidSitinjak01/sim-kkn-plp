@@ -19,8 +19,6 @@ import * as XLSX from 'xlsx'
  *       - "Pasfoto" / "Foto"                   → foto (Google Drive URL OK)
  *
  * Field yang TIDAK ada di Excel akan diisi dari body request (defaults):
- *   - tempatLahir (string, wajib)
- *   - tanggalLahir (ISO date string, wajib)
  *   - email (string, wajib — bisa pakai template {nim}@example.com)
  *   - semester (int, default 5)
  *   - angkatan (int, default 2024)
@@ -31,8 +29,6 @@ import * as XLSX from 'xlsx'
  *
  * Body (multipart/form-data):
  *   - file: Excel file
- *   - tempatLahir: default tempat lahir
- *   - tanggalLahir: default tanggal lahir (YYYY-MM-DD)
  *   - emailPattern: pattern email, mis. "{nim}@uniraya.ac.id"
  *   - semester: default semester (default 5)
  *   - angkatan: default angkatan (default 2024)
@@ -130,22 +126,12 @@ export async function POST(req: Request) {
     }
 
     // Parse defaults from form fields
-    const tempatLahir = (formData.get('tempatLahir') as string | null)?.trim() || ''
-    const tanggalLahirStr = (formData.get('tanggalLahir') as string | null) || ''
     const emailPattern = (formData.get('emailPattern') as string | null) || '{nim}@uniraya.ac.id'
     const semesterStr = (formData.get('semester') as string | null) || '5'
     const angkatanStr = (formData.get('angkatan') as string | null) || '2024'
     const prodiMappingRaw = (formData.get('prodiMapping') as string | null) || '{}'
     const skipDuplicate = (formData.get('skipDuplicate') as string | null) !== 'false' // default true
 
-    // Validate required defaults
-    if (!tempatLahir) {
-      return NextResponse.json({ error: 'Tempat lahir default wajib diisi' }, { status: 400 })
-    }
-    const tanggalLahir = new Date(tanggalLahirStr)
-    if (isNaN(tanggalLahir.getTime())) {
-      return NextResponse.json({ error: 'Tanggal lahir default tidak valid' }, { status: 400 })
-    }
     const semester = Number(semesterStr)
     if (!Number.isInteger(semester) || semester < 1) {
       return NextResponse.json({ error: 'Semester tidak valid' }, { status: 400 })
@@ -280,8 +266,8 @@ export async function POST(req: Request) {
               noHp: noHp || '-',
               email,
               prodiId,
-              semester: semesterDefault,
-              angkatan: extractAngkatanFromNim(nim),
+              semester,
+              angkatan,
               status: 'AKTIF',
               foto,
             },

@@ -16,7 +16,7 @@ datasource db {
   // (SQLite files would be lost on every cold start). For local dev you can either
   // keep using sqlite by setting the provider to "sqlite" here, or run a local
   // postgres (e.g. via docker) and point DATABASE_URL at it.
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 

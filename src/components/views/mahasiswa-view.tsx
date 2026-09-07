@@ -13,7 +13,7 @@ import { ImportExcelDialog } from '@/components/mahasiswa/import-excel-dialog'
 import { PageHeader } from '@/components/shared/page-header'
 import { DataTable, type Column } from '@/components/shared/data-table'
 import {
-  exportToCSV, exportToPDF, generateTableHTML, formatDate,
+  exportToCSV, exportToPDF, generateTableHTML,
 } from '@/lib/export-utils'
 
 import { Button } from '@/components/ui/button'
@@ -49,8 +49,6 @@ interface Mahasiswa {
   nim: string
   nama: string
   jenisKelamin: string
-  tempatLahir: string
-  tanggalLahir: string
   alamat: string
   noHp: string
   email: string
@@ -70,8 +68,6 @@ interface FormState {
   nim: string
   nama: string
   jenisKelamin: string
-  tempatLahir: string
-  tanggalLahir: string
   alamat: string
   noHp: string
   email: string
@@ -83,7 +79,7 @@ interface FormState {
 }
 
 const EMPTY_FORM: FormState = {
-  nim: '', nama: '', jenisKelamin: 'L', tempatLahir: '', tanggalLahir: '',
+  nim: '', nama: '', jenisKelamin: 'L',
   alamat: '', noHp: '', email: '', prodiId: '', semester: '1', angkatan: String(new Date().getFullYear()),
   status: 'AKTIF', foto: '',
 }
@@ -179,8 +175,6 @@ export function MahasiswaView() {
       nim: m.nim,
       nama: m.nama,
       jenisKelamin: m.jenisKelamin,
-      tempatLahir: m.tempatLahir,
-      tanggalLahir: m.tanggalLahir ? new Date(m.tanggalLahir).toISOString().slice(0, 10) : '',
       alamat: m.alamat,
       noHp: m.noHp,
       email: m.email,
@@ -198,8 +192,8 @@ export function MahasiswaView() {
     e.preventDefault()
 
     // Basic validation
-    if (!form.nim.trim() || !form.nama.trim() || !form.prodiId || !form.email.trim() || !form.tanggalLahir) {
-      toast.error('Lengkapi field wajib (NIM, Nama, Email, Prodi, Tanggal Lahir)')
+    if (!form.nim.trim() || !form.nama.trim() || !form.prodiId || !form.email.trim()) {
+      toast.error('Lengkapi field wajib (NIM, Nama, Email, Prodi)')
       return
     }
 
@@ -420,10 +414,10 @@ export function MahasiswaView() {
       toast.error('Tidak ada data untuk diexport')
       return
     }
-    const headers = ['NIM', 'Nama', 'JK', 'Tempat Lahir', 'Tanggal Lahir', 'Email', 'No HP', 'Prodi', 'Fakultas', 'Semester', 'Angkatan', 'Status']
+    const headers = ['NIM', 'Nama', 'JK', 'Email', 'No HP', 'Prodi', 'Fakultas', 'Semester', 'Angkatan', 'Status']
     const rows = data.map((d) => [
       d.nim, d.nama, d.jenisKelamin === 'L' ? 'Laki-laki' : 'Perempuan',
-      d.tempatLahir, formatDate(d.tanggalLahir), d.email, d.noHp,
+      d.email, d.noHp,
       d.prodi?.nama ?? '-', d.prodi?.fakultas?.nama ?? '-',
       d.semester, d.angkatan, d.status,
     ])
@@ -435,10 +429,10 @@ export function MahasiswaView() {
       toast.error('Tidak ada data untuk diexport')
       return
     }
-    const headers = ['NIM', 'Nama', 'JK', 'Tempat Lahir', 'Tgl Lahir', 'Email', 'No HP', 'Prodi', 'Fakultas', 'Smt', 'Angkatan', 'Status']
+    const headers = ['NIM', 'Nama', 'JK', 'Email', 'No HP', 'Prodi', 'Fakultas', 'Smt', 'Angkatan', 'Status']
     const rows = data.map((d) => [
       d.nim, d.nama, d.jenisKelamin === 'L' ? 'L' : 'P',
-      d.tempatLahir, formatDate(d.tanggalLahir), d.email, d.noHp,
+      d.email, d.noHp,
       d.prodi?.nama ?? '-', d.prodi?.fakultas?.nama ?? '-',
       d.semester, d.angkatan, d.status,
     ])
@@ -640,15 +634,7 @@ export function MahasiswaView() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="tanggalLahir">Tanggal Lahir <span className="text-rose-500">*</span></Label>
-                <Input id="tanggalLahir" type="date" value={form.tanggalLahir} onChange={(e) => setForm({ ...form, tanggalLahir: e.target.value })} required />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="tempatLahir">Tempat Lahir</Label>
-                <Input id="tempatLahir" value={form.tempatLahir} onChange={(e) => setForm({ ...form, tempatLahir: e.target.value })} placeholder="Jakarta" />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="noHp">No. HP</Label>
+                <Label htmlFor="noHp">No. HP / WA</Label>
                 <Input id="noHp" value={form.noHp} onChange={(e) => setForm({ ...form, noHp: e.target.value })} placeholder="0812..." />
               </div>
               <div className="space-y-1.5 sm:col-span-2">

@@ -65,8 +65,6 @@ export function ImportExcelDialog({ open, onOpenChange, onSuccess }: ImportExcel
   const [preview, setPreview] = useState<PreviewResult | null>(null)
   const [prodiMapping, setProdiMapping] = useState<Record<string, string>>({})
   const [defaults, setDefaults] = useState({
-    tempatLahir: '',
-    tanggalLahir: '',
     emailPattern: '{nim}@uniraya.ac.id',
     semester: '5',
     angkatan: '2024',
@@ -124,15 +122,6 @@ export function ImportExcelDialog({ open, onOpenChange, onSuccess }: ImportExcel
 
   // ── Step 2: Configure defaults & mapping, then import ───────────────────
   const handleImport = async () => {
-    if (!defaults.tempatLahir.trim()) {
-      toast.error('Tempat lahir default wajib diisi')
-      return
-    }
-    if (!defaults.tanggalLahir) {
-      toast.error('Tanggal lahir default wajib diisi')
-      return
-    }
-
     if (preview?.unmatchedProdi.length) {
       const stillUnmapped = preview.unmatchedProdi.filter((p) => !prodiMapping[p.excelName])
       if (stillUnmapped.length > 0) {
@@ -147,8 +136,6 @@ export function ImportExcelDialog({ open, onOpenChange, onSuccess }: ImportExcel
       const fd = new FormData()
       if (!file) throw new Error('File tidak ditemukan')
       fd.append('file', file)
-      fd.append('tempatLahir', defaults.tempatLahir)
-      fd.append('tanggalLahir', defaults.tanggalLahir)
       fd.append('emailPattern', defaults.emailPattern)
       fd.append('semester', defaults.semester)
       fd.append('angkatan', defaults.angkatan)
@@ -355,28 +342,10 @@ export function ImportExcelDialog({ open, onOpenChange, onSuccess }: ImportExcel
                     Nilai default untuk field yang tidak ada di Excel
                   </p>
                   <p className="text-xs text-muted-foreground -mt-1">
-                    Data Excel tidak memiliki kolom tempat lahir, tanggal lahir, email, semester, angkatan.
+                    Data Excel tidak memiliki kolom email, semester, dan angkatan.
                     Isi default ini akan diterapkan ke SEMUA mahasiswa yang diimpor.
                   </p>
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Tempat Lahir <span className="text-rose-500">*</span></Label>
-                      <Input
-                        value={defaults.tempatLahir}
-                        onChange={(e) => setDefaults((d) => ({ ...d, tempatLahir: e.target.value }))}
-                        placeholder="mis. Gunungsitoli"
-                        className="h-8 text-xs"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Tanggal Lahir <span className="text-rose-500">*</span></Label>
-                      <Input
-                        type="date"
-                        value={defaults.tanggalLahir}
-                        onChange={(e) => setDefaults((d) => ({ ...d, tanggalLahir: e.target.value }))}
-                        className="h-8 text-xs"
-                      />
-                    </div>
                     <div className="space-y-1.5 col-span-2">
                       <Label className="text-xs">Pattern Email</Label>
                       <Input

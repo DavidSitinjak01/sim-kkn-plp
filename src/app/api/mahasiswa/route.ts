@@ -59,7 +59,7 @@ export async function POST(req: Request) {
     const body = await req.json()
 
     // Validate required fields
-    const required = ['nim', 'nama', 'jenisKelamin', 'tempatLahir', 'tanggalLahir', 'alamat', 'noHp', 'email', 'prodiId', 'semester', 'angkatan']
+    const required = ['nim', 'nama', 'jenisKelamin', 'alamat', 'noHp', 'email', 'prodiId', 'semester', 'angkatan']
     for (const f of required) {
       if (body[f] === undefined || body[f] === null || String(body[f]).trim() === '') {
         return NextResponse.json({ error: `Field ${f} wajib diisi` }, { status: 400 })
@@ -87,8 +87,6 @@ export async function POST(req: Request) {
         nim: body.nim.trim(),
         nama: body.nama.trim(),
         jenisKelamin: body.jenisKelamin,
-        tempatLahir: body.tempatLahir.trim(),
-        tanggalLahir: new Date(body.tanggalLahir),
         alamat: body.alamat.trim(),
         noHp: body.noHp.trim(),
         email: body.email.trim().toLowerCase(),

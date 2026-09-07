@@ -79,7 +79,7 @@ export async function GET() {
     ['- Program Studi akan auto-match ke database. Jika tidak match, akan diminta mapping manual.'],
     ['- Pasfoto: isi dengan URL Google Drive atau biarkan kosong'],
     ['- NIM duplikat akan dilewati (kecuali matikan opsi Skip Duplicate)'],
-    ['- Tempat Lahir, Tanggal Lahir, Email, Semester, Angkatan diisi di form import (default)'],
+    ['- Email, Semester, Angkatan diisi di form import (default)'],
   ]
 
   const aoa: (string | number)[][] = [headers, ...samples, ...notes]

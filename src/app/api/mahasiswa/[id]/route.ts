@@ -55,8 +55,6 @@ export async function PUT(req: Request, { params }: Params) {
         ...(body.nim !== undefined && { nim: body.nim.trim() }),
         ...(body.nama !== undefined && { nama: body.nama.trim() }),
         ...(body.jenisKelamin !== undefined && { jenisKelamin: body.jenisKelamin }),
-        ...(body.tempatLahir !== undefined && { tempatLahir: body.tempatLahir.trim() }),
-        ...(body.tanggalLahir !== undefined && { tanggalLahir: new Date(body.tanggalLahir) }),
         ...(body.alamat !== undefined && { alamat: body.alamat.trim() }),
         ...(body.noHp !== undefined && { noHp: body.noHp.trim() }),
         ...(body.email !== undefined && { email: body.email.trim().toLowerCase() }),

@@ -1641,8 +1641,6 @@ function ResponseImportDialogInner({
 }) {
   // Lazy initial state from row — remounts via key when target changes.
   const [form, setForm] = useState({
-    tempatLahir: '',
-    tanggalLahir: '',
     email: row.data?.email || '',
     semester: '6',
     angkatan: String(new Date().getFullYear()),
@@ -1654,8 +1652,6 @@ function ResponseImportDialogInner({
   const canImport = !!row.form && hasRequiredSystemKeys(fields)
 
   const handleSubmit = async () => {
-    if (!form.tempatLahir.trim()) return toast.error('Tempat lahir wajib diisi')
-    if (!form.tanggalLahir) return toast.error('Tanggal lahir wajib diisi')
     if (!form.email.trim()) return toast.error('Email wajib diisi')
     if (!form.prodiId) return toast.error('Program studi wajib dipilih')
     const sem = Number(form.semester)
@@ -1669,8 +1665,6 @@ function ResponseImportDialogInner({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          tempatLahir: form.tempatLahir.trim(),
-          tanggalLahir: form.tanggalLahir,
           email: form.email.trim(),
           semester: sem,
           angkatan: angk,
@@ -1736,15 +1730,7 @@ function ResponseImportDialogInner({
 
           {/* Additional form */}
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="imp-tempat">Tempat Lahir <span className="text-destructive">*</span></Label>
-              <Input id="imp-tempat" value={form.tempatLahir} onChange={(e) => setForm({ ...form, tempatLahir: e.target.value })} placeholder="cth. Gunungsitoli" />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="imp-tgl">Tanggal Lahir <span className="text-destructive">*</span></Label>
-              <Input id="imp-tgl" type="date" value={form.tanggalLahir} onChange={(e) => setForm({ ...form, tanggalLahir: e.target.value })} />
-            </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="imp-email">Email <span className="text-destructive">*</span></Label>
               <Input id="imp-email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="mahasiswa@example.com" />
             </div>

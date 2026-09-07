@@ -69,8 +69,6 @@ interface Prodi {
 type StatusFilter = 'SEMUA' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'IMPORTED'
 
 interface ImportFormState {
-  tempatLahir: string
-  tanggalLahir: string
   email: string
   semester: string
   angkatan: string
@@ -277,7 +275,7 @@ export function PendaftaranView() {
 
   // Form states
   const [importForm, setImportForm] = useState<ImportFormState>({
-    tempatLahir: '', tanggalLahir: '', email: '',
+    email: '',
     semester: '6', angkatan: String(new Date().getFullYear()), prodiId: '',
   })
   const [rejectReason, setRejectReason] = useState('')
@@ -423,8 +421,6 @@ export function PendaftaranView() {
   const openImport = (p: Pendaftaran) => {
     setImportTarget(p)
     setImportForm({
-      tempatLahir: '',
-      tanggalLahir: '',
       email: '',
       semester: '6',
       angkatan: String(new Date().getFullYear()),
@@ -435,8 +431,6 @@ export function PendaftaranView() {
   const handleImport = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!importTarget) return
-    if (!importForm.tempatLahir.trim()) return toast.error('Tempat lahir wajib diisi')
-    if (!importForm.tanggalLahir) return toast.error('Tanggal lahir wajib diisi')
     if (!importForm.email.trim()) return toast.error('Email wajib diisi')
     if (!importForm.prodiId) return toast.error('Program studi wajib dipilih')
 
@@ -446,8 +440,6 @@ export function PendaftaranView() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          tempatLahir: importForm.tempatLahir.trim(),
-          tanggalLahir: importForm.tanggalLahir,
           email: importForm.email.trim(),
           semester: Number(importForm.semester),
           angkatan: Number(importForm.angkatan),
@@ -1060,26 +1052,6 @@ export function PendaftaranView() {
 
                 {/* Additional fields */}
                 <div className="grid sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="imp-tempat">Tempat Lahir <span className="text-rose-500">*</span></Label>
-                    <Input
-                      id="imp-tempat"
-                      value={importForm.tempatLahir}
-                      onChange={(e) => setImportForm({ ...importForm, tempatLahir: e.target.value })}
-                      placeholder="Contoh: Gunungsitoli"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="imp-tanggal">Tanggal Lahir <span className="text-rose-500">*</span></Label>
-                    <Input
-                      id="imp-tanggal"
-                      type="date"
-                      value={importForm.tanggalLahir}
-                      onChange={(e) => setImportForm({ ...importForm, tanggalLahir: e.target.value })}
-                      required
-                    />
-                  </div>
                   <div className="space-y-1.5 sm:col-span-2">
                     <Label htmlFor="imp-email">Email <span className="text-rose-500">*</span></Label>
                     <Input

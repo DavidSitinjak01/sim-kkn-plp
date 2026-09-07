@@ -3,7 +3,7 @@ import { db } from '@/lib/db'
 
 // ============ POST - import pendaftaran ke tabel Mahasiswa ============
 // Body: {
-//   tempatLahir, tanggalLahir (ISO date), email, semester (int), angkatan (int),
+//   email, semester (int), angkatan (int),
 //   prodiId (optional override)
 // }
 // Membuat record Mahasiswa baru dari data Pendaftaran, lalu set status IMPORTED.
@@ -14,19 +14,9 @@ export async function POST(req: Request, context: any) {
     if (!id) return NextResponse.json({ error: 'ID tidak valid' }, { status: 400 })
 
     const body = await req.json()
-    const { tempatLahir, tanggalLahir, email, semester, angkatan, prodiId } = body
+    const { email, semester, angkatan, prodiId } = body
 
     // Validate extra required fields for Mahasiswa
-    if (!tempatLahir || !tempatLahir.trim()) {
-      return NextResponse.json({ error: 'Tempat lahir wajib diisi' }, { status: 400 })
-    }
-    if (!tanggalLahir) {
-      return NextResponse.json({ error: 'Tanggal lahir wajib diisi' }, { status: 400 })
-    }
-    const parsedDate = new Date(tanggalLahir)
-    if (isNaN(parsedDate.getTime())) {
-      return NextResponse.json({ error: 'Tanggal lahir tidak valid' }, { status: 400 })
-    }
     if (!email || !email.trim()) {
       return NextResponse.json({ error: 'Email wajib diisi' }, { status: 400 })
     }
@@ -71,8 +61,6 @@ export async function POST(req: Request, context: any) {
         nim: pendaftaran.nim,
         nama: pendaftaran.namaLengkap,
         jenisKelamin: pendaftaran.jenisKelamin as 'L' | 'P',
-        tempatLahir: tempatLahir.trim(),
-        tanggalLahir: parsedDate,
         alamat: pendaftaran.alamat,
         noHp: pendaftaran.noWa,
         email: email.trim(),

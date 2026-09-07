@@ -64,8 +64,6 @@ export interface IdCardMahasiswa {
   nim: string
   nama: string
   jenisKelamin: string // L | P
-  tempatLahir: string
-  tanggalLahir: string | Date
   alamat: string
   noHp: string
   email: string
