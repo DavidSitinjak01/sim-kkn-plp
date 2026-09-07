@@ -654,7 +654,14 @@ export function PembagianView() {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="tahun">Tahun Akademik <span className="text-rose-500">*</span></Label>
-                <Input id="tahun" value={form.tahunAkademik} onChange={(e) => setForm({ ...form, tahunAkademik: e.target.value })} placeholder="2024/2025" required />
+                <Select value={form.tahunAkademik} onValueChange={(v) => setForm({ ...form, tahunAkademik: v })}>
+                  <SelectTrigger id="tahun"><SelectValue placeholder="Pilih tahun..." /></SelectTrigger>
+                  <SelectContent>
+                    {['2024/2025', '2025/2026', '2026/2027', '2027/2028', '2028/2029'].map((t) => (
+                      <SelectItem key={t} value={t}>{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label>Status</Label>
@@ -671,6 +678,17 @@ export function PembagianView() {
                 <Label>Dosen Pendamping</Label>
                 <Select value={form.dosenId} onValueChange={(v) => setForm({ ...form, dosenId: v })}>
                   <SelectTrigger><SelectValue placeholder="Pilih dosen" /></SelectTrigger>
+                  <SelectContent className="max-h-72">
+                    {dosenList.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>{d.nama}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Koordinator Lapangan</Label>
+                <Select value={form.dosenId} onValueChange={(v) => setForm({ ...form, dosenId: v })}>
+                  <SelectTrigger><SelectValue placeholder="Pilih koordinator" /></SelectTrigger>
                   <SelectContent className="max-h-72">
                     {dosenList.map((d) => (
                       <SelectItem key={d.id} value={d.id}>{d.nama}</SelectItem>
