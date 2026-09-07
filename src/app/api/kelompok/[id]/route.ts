@@ -17,13 +17,24 @@ export async function GET(_req: Request, { params }: Params) {
           include: {
             mahasiswa: { include: { prodi: { include: { fakultas: true } } } },
           },
-          orderBy: [{ mahasiswa: { nim: 'asc' } }],
         },
         _count: { select: { members: true } },
       },
     })
     if (!data) {
       return NextResponse.json({ error: 'Kelompok tidak ditemukan' }, { status: 404 })
+    }
+    // Sort members by prodi (A-Z), then by nama (A-Z) — done in JS to avoid
+    // nested orderBy issues with PostgreSQL
+    if (Array.isArray(data.members)) {
+      data.members.sort((a, b) => {
+        const prodiA = a.mahasiswa?.prodi?.nama ?? ''
+        const prodiB = b.mahasiswa?.prodi?.nama ?? ''
+        if (prodiA !== prodiB) return prodiA.localeCompare(prodiB)
+        const namaA = a.mahasiswa?.nama ?? ''
+        const namaB = b.mahasiswa?.nama ?? ''
+        return namaA.localeCompare(namaB)
+      })
     }
     return NextResponse.json(data)
   } catch (e) {
