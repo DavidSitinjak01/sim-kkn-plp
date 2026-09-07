@@ -52,7 +52,7 @@ interface Props {
 const DEFAULT_PENGATURAN: Record<string, string> = {
   logo_url: '/logo.png',
   yayasan: 'YAYASAN PENDIDIKAN NIAS SELATAN',
-  panitia_plp: 'PANITIA PENGENALAN LAPANGAN PERSEKOLAHAN II',
+  panitia_plp: 'PANITIA PENGENALAN LAPANGAN PERSEKOLAHAN-II (PPLP-II)',
   panitia_kkn: 'PANITIA KULIAH KERJA NYATA',
   izin_operasional: 'Kepmendikbudristek Nomor 363/E/O/2021',
   ketua_panitia: 'Antonius Sarumaha, M.Pd',
@@ -131,6 +131,38 @@ function lokasiInfo(tipe: string, kelompok: Kelompok): { label: string; nama: st
     return { label: 'Desa Mitra', nama: kelompok.desa?.nama ?? '-' }
   }
   return { label: 'Sekolah Mitra', nama: kelompok.sekolah?.nama ?? '-' }
+}
+
+/**
+ * Format kelompok nama ke format "Satu (I)", "Dua (II)", dll.
+ * Input bisa: "I", "II", "1", "2", "III", "3", dll.
+ */
+function formatKelompokNama(nama: string): string {
+  const trim = nama.trim()
+  // Map angka/romawi ke kata Indonesia + romawi
+  const map: Record<string, string> = {
+    '1': 'Satu (I)',
+    '2': 'Dua (II)',
+    '3': 'Tiga (III)',
+    '4': 'Empat (IV)',
+    '5': 'Lima (V)',
+    '6': 'Enam (VI)',
+    '7': 'Tujuh (VII)',
+    '8': 'Delapan (VIII)',
+    '9': 'Sembilan (IX)',
+    '10': 'Sepuluh (X)',
+    'I': 'Satu (I)',
+    'II': 'Dua (II)',
+    'III': 'Tiga (III)',
+    'IV': 'Empat (IV)',
+    'V': 'Lima (V)',
+    'VI': 'Enam (VI)',
+    'VII': 'Tujuh (VII)',
+    'VIII': 'Delapan (VIII)',
+    'IX': 'Sembilan (IX)',
+    'X': 'Sepuluh (X)',
+  }
+  return map[trim] || trim
 }
 
 /**
@@ -313,7 +345,7 @@ export function DaftarPesertaPLPLetter({ kelompokId }: Props) {
               <tr>
                 <td style={{ width: '180px', verticalAlign: 'top', padding: '2px 0' }}>Kelompok</td>
                 <td style={{ width: '10px', verticalAlign: 'top', padding: '2px 0' }}>:</td>
-                <td style={{ verticalAlign: 'top', padding: '2px 0' }}>{kelompok.nama}</td>
+                <td style={{ verticalAlign: 'top', padding: '2px 0' }}>{formatKelompokNama(kelompok.nama)}</td>
               </tr>
               <tr>
                 <td style={{ verticalAlign: 'top', padding: '2px 0' }}>Sekolah Mitra</td>
@@ -413,7 +445,7 @@ function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logoBase64: string): 
 <html lang="id">
 <head>
 <meta charset="UTF-8" />
-<title>${judul.line1} ${judul.line2} — ${escapeHtml(kelompok.nama)}</title>
+<title>${judul.line1} ${judul.line2} — ${escapeHtml(formatKelompokNama(kelompok.nama))}</title>
 <style>
   @page { size: A4; margin: 15mm; }
   * { box-sizing: border-box; }
@@ -494,7 +526,7 @@ function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logoBase64: string): 
       <tr>
         <td style="width:180px;vertical-align:top;padding:2px 0;">Kelompok</td>
         <td style="width:10px;vertical-align:top;padding:2px 0;">:</td>
-        <td style="vertical-align:top;padding:2px 0;">${escapeHtml(kelompok.nama)}</td>
+        <td style="vertical-align:top;padding:2px 0;">${escapeHtml(formatKelompokNama(kelompok.nama))}</td>
       </tr>
       <tr>
         <td style="vertical-align:top;padding:2px 0;">Sekolah Mitra</td>
