@@ -38,13 +38,16 @@ export async function POST(req: Request) {
     }
 
     // ── Hitung data sebelum hapus (untuk laporan) ─────────────────────────
+    // SAFETY: kalau 'kelompok' dipilih, auto-juga hitung absensi & penilaian
+    // (karena akan dihapus juga untuk hindari FK constraint error).
+    const willDeleteAbsensi = targets.includes('absensi') || targets.includes('kelompok')
+    const willDeletePenilaian = targets.includes('penilaian') || targets.includes('kelompok')
+    const willDeleteKelompokMember = targets.includes('mahasiswa') || targets.includes('kelompok')
+
     const before = {
-      absensi: targets.includes('absensi') ? await db.absensi.count() : 0,
-      penilaian: targets.includes('penilaian') ? await db.penilaian.count() : 0,
-      kelompokMember:
-        targets.includes('mahasiswa') || targets.includes('kelompok')
-          ? await db.kelompokMember.count()
-          : 0,
+      absensi: willDeleteAbsensi ? await db.absensi.count() : 0,
+      penilaian: willDeletePenilaian ? await db.penilaian.count() : 0,
+      kelompokMember: willDeleteKelompokMember ? await db.kelompokMember.count() : 0,
       mahasiswa: targets.includes('mahasiswa') ? await db.mahasiswa.count() : 0,
       sekolah: targets.includes('sekolah') ? await db.sekolah.count() : 0,
       desa: targets.includes('desa') ? await db.desa.count() : 0,
@@ -53,29 +56,39 @@ export async function POST(req: Request) {
 
     // ── Bangun transaction berurutan ─────────────────────────────────────
     // Urutan penting! Child dulu, baru parent.
+    //
+    // SAFETY: kalau 'kelompok' dipilih, auto-juga hapus absensi & penilaian
+    // yang punya FK ke kelompok (onDelete tidak cascade di schema), supaya
+    // tidak error P2003 (FK constraint).
+    const effectiveTargets = new Set(targets)
+    if (effectiveTargets.has('kelompok')) {
+      effectiveTargets.add('absensi')
+      effectiveTargets.add('penilaian')
+    }
+
     const ops: any[] = []
 
-    if (targets.includes('absensi')) {
+    if (effectiveTargets.has('absensi')) {
       ops.push(db.absensi.deleteMany({}))
     }
-    if (targets.includes('penilaian')) {
+    if (effectiveTargets.has('penilaian')) {
       ops.push(db.penilaian.deleteMany({}))
     }
-    if (targets.includes('mahasiswa') || targets.includes('kelompok')) {
+    if (effectiveTargets.has('mahasiswa') || effectiveTargets.has('kelompok')) {
       ops.push(db.kelompokMember.deleteMany({}))
     }
-    if (targets.includes('mahasiswa')) {
+    if (effectiveTargets.has('mahasiswa')) {
       ops.push(db.mahasiswa.deleteMany({}))
     }
-    if (targets.includes('sekolah')) {
+    if (effectiveTargets.has('sekolah')) {
       ops.push(db.kelompok.updateMany({ where: {}, data: { sekolahId: null } }))
       ops.push(db.sekolah.deleteMany({}))
     }
-    if (targets.includes('desa')) {
+    if (effectiveTargets.has('desa')) {
       ops.push(db.kelompok.updateMany({ where: {}, data: { desaId: null } }))
       ops.push(db.desa.deleteMany({}))
     }
-    if (targets.includes('kelompok')) {
+    if (effectiveTargets.has('kelompok')) {
       ops.push(db.kelompok.deleteMany({}))
     }
 
