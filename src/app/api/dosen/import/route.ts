@@ -166,25 +166,33 @@ export async function POST(req: Request) {
         // P2011 = null constraint violation → production DB masih NOT NULL
         // untuk kolom yang sudah optional di schema. Retry dengan placeholder.
         if (e?.code === 'P2011') {
-          const violatedFields: string[] = Array.isArray(e?.meta?.target) ? e.meta.target : []
           // Cache first fakultas ID untuk placeholder (kalau belum di-cache)
           if (cachedFirstFakultasId === undefined) {
             const firstFak = await db.fakultas.findFirst({ select: { id: true } })
             cachedFirstFakultasId = firstFak?.id ?? null
           }
-          // Build retry data dengan placeholder untuk field yang violated
-          const retryData: any = { ...data }
-          for (const f of violatedFields) {
-            if (f === 'fakultasId' && !retryData.fakultasId && cachedFirstFakultasId) {
-              retryData.fakultasId = cachedFirstFakultasId
-            } else if (f === 'email' && !retryData.email) {
-              retryData.email = `${data.nidn || data.nama.toLowerCase().replace(/[^a-z0-9]+/g, '.')}@placeholder.ac.id`
-            } else if (f === 'noHp' && !retryData.noHp) {
-              retryData.noHp = '-'
-            } else if (f === 'nidn' && !retryData.nidn) {
-              retryData.nidn = `TMP${Date.now()}${Math.floor(Math.random() * 1000)}`
-            }
+          if (!cachedFirstFakultasId) {
+            return { ok: false, error: 'Tidak ada fakultas di database. Tambahkan minimal 1 fakultas.' }
           }
+
+          // Build retry data dengan placeholder untuk SEMUA field opsional yang kosong.
+          // (Tidak hanya yang di violatedFields — supaya kalau DB punya multi NOT NULL
+          // constraints, semua keisi sekaligus dalam 1 retry.)
+          const retryData: any = { ...data }
+          if (!retryData.nidn) {
+            retryData.nidn = `TMP${Date.now()}${Math.floor(Math.random() * 10000)}`
+          }
+          if (!retryData.email) {
+            const slug = (retryData.nidn || data.nama.toLowerCase().replace(/[^a-z0-9]+/g, '.')).slice(0, 30)
+            retryData.email = `${slug}@placeholder.ac.id`
+          }
+          if (!retryData.noHp) {
+            retryData.noHp = '-'
+          }
+          if (!retryData.fakultasId) {
+            retryData.fakultasId = cachedFirstFakultasId
+          }
+
           try {
             await db.dosen.create({
               data: {
@@ -200,7 +208,30 @@ export async function POST(req: Request) {
             })
             return { ok: true, placeholderUsed: true }
           } catch (e2: any) {
-            return { ok: false, error: e2?.message || 'unknown error after retry' }
+            // P2002 = unique violation. Coba lagi dengan NIDN/email yang lebih random.
+            if (e2?.code === 'P2002') {
+              const slug = (data.nama.toLowerCase().replace(/[^a-z0-9]+/g, '.')).slice(0, 20)
+              retryData.nidn = `TMP${Date.now()}${Math.floor(Math.random() * 99999)}`
+              retryData.email = `${slug}.${Date.now()}@placeholder.ac.id`
+              try {
+                await db.dosen.create({
+                  data: {
+                    nidn: retryData.nidn,
+                    nama: retryData.nama,
+                    email: retryData.email,
+                    noHp: retryData.noHp,
+                    fakultasId: retryData.fakultasId,
+                    prodiId: retryData.prodiId,
+                    jabatan: retryData.jabatan,
+                    status: 'AKTIF',
+                  },
+                })
+                return { ok: true, placeholderUsed: true }
+              } catch (e3: any) {
+                return { ok: false, error: e3?.message || `Code: ${e3?.code}` }
+              }
+            }
+            return { ok: false, error: e2?.message || `Code: ${e2?.code}` }
           }
         }
         // P2021 = table not exist
