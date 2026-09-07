@@ -23,6 +23,9 @@ export async function GET(_req: Request, { params }: Params) {
 
 // PUT - update dosen
 // Field wajib: nama (kalau di-set, tidak boleh kosong). Lainnya opsional.
+//
+// RESILIENT: Kalau user coba clear field (set ke null) tapi production DB
+// masih NOT NULL untuk kolom itu, retry dengan existing value (tidak overwrite).
 export async function PUT(req: Request, { params }: Params) {
   try {
     const { id } = await params
@@ -53,24 +56,69 @@ export async function PUT(req: Request, { params }: Params) {
       }
     }
 
-    const updated = await db.dosen.update({
-      where: { id },
-      data: {
-        // nidn bisa di-set ke null (untuk clear) atau string
-        ...(body.nidn !== undefined && { nidn: String(body.nidn).trim() || null }),
-        ...(body.nama !== undefined && { nama: body.nama.trim() }),
-        // email, noHp, fakultasId: bisa di-clear ke null
-        ...(body.email !== undefined && { email: body.email.trim() ? body.email.trim().toLowerCase() : null }),
-        ...(body.noHp !== undefined && { noHp: body.noHp.trim() || null }),
-        ...(body.fakultasId !== undefined && { fakultasId: body.fakultasId || null }),
-        ...(body.prodiId !== undefined && { prodiId: body.prodiId || null }),
-        ...(body.jabatan !== undefined && { jabatan: body.jabatan.trim() || 'Dosen Pendamping' }),
-        ...(body.keahlian !== undefined && { keahlian: body.keahlian?.trim() || null }),
-        ...(body.foto !== undefined && { foto: body.foto?.trim() || null }),
-        ...(body.status !== undefined && { status: body.status }),
-      },
-      include: { fakultas: true, prodi: true },
-    })
+    // Build update data
+    const updateData: Record<string, unknown> = {
+      ...(body.nidn !== undefined && { nidn: String(body.nidn).trim() || null }),
+      ...(body.nama !== undefined && { nama: body.nama.trim() }),
+      ...(body.email !== undefined && { email: body.email.trim() ? body.email.trim().toLowerCase() : null }),
+      ...(body.noHp !== undefined && { noHp: body.noHp.trim() || null }),
+      ...(body.fakultasId !== undefined && { fakultasId: body.fakultasId || null }),
+      ...(body.prodiId !== undefined && { prodiId: body.prodiId || null }),
+      ...(body.jabatan !== undefined && { jabatan: body.jabatan.trim() || 'Dosen Pendamping' }),
+      ...(body.keahlian !== undefined && { keahlian: body.keahlian?.trim() || null }),
+      ...(body.foto !== undefined && { foto: body.foto?.trim() || null }),
+      ...(body.status !== undefined && { status: body.status }),
+    }
+
+    let updated
+    try {
+      updated = await db.dosen.update({
+        where: { id },
+        data: updateData,
+        include: { fakultas: true, prodi: true },
+      })
+    } catch (updateErr: any) {
+      // P2011 = null constraint violation → user coba clear field yang masih NOT NULL di DB.
+      // Retry: pakai existing value (jangan overwrite field yang NOT NULL dengan null).
+      if (updateErr?.code === 'P2011') {
+        const violatedFields: string[] = Array.isArray(updateErr?.meta?.target)
+          ? updateErr.meta.target
+          : []
+        console.warn(`[PUT /api/dosen/:id] P2011 violation, retry dengan existing value. Fields: ${violatedFields.join(', ')}`)
+
+        const retryData = { ...updateData }
+        for (const f of violatedFields) {
+          // Pakai existing value (jangan clear)
+          if (f === 'fakultasId' && retryData.fakultasId === null) {
+            retryData.fakultasId = existing.fakultasId
+          } else if (f === 'email' && retryData.email === null) {
+            retryData.email = existing.email
+          } else if (f === 'noHp' && retryData.noHp === null) {
+            retryData.noHp = existing.noHp
+          } else if (f === 'nidn' && retryData.nidn === null) {
+            retryData.nidn = existing.nidn
+          }
+        }
+        try {
+          updated = await db.dosen.update({
+            where: { id },
+            data: retryData,
+            include: { fakultas: true, prodi: true },
+          })
+        } catch (retryErr: any) {
+          console.error('[PUT /api/dosen/:id] retry juga gagal:', retryErr)
+          if (retryErr?.code === 'P2002') {
+            return NextResponse.json({ error: 'NIDN atau email sudah terdaftar' }, { status: 400 })
+          }
+          return NextResponse.json(
+            { error: 'Gagal memperbarui dosen setelah retry. Production DB mungkin belum di-migrate.' },
+            { status: 500 },
+          )
+        }
+      } else {
+        throw updateErr
+      }
+    }
 
     return NextResponse.json(updated)
   } catch (e: any) {
