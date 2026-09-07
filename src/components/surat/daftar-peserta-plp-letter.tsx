@@ -336,27 +336,20 @@ export function DaftarPesertaPLPLetter({ kelompokId }: Props) {
             <div style={{ fontSize: '13px', fontWeight: 'bold', textTransform: 'uppercase' }}>{judul.line3}</div>
           </div>
 
-          {/* ===== INFO KELOMPOK (tabel tanpa border, titik dua lurus) ===== */}
-          <table style={{ width: 'auto', fontSize: '12px', marginBottom: '14px', borderCollapse: 'collapse' }}>
-            <tbody>
-              <tr>
-                <td style={{ padding: '2px 8px 2px 0', whiteSpace: 'nowrap', width: '170px', border: 'none' }}><strong>Kelompok</strong> :</td>
-                <td style={{ padding: '2px 0', border: 'none' }}>{formatKelompokNama(kelompok.nama)}</td>
-              </tr>
-              <tr>
-                <td style={{ padding: '2px 8px 2px 0', whiteSpace: 'nowrap', width: '170px', border: 'none' }}><strong>Sekolah Mitra</strong> :</td>
-                <td style={{ padding: '2px 0', border: 'none' }}>{lokasi.nama}</td>
-              </tr>
-              <tr>
-                <td style={{ padding: '2px 8px 2px 0', whiteSpace: 'nowrap', width: '170px', border: 'none' }}><strong>DPL/WA</strong> :</td>
-                <td style={{ padding: '2px 0', border: 'none' }}>{kelompok.dosen ? `${kelompok.dosen.nama}/${kelompok.dosen.noHp}` : '-'}</td>
-              </tr>
-              <tr>
-                <td style={{ padding: '2px 8px 2px 0', whiteSpace: 'nowrap', width: '170px', border: 'none' }}><strong>Koordinator Lapangan</strong> :</td>
-                <td style={{ padding: '2px 0', border: 'none' }}>{kelompok.koordinator ? kelompok.koordinator.nama : '-'}</td>
-              </tr>
-            </tbody>
-          </table>
+          {/* ===== INFO KELOMPOK (titik dua sejajar, tanpa border) ===== */}
+          <div style={{ fontSize: '12px', marginBottom: '14px' }}>
+            {[
+              { label: 'Kelompok', value: formatKelompokNama(kelompok.nama) },
+              { label: 'Sekolah Mitra', value: lokasi.nama },
+              { label: 'DPL/WA', value: kelompok.dosen ? `${kelompok.dosen.nama}/${kelompok.dosen.noHp}` : '-' },
+              { label: 'Koordinator Lapangan', value: kelompok.koordinator ? kelompok.koordinator.nama : '-' },
+            ].map((row, i) => (
+              <div key={i} style={{ display: 'flex', marginBottom: '2px' }}>
+                <span style={{ display: 'inline-block', width: '170px', flexShrink: 0 }}><strong>{row.label}</strong></span>
+                <span style={{ display: 'inline-block' }}>:&nbsp;{row.value}</span>
+              </div>
+            ))}
+          </div>
 
           {/* ===== TABEL PESERTA ===== (sesuai PDF: NIM left-aligned, prodi width luas) */}
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', marginBottom: '20px' }}>
@@ -513,27 +506,25 @@ function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logoBase64: string): 
     <div class="line3">${escapeHtml(judul.line3)}</div>
   </div>
 
-  <!-- INFO KELOMPOK (tabel tanpa border, titik dua lurus) -->
-  <table style="width:auto;font-size:12px;margin-bottom:14px;border-collapse:collapse;">
-    <tbody>
-      <tr>
-        <td style="padding:2px 8px 2px 0;white-space:nowrap;width:170px;border:none;"><b>Kelompok</b> :</td>
-        <td style="padding:2px 0;border:none;">${escapeHtml(formatKelompokNama(kelompok.nama))}</td>
-      </tr>
-      <tr>
-        <td style="padding:2px 8px 2px 0;white-space:nowrap;width:170px;border:none;"><b>Sekolah Mitra</b> :</td>
-        <td style="padding:2px 0;border:none;">${escapeHtml(lokasi.nama)}</td>
-      </tr>
-      <tr>
-        <td style="padding:2px 8px 2px 0;white-space:nowrap;width:170px;border:none;"><b>DPL/WA</b> :</td>
-        <td style="padding:2px 0;border:none;">${kelompok.dosen ? escapeHtml(kelompok.dosen.nama) + '/' + escapeHtml(kelompok.dosen.noHp) : '-'}</td>
-      </tr>
-      <tr>
-        <td style="padding:2px 8px 2px 0;white-space:nowrap;width:170px;border:none;"><b>Koordinator Lapangan</b> :</td>
-        <td style="padding:2px 0;border:none;">${kelompok.koordinator ? escapeHtml(kelompok.koordinator.nama) : '-'}</td>
-      </tr>
-    </tbody>
-  </table>
+  <!-- INFO KELOMPOK (titik dua sejajar, tanpa border) -->
+  <div style="font-size:12px;margin-bottom:14px;">
+    <div style="display:flex;margin-bottom:2px;">
+      <span style="display:inline-block;width:170px;flex-shrink:0;"><b>Kelompok</b></span>
+      <span style="display:inline-block;">:&nbsp;${escapeHtml(formatKelompokNama(kelompok.nama))}</span>
+    </div>
+    <div style="display:flex;margin-bottom:2px;">
+      <span style="display:inline-block;width:170px;flex-shrink:0;"><b>Sekolah Mitra</b></span>
+      <span style="display:inline-block;">:&nbsp;${escapeHtml(lokasi.nama)}</span>
+    </div>
+    <div style="display:flex;margin-bottom:2px;">
+      <span style="display:inline-block;width:170px;flex-shrink:0;"><b>DPL/WA</b></span>
+      <span style="display:inline-block;">:&nbsp;${kelompok.dosen ? escapeHtml(kelompok.dosen.nama) + '/' + escapeHtml(kelompok.dosen.noHp) : '-'}</span>
+    </div>
+    <div style="display:flex;margin-bottom:2px;">
+      <span style="display:inline-block;width:170px;flex-shrink:0;"><b>Koordinator Lapangan</b></span>
+      <span style="display:inline-block;">:&nbsp;${kelompok.koordinator ? escapeHtml(kelompok.koordinator.nama) : '-'}</span>
+    </div>
+  </div>
 
   <!-- TABEL -->
   <table>
