@@ -101,57 +101,49 @@ export async function PUT(req: Request, { params }: Params) {
 }
 
 // DELETE - remove kelompok
-// RESILIENT:
-// 1. Manual cascade hapus Absensi, Penilaian, KelompokMember dulu (schema
-//    Absensi & Penilaian tidak pakai onDelete: Cascade — kalau tidak dihapus
-//    manual, FK constraint P2003 akan block delete Kelompok).
-// 2. Pakai `select` (bukan default return all) supaya tidak error kalau
-//    kolom koordinatorId belum ada di DB.
+// BULLETPROOF: pakai deleteMany (return count, BUKAN record) supaya Prisma
+// tidak SELECT kolom koordinatorId yang belum ada di DB.
+// Manual cascade: hapus absensi, penilaian, anggota dulu, baru kelompok.
 export async function DELETE(_req: Request, { params }: Params) {
   try {
     const { id } = await params
+
+    // Cek kelompok exists — pakai deleteMany-friendly select
     const existing = await db.kelompok.findUnique({
       where: { id },
-      select: { id: true, nama: true }, // select minimal, avoid koordinatorId
+      select: { id: true, nama: true },
     })
     if (!existing) {
       return NextResponse.json({ error: 'Kelompok tidak ditemukan' }, { status: 404 })
     }
 
-    // Manual cascade: hapus child records dulu dalam transaction atomik.
-    // Urutan: Absensi → Penilaian → KelompokMember → Kelompok.
-    // Kalau ada tabel yang belum ada di DB (mis. koordinator-related), skip.
-    try {
-      await db.$transaction([
-        db.absensi.deleteMany({ where: { kelompokId: id } }),
-        db.penilaian.deleteMany({ where: { kelompokId: id } }),
-        db.kelompokMember.deleteMany({ where: { kelompokId: id } }),
-        db.kelompok.delete({ where: { id } }),
-      ])
-    } catch (txErr: any) {
-      // Kalau transaction gagal (mis. tabel belum ada), coba hapus satu-satu
-      // dengan fallback. Yang penting Kelompok terhapus di akhir.
-      console.warn('[DELETE /api/kelompok/:id] transaction gagal, coba manual:', txErr?.message)
-      try { await db.absensi.deleteMany({ where: { kelompokId: id } }) } catch {}
-      try { await db.penilaian.deleteMany({ where: { kelompokId: id } }) } catch {}
-      try { await db.kelompokMember.deleteMany({ where: { kelompokId: id } }) } catch {}
-      await db.kelompok.delete({ where: { id } })
+    // Manual cascade hapus: deleteMany return count, bukan record → SAFE.
+    // Urutan: child dulu (Absensi, Penilaian, KelompokMember), baru parent (Kelompok).
+    // Kalau tabel belum ada di DB, try-catch individual skip error.
+    try { await db.absensi.deleteMany({ where: { kelompokId: id } }) } catch (e) { console.warn('[DELETE kelompok] skip absensi:', (e as any)?.code) }
+    try { await db.penilaian.deleteMany({ where: { kelompokId: id } }) } catch (e) { console.warn('[DELETE kelompok] skip penilaian:', (e as any)?.code) }
+    try { await db.kelompokMember.deleteMany({ where: { kelompokId: id } }) } catch (e) { console.warn('[DELETE kelompok] skip members:', (e as any)?.code) }
+
+    // Hapus kelompok — pakai deleteMany (return count, BUKAN record).
+    // delete() return record dengan ALL fields (termasuk koordinatorId) → ERROR.
+    // deleteMany hanya return { count: N } → SAFE.
+    const result = await db.kelompok.deleteMany({ where: { id } })
+
+    if (result.count === 0) {
+      return NextResponse.json({ error: 'Kelompok tidak ditemukan (mungkin sudah dihapus)' }, { status: 404 })
     }
 
-    return NextResponse.json({ success: true, message: 'Kelompok berhasil dihapus' })
+    return NextResponse.json({ success: true, message: `Kelompok "${existing.nama}" berhasil dihapus` })
   } catch (e: any) {
     console.error('[DELETE /api/kelompok/:id]', e)
     if (e?.code === 'P2003') {
       return NextResponse.json(
-        { error: 'Kelompok tidak dapat dihapus karena masih memiliki data terkait (absensi/penilaian). Hapus data tersebut terlebih dahulu.' },
+        { error: 'Masih ada data terkait. Coba refresh halaman lalu hapus lagi.' },
         { status: 400 }
       )
     }
-    if (e?.code === 'P2025') {
-      return NextResponse.json({ error: 'Kelompok tidak ditemukan' }, { status: 404 })
-    }
     return NextResponse.json(
-      { error: 'Gagal menghapus kelompok. ' + (e?.message || `Code: ${e?.code || '-'}`) },
+      { error: 'Gagal menghapus. ' + (e?.message || `Code: ${e?.code || '-'}`) },
       { status: 500 },
     )
   }

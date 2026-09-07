@@ -89,40 +89,24 @@ export function buildKelompokData(body: any, skipKoordinator = false) {
 
 /**
  * Jalankan fungsi Prisma yang melibatkan Kelompok.
- * Kalau error (kolom koordinatorId belum ada), retry tanpa koordinator.
- *
- * Menggunakan `select` (bukan `include`) supaya hanya field yang dispesifikkan
- * yang di-query. Ini mencegah Prisma mencoba SELECT kolom yang belum ada.
+ * Kalau error APAPUN di first try, retry tanpa koordinator.
+ * Catch BROAD — semua error retry, bukan hanya P2021.
  */
 export async function withKoordinatorFallback<T>(
   fn: (skipKoordinator: boolean) => Promise<T>,
 ): Promise<T> {
   try {
     return await fn(false)
-  } catch (e: any) {
-    // Catch BROAD error — kolom tidak ada bisa throw berbagai error code:
-    // P2021 (table not exist), P2009 (validation), P2010 (raw query failed),
-    // atau PrismaClientUnknownRequestError (no code).
-    // Cek by error message pattern + error code.
-    const isColumnMissing =
-      e?.code === 'P2021' ||
-      e?.code === 'P2009' ||
-      e?.code === 'P2010' ||
-      /does not exist/i.test(e?.message ?? '') ||
-      /koordinator/i.test(e?.message ?? '') ||
-      /unknown column/i.test(e?.message ?? '')
-
-    if (isColumnMissing) {
-      console.warn('[withKoordinatorFallback] Kolom koordinatorId belum ada di DB — retry tanpa koordinator.')
-      try {
-        return await fn(true)
-      } catch (retryErr) {
-        // Retry juga gagal — throw error asli (bukan retry error) supaya
-        // user lihat pesan error yang akurat
-        console.error('[withKoordinatorFallback] Retry juga gagal:', retryErr)
-        throw e
-      }
+  } catch (firstErr: any) {
+    // ANY error di first try → retry tanpa koordinator.
+    // Kalau error BUKAN karena koordinatorId, retry juga akan gagal,
+    // dan kita throw firstErr (error asli) untuk diagnosis.
+    console.warn('[withKoordinatorFallback] First try failed, retry tanpa koordinator:', firstErr?.code || firstErr?.message?.substring(0, 100))
+    try {
+      return await fn(true)
+    } catch (retryErr) {
+      // Retry juga gagal — throw error asli (bukan retry error)
+      throw firstErr
     }
-    throw e
   }
 }
