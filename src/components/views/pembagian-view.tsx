@@ -8,6 +8,7 @@ import {
   Building2, School, UserCheck, Search, UserPlus, UserMinus, Layers, ArrowRightLeft,
 } from 'lucide-react'
 
+import { DaftarPesertaPLPLetter } from '@/components/surat/daftar-peserta-plp-letter'
 import { PageHeader } from '@/components/shared/page-header'
 import { DataTable, type Column } from '@/components/shared/data-table'
 import {
@@ -137,6 +138,7 @@ export function PembagianView() {
 
   const [deleteTarget, setDeleteTarget] = useState<Kelompok | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [letterKelompokId, setLetterKelompokId] = useState<string | null>(null)
 
   const [membersTarget, setMembersTarget] = useState<Kelompok | null>(null)
 
@@ -404,7 +406,7 @@ export function PembagianView() {
           <Button variant="ghost" size="icon" className="h-8 w-8 text-violet-600 hover:text-violet-700 hover:bg-violet-50 dark:hover:bg-violet-900/20" onClick={() => setMembersTarget(k)} title="Kelola Anggota">
             <Users className="w-4 h-4" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-sky-600 hover:text-sky-700 hover:bg-sky-50 dark:hover:bg-sky-900/20" onClick={() => handleCetakSK(k)} title="Cetak SK">
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-sky-600 hover:text-sky-700 hover:bg-sky-50 dark:hover:bg-sky-900/20" onClick={() => setLetterKelompokId(k.id)} title="Cetak Daftar Peserta">
             <Printer className="w-4 h-4" />
           </Button>
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(k)} title="Edit">
@@ -751,11 +753,24 @@ export function PembagianView() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* ===== Dialog Daftar Peserta (Cetak dari tombol Printer) ===== */}
+      <Dialog open={!!letterKelompokId} onOpenChange={(o) => !o && setLetterKelompokId(null)}>
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="shrink-0">
+            <DialogTitle>Daftar Peserta KKN/PLP</DialogTitle>
+            <DialogDescription>
+              Pratinjau daftar peserta sesuai format resmi panitia. Klik "Cetak / PDF" untuk mencetak atau menyimpan sebagai PDF.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            {letterKelompokId && <DaftarPesertaPLPLetter kelompokId={letterKelompokId} />}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
-
-// ============ Kelola Anggota Dialog ============
 // Dual-list box dengan dukungan PERPINDAHAN ANGGOTA antar kelompok (same tipe):
 //  - Panel kanan menampilkan badge "Di: Kelompok X" untuk mhs yang sudah ada di kelompok lain
 //  - Klik "+" pada mhs yang sudah di kelompok lain → konfirmasi → atomic transfer
