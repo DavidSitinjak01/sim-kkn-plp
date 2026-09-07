@@ -336,32 +336,6 @@ export function DaftarPesertaPLPLetter({ kelompokId }: Props) {
             <div style={{ fontSize: '13px', fontWeight: 'bold', textTransform: 'uppercase' }}>{judul.line3}</div>
           </div>
 
-          {/* ===== INFO KELOMPOK ===== (sesuai PDF format pembagian mahasiswa) */}
-          <table style={{ width: '100%', fontSize: '12px', marginBottom: '14px', borderCollapse: 'collapse' }}>
-            <tbody>
-              <tr>
-                <td style={{ width: '180px', verticalAlign: 'top', padding: '2px 0' }}>Kelompok</td>
-                <td style={{ width: '10px', verticalAlign: 'top', padding: '2px 0' }}>:</td>
-                <td style={{ verticalAlign: 'top', padding: '2px 0' }}>{formatKelompokNama(kelompok.nama)}</td>
-              </tr>
-              <tr>
-                <td style={{ verticalAlign: 'top', padding: '2px 0' }}>Sekolah Mitra</td>
-                <td style={{ verticalAlign: 'top', padding: '2px 0' }}>:</td>
-                <td style={{ verticalAlign: 'top', padding: '2px 0' }}>{lokasi.nama}</td>
-              </tr>
-              <tr>
-                <td style={{ verticalAlign: 'top', padding: '2px 0' }}>DPL/WA</td>
-                <td style={{ verticalAlign: 'top', padding: '2px 0' }}>:</td>
-                <td style={{ verticalAlign: 'top', padding: '2px 0' }}>{kelompok.dosen ? `${kelompok.dosen.nama}/${kelompok.dosen.noHp}` : '-'}</td>
-              </tr>
-              <tr>
-                <td style={{ verticalAlign: 'top', padding: '2px 0' }}>Koordinator Lapangan</td>
-                <td style={{ verticalAlign: 'top', padding: '2px 0' }}>:</td>
-                <td style={{ verticalAlign: 'top', padding: '2px 0' }}>{kelompok.koordinator ? `${kelompok.koordinator.nama}` : '-'}</td>
-              </tr>
-            </tbody>
-          </table>
-
           {/* ===== TABEL PESERTA ===== (sesuai PDF: NIM left-aligned, prodi width luas) */}
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', marginBottom: '20px' }}>
             <thead>
@@ -516,32 +490,6 @@ function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logoBase64: string): 
     <div class="line2">${escapeHtml(judul.line2)}</div>
     <div class="line3">${escapeHtml(judul.line3)}</div>
   </div>
-
-  <!-- INFO -->
-  <table style="width:100%;font-size:12px;margin-bottom:14px;border-collapse:collapse;">
-    <tbody>
-      <tr>
-        <td style="width:180px;vertical-align:top;padding:2px 0;">Kelompok</td>
-        <td style="width:10px;vertical-align:top;padding:2px 0;">:</td>
-        <td style="vertical-align:top;padding:2px 0;">${escapeHtml(formatKelompokNama(kelompok.nama))}</td>
-      </tr>
-      <tr>
-        <td style="vertical-align:top;padding:2px 0;">Sekolah Mitra</td>
-        <td style="vertical-align:top;padding:2px 0;">:</td>
-        <td style="vertical-align:top;padding:2px 0;">${escapeHtml(lokasi.nama)}</td>
-      </tr>
-      <tr>
-        <td style="vertical-align:top;padding:2px 0;">DPL/WA</td>
-        <td style="vertical-align:top;padding:2px 0;">:</td>
-        <td style="vertical-align:top;padding:2px 0;">${kelompok.dosen ? escapeHtml(kelompok.dosen.nama) + '/' + escapeHtml(kelompok.dosen.noHp) : '-'}</td>
-      </tr>
-      <tr>
-        <td style="vertical-align:top;padding:2px 0;">Koordinator Lapangan</td>
-        <td style="vertical-align:top;padding:2px 0;">:</td>
-        <td style="vertical-align:top;padding:2px 0;">${kelompok.koordinator ? escapeHtml(kelompok.koordinator.nama) : '-'}</td>
-      </tr>
-    </tbody>
-  </table>
 
   <!-- TABEL -->
   <table>
