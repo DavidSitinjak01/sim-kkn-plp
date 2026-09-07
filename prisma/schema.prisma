@@ -74,8 +74,6 @@ model Mahasiswa {
   nim           String        @unique
   nama          String
   jenisKelamin  String        // L, P
-  tempatLahir   String
-  tanggalLahir  DateTime
   alamat        String
   noHp          String
   email         String
