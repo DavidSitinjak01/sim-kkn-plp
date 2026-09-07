@@ -10,10 +10,8 @@ type Params = { params: Promise<{ id: string }> }
  * Mengembalikan status kuota per prodi untuk sebuah sekolah:
  *   [{ prodiId, prodiNama, prodiKode, jenjang, current, max, overridden, exceeded }]
  *
- * - current = jumlah mahasiswa dari prodi ini yang sudah ter-assign ke salah
- *   satu kelompok di sekolah ini.
- * - max = batas (override atau default 3).
- * - exceeded = current > max (existing data yang melanggar).
+ * RESILIENT: Kalau tabel prodi-kuota belum ada di DB (production belum di-migrate),
+ * return 503 dengan pesan migrasi yang jelas.
  */
 export async function GET(_req: Request, { params }: Params) {
   try {
@@ -26,6 +24,12 @@ export async function GET(_req: Request, { params }: Params) {
     return NextResponse.json(status)
   } catch (e: any) {
     console.error('[GET /api/sekolah/:id/prodi-kuota]', e)
+    if (e?.code === 'P2021' || /does not exist/i.test(e?.message ?? '')) {
+      return NextResponse.json(
+        { error: 'Fitur batas prodi belum aktif di production DB. Jalankan `prisma db push` untuk mengaktifkannya.', code: 'SCHEMA_NOT_MIGRATED' },
+        { status: 503 },
+      )
+    }
     return NextResponse.json({ error: 'Gagal memuat status kuota prodi' }, { status: 500 })
   }
 }
@@ -72,6 +76,13 @@ export async function PUT(req: Request, { params }: Params) {
     return NextResponse.json({ success: true, status })
   } catch (e: any) {
     console.error('[PUT /api/sekolah/:id/prodi-kuota]', e)
+    if (e?.code === 'P2021' || /does not exist/i.test(e?.message ?? '') || /prisma db push/i.test(e?.message ?? '')) {
+      return NextResponse.json(
+        { error: 'Fitur batas prodi belum aktif di production DB. Jalankan `prisma db push` untuk mengaktifkannya.', code: 'SCHEMA_NOT_MIGRATED' },
+        { status: 503 },
+      )
+    }
     return NextResponse.json({ error: 'Gagal menyimpan kuota prodi' }, { status: 500 })
   }
 }
+

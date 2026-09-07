@@ -105,6 +105,19 @@ export async function POST(req: Request) {
     if (e?.code === 'P2002') {
       return NextResponse.json({ error: 'NIM atau email sudah terdaftar' }, { status: 400 })
     }
+    // P2011 = Null constraint violation — kalau production DB belum di-migrate
+    // dan masih punya kolom tempatLahir/tanggalLahir NOT NULL
+    if (e?.code === 'P2011') {
+      const field = Array.isArray(e?.meta?.target) ? e.meta.target.join(', ') : 'field'
+      return NextResponse.json(
+        {
+          error: `Production DB belum di-migrate. Field "${field}" masih NOT NULL di database (sudah dihapus dari schema). Jalankan \`prisma db push\` pada production Neon DB untuk mengaktifkan schema terbaru.`,
+          code: 'SCHEMA_NOT_MIGRATED',
+          field,
+        },
+        { status: 503 },
+      )
+    }
     return NextResponse.json({ error: 'Gagal membuat mahasiswa' }, { status: 500 })
   }
 }

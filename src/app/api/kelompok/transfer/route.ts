@@ -155,7 +155,10 @@ export async function POST(req: Request) {
     // 3. Cek batas prodi per lokasi (MOVE & SWAP)
     //    - MOVE: mahasiswa yang dipindah akan menambah anggota prodi-nya di lokasi tujuan
     //    - SWAP: mahasiswa A pindah ke tujuan, mahasiswa B pindah ke asal → distribusi prodi bisa berubah
-    {
+    //
+    //    RESILIENT: Kalau checkProdiKuota throw (mis. tabel belum di-migrate di production),
+    //    skip cek & lanjutkan transfer. Batas prodi akan di-skip sampai DB di-migrate.
+    try {
       const mhs = await db.mahasiswa.findUnique({
         where: { id: mahasiswaId },
         select: { prodiId: true, nama: true, nim: true },
@@ -246,6 +249,9 @@ export async function POST(req: Request) {
           }
         }
       }
+    } catch (prodiErr: any) {
+      // Jangan gagalkan transfer walau prodi-kuota check error
+      console.warn('[POST /api/kelompok/transfer] prodi-kuota check gagal, skip:', prodiErr?.message ?? prodiErr)
     }
 
     // ---- execute transaction ----

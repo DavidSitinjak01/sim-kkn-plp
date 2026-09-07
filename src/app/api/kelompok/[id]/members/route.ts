@@ -56,19 +56,26 @@ export async function POST(req: Request, { params }: Params) {
     }
 
     if (lokasiType && lokasiId && mhs.prodiId) {
-      const cek = await checkProdiKuota(lokasiType, lokasiId, mhs.prodiId, {
-        excludeKelompokId: body.moveFromKelompokId,
-      })
-      if (!cek.ok) {
-        return NextResponse.json(
-          {
-            error: cek.message,
-            code: 'MAX_PER_PRODI_EXCEEDED',
-            current: cek.current,
-            max: cek.max,
-          },
-          { status: 400 },
-        )
+      // Wrap checkProdiKuota dalam try-catch supaya operasi add mahasiswa
+      // TIDAK gagal walau prodi-kuota check error (mis. tabel belum di-migrate
+      // di production). Batas prodi akan di-skip sampai DB di-migrate.
+      try {
+        const cek = await checkProdiKuota(lokasiType, lokasiId, mhs.prodiId, {
+          excludeKelompokId: body.moveFromKelompokId,
+        })
+        if (!cek.ok) {
+          return NextResponse.json(
+            {
+              error: cek.message,
+              code: 'MAX_PER_PRODI_EXCEEDED',
+              current: cek.current,
+              max: cek.max,
+            },
+            { status: 400 },
+          )
+        }
+      } catch (cekErr: any) {
+        console.warn('[POST /kelompok/:id/members] prodi-kuota check gagal, skip:', cekErr?.message ?? cekErr)
       }
     }
 

@@ -86,6 +86,26 @@ export async function POST(req: Request) {
     if (e?.code === 'P2002') {
       return NextResponse.json({ error: 'NIDN atau email sudah terdaftar' }, { status: 400 })
     }
+    // P2011 = Null constraint violation (kalau production DB belum di-migrate
+    // dan masih punya nidn NOT NULL, sementara user kirim nidn kosong)
+    if (e?.code === 'P2011') {
+      const field = Array.isArray(e?.meta?.target) ? e.meta.target.join(', ') : 'field'
+      return NextResponse.json(
+        {
+          error: `Production DB belum di-migrate. Field "${field}" masih NOT NULL. Jalankan \`prisma db push\` pada production Neon DB untuk mengaktifkan fitur field opsional.`,
+          code: 'SCHEMA_NOT_MIGRATED',
+          field,
+        },
+        { status: 503 },
+      )
+    }
+    // P2021 = tabel belum ada di DB (SekolahProdiKuota / DesaProdiKuota belum di-migrate)
+    if (e?.code === 'P2021') {
+      return NextResponse.json(
+        { error: 'Tabel belum tersedia di production DB. Jalankan `prisma db push` untuk mengaktifkan fitur baru.', code: 'SCHEMA_NOT_MIGRATED' },
+        { status: 503 },
+      )
+    }
     return NextResponse.json({ error: 'Gagal membuat dosen' }, { status: 500 })
   }
 }
