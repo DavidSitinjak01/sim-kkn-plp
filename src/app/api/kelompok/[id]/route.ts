@@ -1,19 +1,38 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { buildKelompokDetailSelect, buildKelompokSelect, buildKelompokData, withKoordinatorFallback } from '@/lib/kelompok-helpers'
 
 type Params = { params: Promise<{ id: string }> }
 
 // GET - single kelompok with members, desa, sekolah, dosen
-// RESILIENT: pakai `select` bukan `include`, fallback kalau koordinatorId belum ada.
+// BULLETPROOF: pakai `select` dengan field yang PASTI ada di DB lama.
+// JANGAN include koordinatorId — kolom belum ada di production DB.
 export async function GET(_req: Request, { params }: Params) {
   try {
     const { id } = await params
-    const data = await withKoordinatorFallback(async (skip) => {
-      return db.kelompok.findUnique({
-        where: { id },
-        select: buildKelompokDetailSelect(!skip),
-      })
+    const data = await db.kelompok.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        nama: true,
+        tipe: true,
+        tahunAkademik: true,
+        semester: true,
+        desaId: true,
+        desa: true,
+        sekolahId: true,
+        sekolah: true,
+        dosenId: true,
+        dosen: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+        members: {
+          include: {
+            mahasiswa: { include: { prodi: { include: { fakultas: true } } } },
+          },
+        },
+        _count: { select: { members: true } },
+      },
     })
     if (!data) {
       return NextResponse.json({ error: 'Kelompok tidak ditemukan' }, { status: 404 })
@@ -37,18 +56,23 @@ export async function GET(_req: Request, { params }: Params) {
 }
 
 // PUT - update kelompok
-// RESILIENT: kalau body berisi koordinatorId tapi kolom belum ada di DB,
-// skip field tersebut & lanjutkan update field lain.
+// BULLETPROOF: pakai updateMany (return count, BUKAN record) supaya Prisma
+// tidak SELECT kolom koordinatorId yang belum ada di DB.
 export async function PUT(req: Request, { params }: Params) {
   try {
     const { id } = await params
     const body = await req.json()
 
-    const existing = await db.kelompok.findUnique({ where: { id } })
+    // Cek kelompok exists — pakai select minimal (TIDAK return koordinatorId)
+    const existing = await db.kelompok.findUnique({
+      where: { id },
+      select: { id: true, nama: true },
+    })
     if (!existing) {
       return NextResponse.json({ error: 'Kelompok tidak ditemukan' }, { status: 404 })
     }
 
+    // Build update data — exclude koordinatorId (kolom belum ada di production DB)
     const updateData: Record<string, unknown> = {}
 
     if (body.nama !== undefined) updateData.nama = String(body.nama).trim()
@@ -68,9 +92,8 @@ export async function PUT(req: Request, { params }: Params) {
     if (body.dosenId !== undefined) {
       updateData.dosenId = body.dosenId || null
     }
-    if (body.koordinatorId !== undefined) {
-      updateData.koordinatorId = body.koordinatorId || null
-    }
+    // ⚠️ JANGAN include koordinatorId — kolom belum ada di production DB.
+    // Field ini di-skip sampai user menjalankan `prisma db push`.
     if (body.desaId !== undefined) updateData.desaId = body.desaId || null
     if (body.sekolahId !== undefined) updateData.sekolahId = body.sekolahId || null
     if (body.status !== undefined) {
@@ -80,21 +103,45 @@ export async function PUT(req: Request, { params }: Params) {
       updateData.status = body.status
     }
 
-    const updated = await withKoordinatorFallback(async (skip) => {
-      const dataToUse = { ...updateData }
-      if (skip) delete dataToUse.koordinatorId
-      return db.kelompok.update({
-        where: { id },
-        data: dataToUse,
-        select: buildKelompokSelect(!skip),
-      })
+    // Update pakai updateMany (return count, BUKAN record → SAFE).
+    // update() return record dengan ALL fields (termasuk koordinatorId) → ERROR.
+    const result = await db.kelompok.updateMany({
+      where: { id },
+      data: updateData,
+    })
+
+    if (result.count === 0) {
+      return NextResponse.json({ error: 'Kelompok tidak ditemukan (mungkin sudah dihapus)' }, { status: 404 })
+    }
+
+    // Return updated kelompok — pakai findUnique dengan select MINIMAL
+    // (TIDAK include koordinatorId) supaya tidak error.
+    const updated = await db.kelompok.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        nama: true,
+        tipe: true,
+        tahunAkademik: true,
+        semester: true,
+        desaId: true,
+        desa: true,
+        sekolahId: true,
+        sekolah: true,
+        dosenId: true,
+        dosen: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+        _count: { select: { members: true } },
+      },
     })
 
     return NextResponse.json(updated)
   } catch (e: any) {
     console.error('[PUT /api/kelompok/:id]', e)
     if (e?.code === 'P2003') {
-      return NextResponse.json({ error: 'Referensi tidak valid' }, { status: 400 })
+      return NextResponse.json({ error: 'Referensi tidak valid (dosen/desa/sekolah tidak ada)' }, { status: 400 })
     }
     return NextResponse.json({ error: 'Gagal memperbarui kelompok. ' + (e?.message || '') }, { status: 500 })
   }

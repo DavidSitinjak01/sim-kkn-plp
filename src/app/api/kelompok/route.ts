@@ -1,13 +1,11 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { buildKelompokSelect, buildKelompokData, withKoordinatorFallback } from '@/lib/kelompok-helpers'
 
 // GET - list all kelompok with desa/sekolah/dosen + _count members
 // Support ?tipe= filter (KKN/PLP1/PLP2)
 //
-// RESILIENT: Pakai `select` (bukan `include`) supaya hanya field yang
-// dispesifikkan yang di-query. Kalau kolom koordinatorId belum ada di DB,
-// retry tanpa koordinator — tidak akan error.
+// BULLETPROOF: pakai `select` dengan field yang PASTI ada di DB lama.
+// JANGAN include koordinatorId — kolom belum ada di production DB.
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url)
@@ -20,12 +18,26 @@ export async function GET(req: Request) {
     if (tahun) where.tahunAkademik = { contains: tahun }
     if (search) where.nama = { contains: search }
 
-    const data = await withKoordinatorFallback(async (skip) => {
-      return db.kelompok.findMany({
-        where,
-        select: buildKelompokSelect(!skip),
-        orderBy: [{ tipe: 'asc' }, { nama: 'asc' }],
-      })
+    const data = await db.kelompok.findMany({
+      where,
+      select: {
+        id: true,
+        nama: true,
+        tipe: true,
+        tahunAkademik: true,
+        semester: true,
+        desaId: true,
+        desa: true,
+        sekolahId: true,
+        sekolah: true,
+        dosenId: true,
+        dosen: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+        _count: { select: { members: true } },
+      },
+      orderBy: [{ tipe: 'asc' }, { nama: 'asc' }],
     })
 
     return NextResponse.json(data)
@@ -36,8 +48,8 @@ export async function GET(req: Request) {
 }
 
 // POST - create new kelompok
-// RESILIENT: Kalau kolom koordinatorId belum ada di DB, create tanpa
-// koordinatorId (field diabaikan). Response pakai `select` (bukan include).
+// BULLETPROOF: JANGAN PERNAH include koordinatorId — kolom belum ada di DB.
+// Field ini di-skip sampai user menjalankan `prisma db push`.
 export async function POST(req: Request) {
   try {
     const body = await req.json()
@@ -69,15 +81,39 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Status tidak valid' }, { status: 400 })
     }
 
-    // Fix: pastikan desaId/sekolahId di-set sesuai tipe
-    body.desaId = isKKN ? body.desaId : null
-    body.sekolahId = !isKKN ? body.sekolahId : null
+    // Build create data — JANGAN include koordinatorId
+    const createData: Record<string, unknown> = {
+      nama: body.nama.trim(),
+      tipe: body.tipe,
+      tahunAkademik: body.tahunAkademik.trim(),
+      semester: body.semester,
+      desaId: isKKN ? body.desaId : null,
+      sekolahId: !isKKN ? body.sekolahId : null,
+      dosenId: body.dosenId || null,
+      status,
+    }
+    // ⚠️ koordinatorId TIDAK di-include — kolom belum ada di production DB.
 
-    const created = await withKoordinatorFallback(async (skip) => {
-      return db.kelompok.create({
-        data: buildKelompokData(body, skip),
-        select: buildKelompokSelect(!skip),
-      })
+    // Create dengan select MINIMAL (TIDAK include koordinatorId)
+    const created = await db.kelompok.create({
+      data: createData as any,
+      select: {
+        id: true,
+        nama: true,
+        tipe: true,
+        tahunAkademik: true,
+        semester: true,
+        desaId: true,
+        desa: true,
+        sekolahId: true,
+        sekolah: true,
+        dosenId: true,
+        dosen: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+        _count: { select: { members: true } },
+      },
     })
 
     return NextResponse.json(created, { status: 201 })
