@@ -35,7 +35,8 @@ interface Sekolah { id: string; nama: string; jenjang: string; alamat: string }
 interface Desa { id: string; nama: string; kecamatan: string; kabupaten: string }
 interface Kelompok {
   id: string; nama: string; tipe: string; tahunAkademik: string; semester: string
-  dosen: Dosen | null; sekolah: Sekolah | null; desa: Desa | null
+  dosen: Dosen | null; koordinator: Dosen | null
+  sekolah: Sekolah | null; desa: Desa | null
   members: Member[]
   _count?: { members: number }
 }
@@ -356,7 +357,7 @@ export function DaftarPesertaPLPLetter({ kelompokId }: Props) {
               <tr>
                 <td style={{ verticalAlign: 'top', padding: '2px 0' }}>Koordinator Lapangan</td>
                 <td style={{ verticalAlign: 'top', padding: '2px 0' }}>:</td>
-                <td style={{ verticalAlign: 'top', padding: '2px 0' }}>{pengaturan.koordinator_lapangan}</td>
+                <td style={{ verticalAlign: 'top', padding: '2px 0' }}>{kelompok.koordinator ? `${kelompok.koordinator.nama}` : '-'}</td>
               </tr>
             </tbody>
           </table>
@@ -537,7 +538,7 @@ function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logoBase64: string): 
       <tr>
         <td style="vertical-align:top;padding:2px 0;">Koordinator Lapangan</td>
         <td style="vertical-align:top;padding:2px 0;">:</td>
-        <td style="vertical-align:top;padding:2px 0;">${escapeHtml(p.koordinator_lapangan)}</td>
+        <td style="vertical-align:top;padding:2px 0;">${kelompok.koordinator ? escapeHtml(kelompok.koordinator.nama) : '-'}</td>
       </tr>
     </tbody>
   </table>
