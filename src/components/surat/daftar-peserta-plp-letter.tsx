@@ -308,12 +308,30 @@ export function DaftarPesertaPLPLetter({ kelompokId }: Props) {
           </div>
 
           {/* ===== INFO KELOMPOK ===== (sesuai PDF format pembagian mahasiswa) */}
-          <div style={{ fontSize: '12px', marginBottom: '14px', lineHeight: '1.7' }}>
-            <div><span style={{ display: 'inline-block', width: '180px' }}>Kelompok</span>: {kelompok.nama}</div>
-            <div><span style={{ display: 'inline-block', width: '180px' }}>Sekolah Mitra</span>: {lokasi.nama}</div>
-            <div><span style={{ display: 'inline-block', width: '180px' }}>DPL/WA</span>: {kelompok.dosen ? `${kelompok.dosen.nama}/${kelompok.dosen.noHp}` : '-'}</div>
-            <div><span style={{ display: 'inline-block', width: '180px' }}>Koordinator Lapangan</span>: {pengaturan.koordinator_lapangan}</div>
-          </div>
+          <table style={{ width: '100%', fontSize: '12px', marginBottom: '14px', borderCollapse: 'collapse' }}>
+            <tbody>
+              <tr>
+                <td style={{ width: '180px', verticalAlign: 'top', padding: '2px 0' }}>Kelompok</td>
+                <td style={{ width: '10px', verticalAlign: 'top', padding: '2px 0' }}>:</td>
+                <td style={{ verticalAlign: 'top', padding: '2px 0' }}>{kelompok.nama}</td>
+              </tr>
+              <tr>
+                <td style={{ verticalAlign: 'top', padding: '2px 0' }}>Sekolah Mitra</td>
+                <td style={{ verticalAlign: 'top', padding: '2px 0' }}>:</td>
+                <td style={{ verticalAlign: 'top', padding: '2px 0' }}>{lokasi.nama}</td>
+              </tr>
+              <tr>
+                <td style={{ verticalAlign: 'top', padding: '2px 0' }}>DPL/WA</td>
+                <td style={{ verticalAlign: 'top', padding: '2px 0' }}>:</td>
+                <td style={{ verticalAlign: 'top', padding: '2px 0' }}>{kelompok.dosen ? `${kelompok.dosen.nama}/${kelompok.dosen.noHp}` : '-'}</td>
+              </tr>
+              <tr>
+                <td style={{ verticalAlign: 'top', padding: '2px 0' }}>Koordinator Lapangan</td>
+                <td style={{ verticalAlign: 'top', padding: '2px 0' }}>:</td>
+                <td style={{ verticalAlign: 'top', padding: '2px 0' }}>{pengaturan.koordinator_lapangan}</td>
+              </tr>
+            </tbody>
+          </table>
 
           {/* ===== TABEL PESERTA ===== (sesuai PDF: NIM left-aligned, prodi width luas) */}
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', marginBottom: '20px' }}>
@@ -471,12 +489,30 @@ function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logoBase64: string): 
   </div>
 
   <!-- INFO -->
-  <div class="info">
-    <div><span class="label">Kelompok</span>: ${escapeHtml(kelompok.nama)}</div>
-    <div><span class="label">Sekolah Mitra</span>: ${escapeHtml(lokasi.nama)}</div>
-    <div><span class="label">DPL/WA</span>: ${kelompok.dosen ? escapeHtml(kelompok.dosen.nama) + '/' + escapeHtml(kelompok.dosen.noHp) : '-'}</div>
-    <div><span class="label">Koordinator Lapangan</span>: ${escapeHtml(p.koordinator_lapangan)}</div>
-  </div>
+  <table style="width:100%;font-size:12px;margin-bottom:14px;border-collapse:collapse;">
+    <tbody>
+      <tr>
+        <td style="width:180px;vertical-align:top;padding:2px 0;">Kelompok</td>
+        <td style="width:10px;vertical-align:top;padding:2px 0;">:</td>
+        <td style="vertical-align:top;padding:2px 0;">${escapeHtml(kelompok.nama)}</td>
+      </tr>
+      <tr>
+        <td style="vertical-align:top;padding:2px 0;">Sekolah Mitra</td>
+        <td style="vertical-align:top;padding:2px 0;">:</td>
+        <td style="vertical-align:top;padding:2px 0;">${escapeHtml(lokasi.nama)}</td>
+      </tr>
+      <tr>
+        <td style="vertical-align:top;padding:2px 0;">DPL/WA</td>
+        <td style="vertical-align:top;padding:2px 0;">:</td>
+        <td style="vertical-align:top;padding:2px 0;">${kelompok.dosen ? escapeHtml(kelompok.dosen.nama) + '/' + escapeHtml(kelompok.dosen.noHp) : '-'}</td>
+      </tr>
+      <tr>
+        <td style="vertical-align:top;padding:2px 0;">Koordinator Lapangan</td>
+        <td style="vertical-align:top;padding:2px 0;">:</td>
+        <td style="vertical-align:top;padding:2px 0;">${escapeHtml(p.koordinator_lapangan)}</td>
+      </tr>
+    </tbody>
+  </table>
 
   <!-- TABEL -->
   <table>
