@@ -1206,7 +1206,7 @@ function KelolaAnggotaDialog({
                 <UserCheck className="w-4 h-4 text-emerald-600" /> Anggota Saat Ini ({anggotaCount})
               </h4>
             </div>
-            <ScrollArea className="h-[320px] pr-3 rounded-lg border border-border">
+            <div className="h-[350px] overflow-y-auto pr-2 rounded-lg border border-border">
               {loading ? (
                 <div className="p-3 space-y-2">
                   {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14 rounded-md" />)}
@@ -1276,7 +1276,7 @@ function KelolaAnggotaDialog({
                   })}
                 </div>
               )}
-            </ScrollArea>
+            </div>
           </div>
 
           {/* Available mahasiswa */}
@@ -1300,7 +1300,7 @@ function KelolaAnggotaDialog({
                 className="pl-8 h-9"
               />
             </div>
-            <ScrollArea className="h-[290px] pr-3 rounded-lg border border-border">
+            <div className="h-[350px] overflow-y-auto pr-2 rounded-lg border border-border">
               {mhsList.length === 0 ? (
                 <div className="p-6 text-center text-xs text-muted-foreground">Memuat daftar mahasiswa...</div>
               ) : available.length === 0 ? (
@@ -1392,7 +1392,7 @@ function KelolaAnggotaDialog({
                   })}
                 </div>
               )}
-            </ScrollArea>
+            </div>
           </div>
         </div>
 
