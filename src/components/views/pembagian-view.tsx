@@ -153,7 +153,9 @@ export function PembagianView() {
       if (tahunFilter) params.set('tahunAkademik', tahunFilter)
       const res = await fetch(`/api/kelompok?${params.toString()}`)
       if (!res.ok) throw new Error('Gagal')
-      const json = await res.json()
+      const text = await res.text()
+      let json: Kelompok[]
+      try { json = JSON.parse(text) } catch { json = [] }
       setData(json)
     } catch {
       toast.error('Gagal memuat data kelompok')
@@ -192,10 +194,20 @@ export function PembagianView() {
   useEffect(() => {
     (async () => {
       try {
+        // Helper: safe JSON parse — kalau response 503/500 dengan body HTML,
+        // return empty array supaya tidak crash frontend.
+        const safeFetch = async (url: string): Promise<any[]> => {
+          try {
+            const r = await fetch(url)
+            if (!r.ok) return []
+            const text = await r.text()
+            try { return JSON.parse(text) } catch { return [] }
+          } catch { return [] }
+        }
         const [d, ds, sk] = await Promise.all([
-          fetch('/api/dosen').then((r) => r.json()),
-          fetch('/api/desa').then((r) => r.json()),
-          fetch('/api/sekolah').then((r) => r.json()),
+          safeFetch('/api/dosen'),
+          safeFetch('/api/desa'),
+          safeFetch('/api/sekolah'),
         ])
         setDosenList(d)
         setDesaList(ds)
