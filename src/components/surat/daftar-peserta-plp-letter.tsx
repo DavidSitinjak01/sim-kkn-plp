@@ -291,7 +291,7 @@ export function DaftarPesertaPLPLetter({ kelompokId }: Props) {
               <div style={{ fontSize: '12px', fontWeight: 'normal', letterSpacing: '0.5px', textTransform: 'uppercase' }}>{pengaturan.yayasan}</div>
               <div style={{ fontSize: '20px', fontWeight: 'bold', letterSpacing: '0.5px', textTransform: 'uppercase' }}>{pengaturan.nama_kampus}</div>
               <div style={{ fontSize: '12px', fontWeight: 'bold', letterSpacing: '0.3px', textTransform: 'uppercase' }}>{panitiaText}</div>
-              <div style={{ fontSize: '10px', fontStyle: 'italic', marginTop: '2px' }}>Izin Operasional: {pengaturan.izin_operasional}</div>
+              <div style={{ fontSize: '10px', marginTop: '2px' }}>Izin Operasional: {pengaturan.izin_operasional}</div>
               {/* Alamat: LEFT-ALIGNED mulai setelah logo (sesuai PDF asli).
                   Di PDF, baris alamat TIDAK rata tengah seperti baris di atasnya,
                   melainkan rata kiri dimulai tepat setelah tepi kanan logo,
@@ -307,22 +307,22 @@ export function DaftarPesertaPLPLetter({ kelompokId }: Props) {
             <div style={{ fontSize: '13px', fontWeight: 'bold', textTransform: 'uppercase' }}>{judul.line3}</div>
           </div>
 
-          {/* ===== INFO KELOMPOK ===== */}
+          {/* ===== INFO KELOMPOK ===== (sesuai PDF format pembagian mahasiswa) */}
           <div style={{ fontSize: '12px', marginBottom: '14px', lineHeight: '1.7' }}>
             <div><span style={{ display: 'inline-block', width: '180px' }}>Kelompok</span>: {kelompok.nama}</div>
-            <div><span style={{ display: 'inline-block', width: '180px' }}>{lokasi.label}</span>: {lokasi.nama}</div>
+            <div><span style={{ display: 'inline-block', width: '180px' }}>Sekolah Mitra</span>: {lokasi.nama}</div>
             <div><span style={{ display: 'inline-block', width: '180px' }}>DPL/WA</span>: {kelompok.dosen ? `${kelompok.dosen.nama}/${kelompok.dosen.noHp}` : '-'}</div>
             <div><span style={{ display: 'inline-block', width: '180px' }}>Koordinator Lapangan</span>: {pengaturan.koordinator_lapangan}</div>
           </div>
 
-          {/* ===== TABEL PESERTA ===== */}
+          {/* ===== TABEL PESERTA ===== (sesuai PDF: NIM left-aligned, prodi width luas) */}
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', marginBottom: '20px' }}>
             <thead>
               <tr>
                 <th style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'center', width: '40px' }}>No</th>
-                <th style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'center', width: '160px' }}>NIM</th>
+                <th style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'center', width: '140px' }}>NIM</th>
                 <th style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'center' }}>Nama Mahasiswa</th>
-                <th style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'center', width: '220px' }}>Program Studi</th>
+                <th style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'center', width: '250px' }}>Program Studi</th>
               </tr>
             </thead>
             <tbody>
@@ -336,7 +336,7 @@ export function DaftarPesertaPLPLetter({ kelompokId }: Props) {
                 kelompok.members.map((m, i) => (
                   <tr key={m.id}>
                     <td style={{ border: '1px solid #000', padding: '5px 8px', textAlign: 'center' }}>{i + 1}</td>
-                    <td style={{ border: '1px solid #000', padding: '5px 8px', fontFamily: 'monospace' }}>{m.mahasiswa.nim}</td>
+                    <td style={{ border: '1px solid #000', padding: '5px 8px' }}>{m.mahasiswa.nim}</td>
                     <td style={{ border: '1px solid #000', padding: '5px 8px' }}>{m.mahasiswa.nama}</td>
                     <td style={{ border: '1px solid #000', padding: '5px 8px' }}>{m.mahasiswa.prodi.nama}</td>
                   </tr>
@@ -385,7 +385,7 @@ function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logoBase64: string): 
     : kelompok.members.map((m, i) => `
         <tr>
           <td style="border:1px solid #000;padding:5px 8px;text-align:center;">${i + 1}</td>
-          <td style="border:1px solid #000;padding:5px 8px;font-family:monospace;">${escapeHtml(m.mahasiswa.nim)}</td>
+          <td style="border:1px solid #000;padding:5px 8px;">${escapeHtml(m.mahasiswa.nim)}</td>
           <td style="border:1px solid #000;padding:5px 8px;">${escapeHtml(m.mahasiswa.nama)}</td>
           <td style="border:1px solid #000;padding:5px 8px;">${escapeHtml(m.mahasiswa.prodi.nama)}</td>
         </tr>
@@ -424,7 +424,7 @@ function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logoBase64: string): 
   .yayasan { font-size: 12px; font-weight: normal; letter-spacing: 0.5px; text-transform: uppercase; }
   .universitas { font-size: 20px; font-weight: bold; letter-spacing: 0.5px; text-transform: uppercase; }
   .panitia { font-size: 12px; font-weight: bold; letter-spacing: 0.3px; text-transform: uppercase; }
-  .izin { font-size: 10px; font-style: italic; margin-top: 2px; }
+  .izin { font-size: 10px; margin-top: 2px; }
   .alamat { font-size: 10px; margin-top: 2px; text-align: left; padding-left: 100px; padding-right: 10px; }
   .judul { text-align: center; margin: 28px 0 18px; }
   .judul .line1 { font-size: 14px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -473,7 +473,7 @@ function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logoBase64: string): 
   <!-- INFO -->
   <div class="info">
     <div><span class="label">Kelompok</span>: ${escapeHtml(kelompok.nama)}</div>
-    <div><span class="label">${escapeHtml(lokasi.label)}</span>: ${escapeHtml(lokasi.nama)}</div>
+    <div><span class="label">Sekolah Mitra</span>: ${escapeHtml(lokasi.nama)}</div>
     <div><span class="label">DPL/WA</span>: ${kelompok.dosen ? escapeHtml(kelompok.dosen.nama) + '/' + escapeHtml(kelompok.dosen.noHp) : '-'}</div>
     <div><span class="label">Koordinator Lapangan</span>: ${escapeHtml(p.koordinator_lapangan)}</div>
   </div>
@@ -483,9 +483,9 @@ function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logoBase64: string): 
     <thead>
       <tr>
         <th style="width:40px;">No</th>
-        <th style="width:160px;">NIM</th>
+        <th style="width:140px;">NIM</th>
         <th>Nama Mahasiswa</th>
-        <th style="width:220px;">Program Studi</th>
+        <th style="width:250px;">Program Studi</th>
       </tr>
     </thead>
     <tbody>
