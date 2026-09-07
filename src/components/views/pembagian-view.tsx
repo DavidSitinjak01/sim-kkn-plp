@@ -677,10 +677,10 @@ export function PembagianView() {
               <div className="space-y-1.5">
                 <Label>Dosen Pendamping</Label>
                 <Select value={form.dosenId} onValueChange={(v) => setForm({ ...form, dosenId: v })}>
-                  <SelectTrigger><SelectValue placeholder="Pilih dosen" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Pilih dosen pendamping" /></SelectTrigger>
                   <SelectContent className="max-h-72">
-                    {dosenList.map((d) => (
-                      <SelectItem key={d.id} value={d.id}>{d.nama}</SelectItem>
+                    {dosenList.filter((d) => d.jabatan === 'Dosen Pendamping' || d.jabatan === 'Dosen Pembimbing' || d.jabatan === 'Lainnya').map((d) => (
+                      <SelectItem key={d.id} value={d.id}>{d.nama} ({d.jabatan})</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -690,8 +690,8 @@ export function PembagianView() {
                 <Select value={form.dosenId} onValueChange={(v) => setForm({ ...form, dosenId: v })}>
                   <SelectTrigger><SelectValue placeholder="Pilih koordinator" /></SelectTrigger>
                   <SelectContent className="max-h-72">
-                    {dosenList.map((d) => (
-                      <SelectItem key={d.id} value={d.id}>{d.nama}</SelectItem>
+                    {dosenList.filter((d) => d.jabatan === 'Koordinator Lapangan' || d.jabatan === 'Lainnya').map((d) => (
+                      <SelectItem key={d.id} value={d.id}>{d.nama} ({d.jabatan})</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

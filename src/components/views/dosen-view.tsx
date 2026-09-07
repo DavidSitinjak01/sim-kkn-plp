@@ -510,7 +510,19 @@ export function DosenView() {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="jabatan">Jabatan <span className="text-rose-500">*</span></Label>
-                <Input id="jabatan" value={form.jabatan} onChange={(e) => setForm({ ...form, jabatan: e.target.value })} placeholder="Lektor, Asisten Ahli, dll" required />
+                <Select value={form.jabatan} onValueChange={(v) => setForm({ ...form, jabatan: v })}>
+                  <SelectTrigger id="jabatan" className="w-full"><SelectValue placeholder="Pilih jabatan..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Dosen Pendamping">Dosen Pendamping</SelectItem>
+                    <SelectItem value="Koordinator Lapangan">Koordinator Lapangan</SelectItem>
+                    <SelectItem value="Dosen Pembimbing">Dosen Pembimbing</SelectItem>
+                    <SelectItem value="Pembimbing Akademik">Pembimbing Akademik</SelectItem>
+                    <SelectItem value="Lektor">Lektor</SelectItem>
+                    <SelectItem value="Asisten Ahli">Asisten Ahli</SelectItem>
+                    <SelectItem value="Tenaga Pengajar">Tenaga Pengajar</SelectItem>
+                    <SelectItem value="Lainnya">Lainnya</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="status">Status</Label>
