@@ -336,17 +336,27 @@ export function DaftarPesertaPLPLetter({ kelompokId }: Props) {
             <div style={{ fontSize: '13px', fontWeight: 'bold', textTransform: 'uppercase' }}>{judul.line3}</div>
           </div>
 
-          {/* ===== INFO KELOMPOK (teks biasa, titik dua lurus) ===== */}
-          <div style={{ fontSize: '12px', marginBottom: '14px', lineHeight: '1.8', display: 'grid', gridTemplateColumns: '160px auto', rowGap: '0' }}>
-            <div><strong>Kelompok</strong> :</div>
-            <div>{formatKelompokNama(kelompok.nama)}</div>
-            <div><strong>Sekolah Mitra</strong> :</div>
-            <div>{lokasi.nama}</div>
-            <div><strong>DPL/WA</strong> :</div>
-            <div>{kelompok.dosen ? `${kelompok.dosen.nama}/${kelompok.dosen.noHp}` : '-'}</div>
-            <div><strong>Koordinator Lapangan</strong> :</div>
-            <div>{kelompok.koordinator ? kelompok.koordinator.nama : '-'}</div>
-          </div>
+          {/* ===== INFO KELOMPOK (tabel tanpa border, titik dua lurus) ===== */}
+          <table style={{ width: 'auto', fontSize: '12px', marginBottom: '14px', borderCollapse: 'collapse' }}>
+            <tbody>
+              <tr>
+                <td style={{ padding: '2px 8px 2px 0', whiteSpace: 'nowrap' }}><strong>Kelompok</strong> :</td>
+                <td style={{ padding: '2px 0' }}>{formatKelompokNama(kelompok.nama)}</td>
+              </tr>
+              <tr>
+                <td style={{ padding: '2px 8px 2px 0', whiteSpace: 'nowrap' }}><strong>Sekolah Mitra</strong> :</td>
+                <td style={{ padding: '2px 0' }}>{lokasi.nama}</td>
+              </tr>
+              <tr>
+                <td style={{ padding: '2px 8px 2px 0', whiteSpace: 'nowrap' }}><strong>DPL/WA</strong> :</td>
+                <td style={{ padding: '2px 0' }}>{kelompok.dosen ? `${kelompok.dosen.nama}/${kelompok.dosen.noHp}` : '-'}</td>
+              </tr>
+              <tr>
+                <td style={{ padding: '2px 8px 2px 0', whiteSpace: 'nowrap' }}><strong>Koordinator Lapangan</strong> :</td>
+                <td style={{ padding: '2px 0' }}>{kelompok.koordinator ? kelompok.koordinator.nama : '-'}</td>
+              </tr>
+            </tbody>
+          </table>
 
           {/* ===== TABEL PESERTA ===== (sesuai PDF: NIM left-aligned, prodi width luas) */}
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', marginBottom: '20px' }}>
@@ -503,17 +513,27 @@ function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logoBase64: string): 
     <div class="line3">${escapeHtml(judul.line3)}</div>
   </div>
 
-  <!-- INFO KELOMPOK (teks biasa, titik dua lurus) -->
-  <div style="font-size:12px;margin-bottom:14px;line-height:1.8;display:grid;grid-template-columns:160px auto;row-gap:0;">
-    <div><b>Kelompok</b> :</div>
-    <div>${escapeHtml(formatKelompokNama(kelompok.nama))}</div>
-    <div><b>Sekolah Mitra</b> :</div>
-    <div>${escapeHtml(lokasi.nama)}</div>
-    <div><b>DPL/WA</b> :</div>
-    <div>${kelompok.dosen ? escapeHtml(kelompok.dosen.nama) + '/' + escapeHtml(kelompok.dosen.noHp) : '-'}</div>
-    <div><b>Koordinator Lapangan</b> :</div>
-    <div>${kelompok.koordinator ? escapeHtml(kelompok.koordinator.nama) : '-'}</div>
-  </div>
+  <!-- INFO KELOMPOK (tabel tanpa border, titik dua lurus) -->
+  <table style="width:auto;font-size:12px;margin-bottom:14px;border-collapse:collapse;">
+    <tbody>
+      <tr>
+        <td style="padding:2px 8px 2px 0;white-space:nowrap;"><b>Kelompok</b> :</td>
+        <td style="padding:2px 0;">${escapeHtml(formatKelompokNama(kelompok.nama))}</td>
+      </tr>
+      <tr>
+        <td style="padding:2px 8px 2px 0;white-space:nowrap;"><b>Sekolah Mitra</b> :</td>
+        <td style="padding:2px 0;">${escapeHtml(lokasi.nama)}</td>
+      </tr>
+      <tr>
+        <td style="padding:2px 8px 2px 0;white-space:nowrap;"><b>DPL/WA</b> :</td>
+        <td style="padding:2px 0;">${kelompok.dosen ? escapeHtml(kelompok.dosen.nama) + '/' + escapeHtml(kelompok.dosen.noHp) : '-'}</td>
+      </tr>
+      <tr>
+        <td style="padding:2px 8px 2px 0;white-space:nowrap;"><b>Koordinator Lapangan</b> :</td>
+        <td style="padding:2px 0;">${kelompok.koordinator ? escapeHtml(kelompok.koordinator.nama) : '-'}</td>
+      </tr>
+    </tbody>
+  </table>
 
   <!-- TABEL -->
   <table>
