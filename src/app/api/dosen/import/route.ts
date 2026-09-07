@@ -104,6 +104,7 @@ export async function POST(req: Request) {
     const colEmail = findColExcludeNames(KOLOM_PATTERNS.email)
     const colNoHp = findColExcludeNames(KOLOM_PATTERNS.noHp)
     const colFakultas = findColExcludeNames(KOLOM_PATTERNS.fakultas)
+    const colJabatan = findColExcludeNames(KOLOM_PATTERNS.jabatan)
 
     // Fetch master data
     const [dbProdi, dbFakultas] = await Promise.all([
@@ -117,12 +118,35 @@ export async function POST(req: Request) {
     let updated = 0
     let skipped = 0
 
+    // Track baris kosong berurutan untuk stop di section notes
+    let consecutiveEmptyRows = 0
+    const MAX_CONSECUTIVE_EMPTY = 2
+
+    // Helper: cek marker notes (CATATAN:, FORMAT ALTERNATIF, dll)
+    const isNotesMarkerRow = (row: string[]): boolean => {
+      if (!row || row.length === 0) return false
+      const firstCell = String(row[0] || '').trim().toLowerCase()
+      if (!firstCell) return false
+      if (/^catatan:?$/i.test(firstCell)) return true
+      if (firstCell.startsWith('format alternatif')) return true
+      if (/^note:?$/i.test(firstCell)) return true
+      if (/^keterangan:?$/i.test(firstCell)) return true
+      return false
+    }
+
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i] || []
+
+      // Stop di section notes
+      if (isNotesMarkerRow(row as string[])) break
+
+      let rowHadData = false
       // Untuk setiap kolom nama yang terdeteksi
       for (const nc of nameColumns) {
         const namaRaw = String(row[nc.index] || '').trim()
         if (!namaRaw) continue // skip cell kosong
+
+        rowHadData = true
 
         const nidn = colNidn !== -1 ? String(row[colNidn] || '').trim() || null : null
         const email = colEmail !== -1 ? String(row[colEmail] || '').trim() || null : null
@@ -130,10 +154,12 @@ export async function POST(req: Request) {
         const prodiName = colProdi !== -1 ? String(row[colProdi] || '').trim() : ''
         const fakultasName = colFakultas !== -1 ? String(row[colFakultas] || '').trim() : ''
 
-        // Jabatan: prioritas kolom spesifik > override user > default "Dosen Pendamping"
-        let jabatan = nc.jabatan // dari header kolom nama
-        if (jabatanOverride && nameColumns.length === 1) {
-          // Kalau cuma 1 kolom nama dan user set override, pakai override
+        // Jabatan: prioritas kolom "Jabatan" eksplisit > dari header kolom nama > override user.
+        // Kalau kolom Jabatan ada & berisi, pakai itu (paling tinggi prioritas).
+        const jabatanFromCol = colJabatan !== -1 ? String(row[colJabatan] || '').trim() : ''
+        let jabatan = jabatanFromCol || nc.jabatan // dari header kolom nama
+        if (!jabatanFromCol && jabatanOverride && nameColumns.length === 1) {
+          // Kalau cuma 1 kolom nama, user set override, & kolom Jabatan kosong → pakai override
           jabatan = jabatanOverride
         }
 
@@ -196,6 +222,17 @@ export async function POST(req: Request) {
           } else {
             errors.push({ row: i + 1, nama: namaRaw, error: e?.message || 'unknown error' })
           }
+        }
+      }
+
+      // Update counter baris kosong berurutan
+      if (rowHadData) {
+        consecutiveEmptyRows = 0
+      } else {
+        consecutiveEmptyRows++
+        // Kalau 2 baris kosong berturut-turut, stop (kemungkinan besar section notes)
+        if (consecutiveEmptyRows >= MAX_CONSECUTIVE_EMPTY) {
+          break
         }
       }
     }

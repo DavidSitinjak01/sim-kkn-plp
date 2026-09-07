@@ -31,8 +31,9 @@ export const KOLOM_PATTERNS = {
   nidn: ['nidn', 'nip'],
   prodi: ['program studi', 'prodi'],
   email: ['e-mail', 'email'],
-  noHp: ['no. telepon', 'nomor telepon', 'no. hp', 'no hp', 'nomor hp', 'no hp', 'no wa', 'nomor wa', 'telepon', 'telp'],
+  noHp: ['no. telepon', 'nomor telepon', 'no. hp', 'no hp', 'nomor hp', 'no wa', 'nomor wa', 'telepon', 'telp'],
   fakultas: ['fakultas'],
+  jabatan: ['jabatan', 'peran', 'role'],
 } as const
 
 export type KolomKey = keyof typeof KOLOM_PATTERNS
@@ -80,7 +81,23 @@ export function findAllNameCols(headers: string[]): Array<{ index: number; heade
   return result
 }
 
-/** Match prodi by name (exact case-insensitive, fallback keyword). */
+/**
+ * Deteksi apakah sebuah baris adalah marker section notes (bukan data).
+ * Dipakai untuk stop parsing ketika file Excel punya section 'CATATAN:',
+ * 'FORMAT ALTERNATIF', dll di bawah data utama.
+ */
+function isNotesMarkerRow(row: string[]): boolean {
+  if (!row || row.length === 0) return false
+  const firstCell = String(row[0] || '').trim().toLowerCase()
+  if (!firstCell) return false
+  // Marker umum: 'catatan:', 'format alternatif', 'note:', 'keterangan:'
+  if (/^catatan:?$/i.test(firstCell)) return true
+  if (firstCell.startsWith('format alternatif')) return true
+  if (/^note:?$/i.test(firstCell)) return true
+  if (/^keterangan:?$/i.test(firstCell)) return true
+  return false
+}
+
 const PRODI_KEYWORD_MAP: Record<string, string[]> = {
   'Pendidikan Matematika': ['matematika', 'mtk'],
   'Pendidikan Biologi': ['biologi', 'bio'],
@@ -211,6 +228,7 @@ export async function parseDosenExcel(file: File): Promise<PreviewResult> {
   const colEmail = findColExcludeNames(KOLOM_PATTERNS.email)
   const colNoHp = findColExcludeNames(KOLOM_PATTERNS.noHp)
   const colFakultas = findColExcludeNames(KOLOM_PATTERNS.fakultas)
+  const colJabatan = findColExcludeNames(KOLOM_PATTERNS.jabatan)
 
   // Fetch master data
   const [dbProdi, dbFakultas] = await Promise.all([
@@ -222,18 +240,39 @@ export async function parseDosenExcel(file: File): Promise<PreviewResult> {
   const fakultasStats = new Map<string, { count: number; matched: { id: string; nama: string } | null }>()
   const parsedRows: ParsedDosenRow[] = []
 
+  // Track berapa baris kosong berurutan → stop setelah 2 baris kosong berturut-turut
+  // (menandai section notes / format alternatif di bawah data utama).
+  let consecutiveEmptyRows = 0
+  const MAX_CONSECUTIVE_EMPTY = 2
+
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i] || []
+
+    // Cek apakah ini baris marker notes (CATATAN:, FORMAT ALTERNATIF, dll)
+    // Kalau ya, stop parsing — sisa baris adalah dokumentasi, bukan data.
+    if (isNotesMarkerRow(row as string[])) {
+      break
+    }
+
     // Untuk setiap kolom nama yang terdeteksi, ambil nama
+    let rowHadData = false
     for (const nc of nameColumns) {
       const namaRaw = String(row[nc.index] || '').trim()
       if (!namaRaw) continue
+
+      rowHadData = true
 
       const nidn = colNidn !== -1 ? String(row[colNidn] || '').trim() || null : null
       const email = colEmail !== -1 ? String(row[colEmail] || '').trim() || null : null
       const noHp = colNoHp !== -1 ? String(row[colNoHp] || '').trim() || null : null
       const prodiName = colProdi !== -1 ? String(row[colProdi] || '').trim() : ''
       const fakultasName = colFakultas !== -1 ? String(row[colFakultas] || '').trim() : ''
+
+      // Jabatan: prioritas kolom "Jabatan" eksplisit > dari header kolom nama.
+      // Kalau kolom Jabatan ada & berisi, pakai itu. Kalau kosong, fallback ke
+      // jabatan yang di-inferensi dari header kolom nama.
+      const jabatanFromCol = colJabatan !== -1 ? String(row[colJabatan] || '').trim() : ''
+      const jabatan = jabatanFromCol || nc.jabatan
 
       // Track prodi & fakultas for stats
       let prodiId: string | null = null
@@ -268,9 +307,20 @@ export async function parseDosenExcel(file: File): Promise<PreviewResult> {
         prodiId,
         fakultasName,
         fakultasId,
-        jabatan: nc.jabatan,
+        jabatan,
         fromColumn: nc.header,
       })
+    }
+
+    // Update counter baris kosong berurutan
+    if (rowHadData) {
+      consecutiveEmptyRows = 0
+    } else {
+      consecutiveEmptyRows++
+      // Kalau 2 baris kosong berturut-turut, stop (kemungkinan besar section notes)
+      if (consecutiveEmptyRows >= MAX_CONSECUTIVE_EMPTY) {
+        break
+      }
     }
   }
 
@@ -300,6 +350,7 @@ export async function parseDosenExcel(file: File): Promise<PreviewResult> {
       email: colEmail,
       noHp: colNoHp,
       fakultas: colFakultas,
+      jabatan: colJabatan,
     },
     preview: parsedRows.slice(0, 30),
     matchedProdi,
