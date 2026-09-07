@@ -336,12 +336,16 @@ export function DaftarPesertaPLPLetter({ kelompokId }: Props) {
             <div style={{ fontSize: '13px', fontWeight: 'bold', textTransform: 'uppercase' }}>{judul.line3}</div>
           </div>
 
-          {/* ===== INFO KELOMPOK (sebagai teks biasa, BUKAN tabel) ===== */}
-          <div style={{ fontSize: '12px', marginBottom: '14px', lineHeight: '1.8' }}>
-            <div><strong>Kelompok</strong> : {formatKelompokNama(kelompok.nama)}</div>
-            <div><strong>Sekolah Mitra</strong> : {lokasi.nama}</div>
-            <div><strong>DPL/WA</strong> : {kelompok.dosen ? `${kelompok.dosen.nama}/${kelompok.dosen.noHp}` : '-'}</div>
-            <div><strong>Koordinator Lapangan</strong> : {kelompok.koordinator ? kelompok.koordinator.nama : '-'}</div>
+          {/* ===== INFO KELOMPOK (teks biasa, titik dua lurus) ===== */}
+          <div style={{ fontSize: '12px', marginBottom: '14px', lineHeight: '1.8', display: 'grid', gridTemplateColumns: '160px auto', rowGap: '0' }}>
+            <div><strong>Kelompok</strong> :</div>
+            <div>{formatKelompokNama(kelompok.nama)}</div>
+            <div><strong>Sekolah Mitra</strong> :</div>
+            <div>{lokasi.nama}</div>
+            <div><strong>DPL/WA</strong> :</div>
+            <div>{kelompok.dosen ? `${kelompok.dosen.nama}/${kelompok.dosen.noHp}` : '-'}</div>
+            <div><strong>Koordinator Lapangan</strong> :</div>
+            <div>{kelompok.koordinator ? kelompok.koordinator.nama : '-'}</div>
           </div>
 
           {/* ===== TABEL PESERTA ===== (sesuai PDF: NIM left-aligned, prodi width luas) */}
@@ -499,12 +503,16 @@ function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logoBase64: string): 
     <div class="line3">${escapeHtml(judul.line3)}</div>
   </div>
 
-  <!-- INFO KELOMPOK (teks biasa, BUKAN tabel) -->
-  <div style="font-size:12px;margin-bottom:14px;line-height:1.8;">
-    <div><b>Kelompok</b> : ${escapeHtml(formatKelompokNama(kelompok.nama))}</div>
-    <div><b>Sekolah Mitra</b> : ${escapeHtml(lokasi.nama)}</div>
-    <div><b>DPL/WA</b> : ${kelompok.dosen ? escapeHtml(kelompok.dosen.nama) + '/' + escapeHtml(kelompok.dosen.noHp) : '-'}</div>
-    <div><b>Koordinator Lapangan</b> : ${kelompok.koordinator ? escapeHtml(kelompok.koordinator.nama) : '-'}</div>
+  <!-- INFO KELOMPOK (teks biasa, titik dua lurus) -->
+  <div style="font-size:12px;margin-bottom:14px;line-height:1.8;display:grid;grid-template-columns:160px auto;row-gap:0;">
+    <div><b>Kelompok</b> :</div>
+    <div>${escapeHtml(formatKelompokNama(kelompok.nama))}</div>
+    <div><b>Sekolah Mitra</b> :</div>
+    <div>${escapeHtml(lokasi.nama)}</div>
+    <div><b>DPL/WA</b> :</div>
+    <div>${kelompok.dosen ? escapeHtml(kelompok.dosen.nama) + '/' + escapeHtml(kelompok.dosen.noHp) : '-'}</div>
+    <div><b>Koordinator Lapangan</b> :</div>
+    <div>${kelompok.koordinator ? escapeHtml(kelompok.koordinator.nama) : '-'}</div>
   </div>
 
   <!-- TABEL -->
