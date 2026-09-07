@@ -7,8 +7,10 @@ import QRCode from 'qrcode'
 import {
   FileText, Plus, Pencil, Trash2, Loader2, Eye, Printer, FileSpreadsheet, FileText as FilePdf,
   Mail, Send, FileCheck2, FileEdit, ClipboardList, ScrollText, FileSignature, Users, Settings, IdCard,
+  MapPin, School, ChevronLeft, ChevronRight, Zap,
 } from 'lucide-react'
 
+import { Badge } from '@/components/ui/badge'
 import { PageHeader } from '@/components/shared/page-header'
 import { DataTable, type Column } from '@/components/shared/data-table'
 import {
@@ -254,6 +256,8 @@ export function PersuratanView() {
   const [plpLoading, setPlpLoading] = useState(false)
   const [letterKelompokId, setLetterKelompokId] = useState<string | null>(null)
   const [kartuKelompokId, setKartuKelompokId] = useState<string | null>(null)
+  // Filter tipe kelompok: 'KKN' | 'PLP1' | 'PLP2' | null (null = pilih dulu)
+  const [activeTipeFilter, setActiveTipeFilter] = useState<string | null>(null)
 
   // Dialog states
   const [formOpen, setFormOpen] = useState(false)
@@ -645,7 +649,7 @@ export function PersuratanView() {
                     <h3 className="font-semibold">Daftar Peserta KKN/PLP</h3>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Pilih kelompok KKN atau PLP untuk mencetak daftar peserta dalam format surat resmi panitia.
+                    Pilih tipe kegiatan, lalu pilih kelompok untuk mencetak daftar peserta.
                   </p>
                 </div>
                 <Button variant="outline" size="sm" onClick={goToKepanitiaan} className="shrink-0">
@@ -657,56 +661,124 @@ export function PersuratanView() {
 
           {plpLoading ? (
             <Skeleton className="h-48 w-full" />
-          ) : plpKelompok.length === 0 ? (
-            <Card>
-              <CardContent className="p-8 text-center text-muted-foreground">
-                <Users className="w-10 h-10 mx-auto mb-3 opacity-40" />
-                <p>Belum ada kelompok KKN/PLP. Buat kelompok di menu Pembagian KKN &amp; PLP terlebih dahulu.</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {plpKelompok.map((k, i) => {
-                const tipeBadge = k.tipe === 'KKN' ? 'KKN' : k.tipe === 'PLP2' ? 'PLP II' : 'PLP I'
-                const isKkn = k.tipe === 'KKN'
-                const lokasiNama = isKkn ? (k.desa?.nama ?? '-') : (k.sekolah?.nama ?? '-')
-                return (
-                <motion.div
-                  key={k.id}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: i * 0.04 }}
-                >
-                  <Card className="hover:shadow-md hover:border-primary/40 transition-all h-full">
-                    <CardContent className="p-5 flex flex-col h-full">
-                      <div className="flex items-start justify-between gap-2 mb-3">
-                        <div>
-                          <h4 className="font-semibold leading-tight">{k.nama}</h4>
-                          <span className={`inline-block mt-1 px-2 py-0.5 rounded-md text-xs font-semibold border ${
-                            isKkn
-                              ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300 border-cyan-200 dark:border-cyan-800'
-                              : 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300 border-violet-200 dark:border-violet-800'
-                          }`}>
-                            {tipeBadge}
-                          </span>
+          ) : (() => {
+            // Filter: hanya kelompok yang sudah ada anggota (members > 0)
+            const kelompokWithMembers = plpKelompok.filter(k => k._count.members > 0)
+            const kknGroups = kelompokWithMembers.filter(k => k.tipe === 'KKN')
+            const plp1Groups = kelompokWithMembers.filter(k => k.tipe === 'PLP1')
+            const plp2Groups = kelompokWithMembers.filter(k => k.tipe === 'PLP2')
+
+            if (kelompokWithMembers.length === 0) {
+              return (
+                <Card>
+                  <CardContent className="p-8 text-center text-muted-foreground">
+                    <Users className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                    <p>Belum ada kelompok dengan anggota. Bagi mahasiswa ke kelompok di menu Pembagian KKN &amp; PLP terlebih dahulu.</p>
+                  </CardContent>
+                </Card>
+              )
+            }
+
+            // Level 1: pilih tipe
+            if (!activeTipeFilter) {
+              const tipeCards = [
+                { tipe: 'KKN', label: 'KKN', desc: 'Praktik di Desa', icon: MapPin, count: kknGroups.length, color: 'cyan', groups: kknGroups },
+                { tipe: 'PLP1', label: 'PLP I', desc: 'Praktik Lapangan I', icon: School, count: plp1Groups.length, color: 'violet', groups: plp1Groups },
+                { tipe: 'PLP2', label: 'PLP II', desc: 'Praktik Lapangan II', icon: School, count: plp2Groups.length, color: 'amber', groups: plp2Groups },
+              ].filter(t => t.count > 0)
+
+              return (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {tipeCards.map((t) => {
+                    const Icon = t.icon
+                    const colorClasses: Record<string, string> = {
+                      cyan: 'from-cyan-500 to-cyan-600',
+                      violet: 'from-violet-500 to-violet-600',
+                      amber: 'from-amber-500 to-orange-600',
+                    }
+                    return (
+                      <motion.button
+                        key={t.tipe}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        onClick={() => setActiveTipeFilter(t.tipe)}
+                        className="group relative overflow-hidden rounded-xl border border-border bg-card p-6 text-left hover:shadow-lg hover:border-primary/40 transition-all"
+                      >
+                        <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${colorClasses[t.color]} opacity-10 rounded-full -translate-y-8 translate-x-8 group-hover:scale-150 transition-transform`} />
+                        <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${colorClasses[t.color]} flex items-center justify-center mb-3`}>
+                          <Icon className="w-6 h-6 text-white" />
                         </div>
-                      </div>
-                      <div className="text-xs text-muted-foreground space-y-1 mb-4 flex-1">
-                        <p><span className="font-medium text-foreground">{isKkn ? 'Desa' : 'Sekolah'}:</span> {lokasiNama}</p>
-                        <p><span className="font-medium text-foreground">DPL:</span> {k.dosen?.nama ?? '-'}</p>
-                        <p><span className="font-medium text-foreground">Anggota:</span> {k._count.members} mahasiswa</p>
-                        <p><span className="font-medium text-foreground">T.A:</span> {k.tahunAkademik} {k.semester === 'GANJIL' ? 'Ganjil' : 'Genap'}</p>
-                      </div>
-                      <Button size="sm" className="w-full" onClick={() => setLetterKelompokId(k.id)}>
-                        <Printer className="w-4 h-4 mr-1.5" />Cetak Daftar Peserta
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-                )
-              })}
-            </div>
-          )}
+                        <h4 className="text-lg font-bold">{t.label}</h4>
+                        <p className="text-xs text-muted-foreground mb-2">{t.desc}</p>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="text-xs">{t.count} kelompok</Badge>
+                          <span className="text-xs text-muted-foreground">{t.groups.reduce((a, g) => a + g._count.members, 0)} mahasiswa</span>
+                        </div>
+                        <div className="mt-3 text-xs text-primary font-medium flex items-center gap-1">
+                          Lihat kelompok <ChevronRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+                        </div>
+                      </motion.button>
+                    )
+                  })}
+                </div>
+              )
+            }
+
+            // Level 2: daftar kelompok per tipe
+            const activeLabel = activeTipeFilter === 'KKN' ? 'KKN' : activeTipeFilter === 'PLP2' ? 'PLP II' : 'PLP I'
+            const activeGroups = activeTipeFilter === 'KKN' ? kknGroups : activeTipeFilter === 'PLP2' ? plp2Groups : plp1Groups
+            const isKkn = activeTipeFilter === 'KKN'
+
+            return (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => setActiveTipeFilter(null)}>
+                    <ChevronLeft className="w-4 h-4 mr-1" /> Kembali
+                  </Button>
+                  <h4 className="font-semibold">{activeLabel} — {activeGroups.length} kelompok</h4>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {activeGroups.map((k, i) => {
+                    const lokasiNama = isKkn ? (k.desa?.nama ?? '-') : (k.sekolah?.nama ?? '-')
+                    return (
+                      <motion.div
+                        key={k.id}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: i * 0.04 }}
+                      >
+                        <Card className="hover:shadow-md hover:border-primary/40 transition-all h-full">
+                          <CardContent className="p-5 flex flex-col h-full">
+                            <div className="flex items-start justify-between gap-2 mb-3">
+                              <div>
+                                <h4 className="font-semibold leading-tight">Kelompok {k.nama}</h4>
+                                <span className={`inline-block mt-1 px-2 py-0.5 rounded-md text-xs font-semibold border ${
+                                  isKkn
+                                    ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300 border-cyan-200 dark:border-cyan-800'
+                                    : 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300 border-violet-200 dark:border-violet-800'
+                                }`}>
+                                  {activeLabel}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="text-xs text-muted-foreground space-y-1 mb-4 flex-1">
+                              <p><span className="font-medium text-foreground">{isKkn ? 'Desa' : 'Sekolah'}:</span> {lokasiNama}</p>
+                              <p><span className="font-medium text-foreground">DPL:</span> {k.dosen?.nama ?? '-'}</p>
+                              <p><span className="font-medium text-foreground">Anggota:</span> {k._count.members} mahasiswa</p>
+                              <p><span className="font-medium text-foreground">T.A:</span> {k.tahunAkademik} {k.semester === 'GANJIL' ? 'Ganjil' : 'Genap'}</p>
+                            </div>
+                            <Button size="sm" className="w-full" onClick={() => setLetterKelompokId(k.id)}>
+                              <Printer className="w-4 h-4 mr-1.5" />Cetak Daftar Peserta
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })()}
         </TabsContent>
 
         {/* ===== Tab: Kartu Peserta (ID Card) ===== */}
