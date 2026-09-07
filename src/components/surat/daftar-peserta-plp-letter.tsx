@@ -97,7 +97,7 @@ function judulSurat(tipe: string, namaKampus: string): { line1: string; line2: s
     case 'PLP2':
       return {
         line1: 'DAFTAR PESERTA',
-        line2: `PENGENALAN LINGKUNGAN PERSEKOLAHAN (PLP) ${tipeLabel(tipe)}`,
+        line2: `PENGENALAN LAPANGAN PERSEKOLAHAN (PLP) ${tipeLabel(tipe)}`,
         line3: fkip,
       }
     default:
