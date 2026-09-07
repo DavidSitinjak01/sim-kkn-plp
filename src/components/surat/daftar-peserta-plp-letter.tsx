@@ -52,7 +52,7 @@ interface Props {
 const DEFAULT_PENGATURAN: Record<string, string> = {
   logo_url: '/logo.png',
   yayasan: 'YAYASAN PENDIDIKAN NIAS SELATAN',
-  panitia_plp: 'PANITIA PENGENALAN LAPANGAN PERSEKOLAHAN (PLP-II)',
+  panitia_plp: 'PANITIA PENGENALAN LAPANGAN PERSEKOLAHAN II (PLP-II)',
   panitia_kkn: 'PANITIA KULIAH KERJA NYATA',
   izin_operasional: 'Kepmendikbudristek Nomor 363/E/O/2021',
   ketua_panitia: 'Antonius Sarumaha, M.Pd',
