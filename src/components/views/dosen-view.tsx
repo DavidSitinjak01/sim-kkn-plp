@@ -5,11 +5,12 @@ import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import {
   GraduationCap, Plus, FileSpreadsheet, FileText, Pencil, Trash2, Loader2,
-  UserCheck, Building2, Layers,
+  UserCheck, Building2, Layers, Upload,
 } from 'lucide-react'
 
 import { PageHeader } from '@/components/shared/page-header'
 import { DataTable, type Column } from '@/components/shared/data-table'
+import { ImportExcelDialog } from '@/components/dosen/import-excel-dialog'
 import {
   exportToCSV, exportToPDF, generateTableHTML,
 } from '@/lib/export-utils'
@@ -50,12 +51,12 @@ interface Fakultas {
 
 interface Dosen {
   id: string
-  nidn: string
+  nidn: string | null
   nama: string
-  email: string
-  noHp: string
-  fakultasId: string
-  fakultas: Fakultas
+  email: string | null
+  noHp: string | null
+  fakultasId: string | null
+  fakultas: Fakultas | null
   prodiId: string | null
   prodi: Prodi | null
   jabatan: string
@@ -103,6 +104,7 @@ export function DosenView() {
 
   const [deleteTarget, setDeleteTarget] = useState<Dosen | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
 
   const fetchData = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true)
@@ -210,8 +212,9 @@ export function DosenView() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!form.nidn.trim() || !form.nama.trim() || !form.email.trim() || !form.fakultasId || !form.jabatan.trim()) {
-      toast.error('Lengkapi field wajib (NIDN, Nama, Email, Fakultas, Jabatan)')
+    // Hanya `nama` yang wajib. Lainnya opsional (sesuai permintaan user).
+    if (!form.nama.trim()) {
+      toast.error('Nama wajib diisi')
       return
     }
 
@@ -219,7 +222,12 @@ export function DosenView() {
     try {
       const payload = {
         ...form,
+        nidn: form.nidn.trim() || null,
+        email: form.email.trim() || null,
+        noHp: form.noHp.trim() || null,
+        fakultasId: form.fakultasId || null,
         prodiId: form.prodiId || null,
+        jabatan: form.jabatan.trim() || 'Dosen Pendamping',
         keahlian: form.keahlian.trim() || null,
         foto: form.foto.trim() || null,
       }
@@ -269,7 +277,7 @@ export function DosenView() {
     }
     const headers = ['NIDN', 'Nama', 'Email', 'No HP', 'Fakultas', 'Prodi', 'Jabatan', 'Keahlian', 'Status']
     const rows = data.map((d) => [
-      d.nidn, d.nama, d.email, d.noHp,
+      d.nidn ?? '', d.nama, d.email ?? '', d.noHp ?? '',
       d.fakultas?.nama ?? '-', d.prodi?.nama ?? '-',
       d.jabatan, d.keahlian ?? '-', d.status,
     ])
@@ -283,7 +291,7 @@ export function DosenView() {
     }
     const headers = ['NIDN', 'Nama', 'Email', 'No HP', 'Fakultas', 'Prodi', 'Jabatan', 'Keahlian', 'Status']
     const rows = data.map((d) => [
-      d.nidn, d.nama, d.email, d.noHp,
+      d.nidn ?? '', d.nama, d.email ?? '', d.noHp ?? '',
       d.fakultas?.nama ?? '-', d.prodi?.nama ?? '-',
       d.jabatan, d.keahlian ?? '-', d.status,
     ])
@@ -307,6 +315,7 @@ export function DosenView() {
     },
     {
       key: 'nidn', header: 'NIDN', sortable: true, className: 'font-mono text-xs',
+      render: (d) => <span className={d.nidn ? '' : 'text-muted-foreground italic'}>{d.nidn || '-'}</span>,
     },
     {
       key: 'nama', header: 'Nama Dosen', sortable: true,
@@ -327,7 +336,7 @@ export function DosenView() {
     },
     {
       key: 'email', header: 'Email', sortable: true,
-      render: (d) => <span className="text-sm text-muted-foreground">{d.email}</span>,
+      render: (d) => <span className="text-sm text-muted-foreground">{d.email || <span className="italic">-</span>}</span>,
     },
     {
       key: 'noHp', header: 'No HP',
@@ -388,6 +397,9 @@ export function DosenView() {
         breadcrumb={['Data Master', 'Data Dosen']}
         actions={
           <>
+            <Button variant="outline" size="sm" onClick={() => setImportOpen(true)} className="text-emerald-700 border-emerald-300 hover:bg-emerald-50 dark:text-emerald-300 dark:border-emerald-700 dark:hover:bg-emerald-900/20">
+              <Upload className="w-4 h-4" /> Import Excel
+            </Button>
             <Button variant="outline" size="sm" onClick={handleExportCSV}>
               <FileSpreadsheet className="w-4 h-4" /> Export Excel
             </Button>
@@ -450,29 +462,29 @@ export function DosenView() {
           <DialogHeader>
             <DialogTitle>{editId ? 'Edit Dosen' : 'Tambah Dosen'}</DialogTitle>
             <DialogDescription>
-              {editId ? 'Perbarui informasi dosen.' : 'Lengkapi data dosen baru.'}
+              {editId ? 'Perbarui informasi dosen.' : 'Lengkapi data dosen baru. Hanya Nama yang wajib.'}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label htmlFor="nidn">NIDN <span className="text-rose-500">*</span></Label>
-                <Input id="nidn" value={form.nidn} onChange={(e) => setForm({ ...form, nidn: e.target.value })} placeholder="0021234567" required />
+                <Label htmlFor="nidn">NIDN <span className="text-muted-foreground text-[10px]">(opsional)</span></Label>
+                <Input id="nidn" value={form.nidn} onChange={(e) => setForm({ ...form, nidn: e.target.value })} placeholder="0021234567" />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="nama">Nama Lengkap <span className="text-rose-500">*</span></Label>
                 <Input id="nama" value={form.nama} onChange={(e) => setForm({ ...form, nama: e.target.value })} placeholder="Dr. Nama Dosen, M.Kom" required />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="email">Email <span className="text-rose-500">*</span></Label>
-                <Input id="email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="dosen@kknplp.ac.id" required />
+                <Label htmlFor="email">Email <span className="text-muted-foreground text-[10px]">(opsional)</span></Label>
+                <Input id="email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="dosen@kknplp.ac.id" />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="noHp">No. HP</Label>
+                <Label htmlFor="noHp">No. HP <span className="text-muted-foreground text-[10px]">(opsional)</span></Label>
                 <Input id="noHp" value={form.noHp} onChange={(e) => setForm({ ...form, noHp: e.target.value })} placeholder="0812..." />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="fakultasId">Fakultas <span className="text-rose-500">*</span></Label>
+                <Label htmlFor="fakultasId">Fakultas <span className="text-muted-foreground text-[10px]">(opsional)</span></Label>
                 <Select
                   value={form.fakultasId}
                   onValueChange={(v) => setForm({ ...form, fakultasId: v, prodiId: '' })}
@@ -490,7 +502,7 @@ export function DosenView() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="prodiId">Program Studi (opsional)</Label>
+                <Label htmlFor="prodiId">Program Studi <span className="text-muted-foreground text-[10px]">(opsional)</span></Label>
                 <Select
                   value={form.prodiId}
                   onValueChange={(v) => setForm({ ...form, prodiId: v })}
@@ -509,7 +521,7 @@ export function DosenView() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="jabatan">Jabatan <span className="text-rose-500">*</span></Label>
+                <Label htmlFor="jabatan">Jabatan <span className="text-muted-foreground text-[10px]">(opsional)</span></Label>
                 <Select value={form.jabatan} onValueChange={(v) => setForm({ ...form, jabatan: v })}>
                   <SelectTrigger id="jabatan" className="w-full"><SelectValue placeholder="Pilih jabatan..." /></SelectTrigger>
                   <SelectContent>
@@ -535,11 +547,11 @@ export function DosenView() {
                 </Select>
               </div>
               <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="keahlian">Bidang Keahlian</Label>
+                <Label htmlFor="keahlian">Bidang Keahlian <span className="text-muted-foreground text-[10px]">(opsional)</span></Label>
                 <Textarea id="keahlian" value={form.keahlian} onChange={(e) => setForm({ ...form, keahlian: e.target.value })} placeholder="Pemrograman Web, Basis Data, Machine Learning..." rows={2} />
               </div>
               <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="foto">URL Foto (opsional)</Label>
+                <Label htmlFor="foto">URL Foto <span className="text-muted-foreground text-[10px]">(opsional)</span></Label>
                 <Input id="foto" value={form.foto} onChange={(e) => setForm({ ...form, foto: e.target.value })} placeholder="https://..." />
               </div>
             </div>
@@ -557,13 +569,20 @@ export function DosenView() {
         </DialogContent>
       </Dialog>
 
+      {/* Import Excel Dialog */}
+      <ImportExcelDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onSuccess={() => fetchData({ silent: true })}
+      />
+
       {/* Delete confirm */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null) }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Hapus Dosen</AlertDialogTitle>
             <AlertDialogDescription>
-              Apakah Anda yakin ingin menghapus <strong>{deleteTarget?.nama}</strong> ({deleteTarget?.nidn})?
+              Apakah Anda yakin ingin menghapus <strong>{deleteTarget?.nama}</strong>{deleteTarget?.nidn ? ` (${deleteTarget.nidn})` : ''}?
               Tindakan ini tidak dapat dibatalkan.
             </AlertDialogDescription>
           </AlertDialogHeader>

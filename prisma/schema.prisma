@@ -101,15 +101,17 @@ model Mahasiswa {
 
 model Dosen {
   id         String        @id @default(cuid())
-  nidn       String        @unique
+  // nidn opsional: kalau kosong, sistem tetap menerima (cukup nama wajib).
+  // Kalau diisi, harus unik.
+  nidn       String?       @unique
   nama       String
-  email      String
-  noHp       String
-  fakultasId String
-  fakultas   Fakultas      @relation(fields: [fakultasId], references: [id])
+  email      String?
+  noHp       String?
+  fakultasId String?
+  fakultas   Fakultas?     @relation(fields: [fakultasId], references: [id])
   prodiId    String?
   prodi      ProgramStudi? @relation(fields: [prodiId], references: [id])
-  jabatan    String
+  jabatan    String        @default("Dosen Pendamping")
   keahlian   String?
   foto       String?
   status     String        @default("AKTIF")

@@ -1,0 +1,218 @@
+import { NextResponse } from 'next/server'
+import { db } from '@/lib/db'
+import * as XLSX from 'xlsx'
+import {
+  findAllNameCols,
+  findCol,
+  KOLOM_PATTERNS,
+  matchProdiByName,
+  matchFakultasByName,
+  findExistingDosen,
+} from '@/lib/dosen-import'
+
+/**
+ * POST /api/dosen/import
+ *
+ * Import dosen dari Excel. Hanya field `nama` yang wajib — lainnya opsional.
+ *
+ * Body (multipart/form-data):
+ *   - file: Excel file (.xlsx, .xls, .csv)
+ *   - jabatanOverride (opsional): jabatan default untuk semua dosen
+ *       kalau tidak ada kolom nama spesifik (mis. "Koordinator Lapangan").
+ *       Default: "Dosen Pendamping".
+ *   - prodiMapping (opsional, JSON): { "<nama prodi di excel>": "<prodiId>" }
+ *   - fakultasMapping (opsional, JSON): { "<nama fakultas di excel>": "<fakultasId>" }
+ *   - skipDuplicate (opsional, "true"/"false", default true):
+ *       true → skip dosen yang sudah ada (by NIDN atau nama exact)
+ *       false → tetap error kalau NIDN konflik
+ *
+ * Strategi UPSERT:
+ *   - Cari existing by NIDN (kalau ada NIDN), fallback by nama exact (case-insensitive)
+ *   - Kalau ada → UPDATE (merge field yang baru, tidak overwrite yang kosong)
+ *   - Kalau tidak ada → CREATE baru
+ *
+ * Response:
+ *   { success, imported, updated, skipped, errors, totalRows }
+ */
+export async function POST(req: Request) {
+  try {
+    const formData = await req.formData()
+    const file = formData.get('file') as File | null
+    if (!file) {
+      return NextResponse.json({ error: 'File Excel wajib diupload' }, { status: 400 })
+    }
+    if (!/\.(xlsx|xls|csv)$/i.test(file.name)) {
+      return NextResponse.json({ error: 'File harus berformat .xlsx, .xls, atau .csv' }, { status: 400 })
+    }
+
+    const jabatanOverride = (formData.get('jabatanOverride') as string | null)?.trim() || ''
+    const skipDuplicate = (formData.get('skipDuplicate') as string | null) !== 'false'
+
+    let prodiMapping: Record<string, string> = {}
+    let fakultasMapping: Record<string, string> = {}
+    try {
+      const pm = formData.get('prodiMapping') as string | null
+      if (pm) prodiMapping = JSON.parse(pm)
+      const fm = formData.get('fakultasMapping') as string | null
+      if (fm) fakultasMapping = JSON.parse(fm)
+    } catch {
+      return NextResponse.json({ error: 'Format prodiMapping/fakultasMapping tidak valid JSON' }, { status: 400 })
+    }
+
+    // ── Parse Excel ───────────────────────────────────────────────────────
+    const buf = await file.arrayBuffer()
+    const wb = XLSX.read(buf, { type: 'array' })
+    const ws = wb.Sheets[wb.SheetNames[0]]
+    if (!ws) {
+      return NextResponse.json({ error: 'Sheet tidak ditemukan dalam file Excel' }, { status: 400 })
+    }
+    const rows = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, raw: false })
+    if (rows.length < 2) {
+      return NextResponse.json({ error: 'File Excel kosong (tidak ada data)' }, { status: 400 })
+    }
+
+    const headers = (rows[0] || []).map((h) => String(h || '').trim())
+
+    // Cari semua kolom nama (bisa 1 atau lebih)
+    const nameColumns = findAllNameCols(headers)
+    if (nameColumns.length === 0) {
+      return NextResponse.json(
+        { error: `Tidak ditemukan kolom nama. Pastikan ada kolom "Nama Dosen", "Nama", "Dosen Pendamping", atau "Koordinator Lapangan". Kolom yang terdeteksi: ${headers.join(', ')}` },
+        { status: 400 },
+      )
+    }
+
+    // Cari kolom optional (exclude name columns)
+    const nameIdxSet = new Set(nameColumns.map((n) => n.index))
+    const findColExcludeNames = (patterns: readonly string[]): number => {
+      for (let i = 0; i < headers.length; i++) {
+        if (nameIdxSet.has(i)) continue
+        const h = (headers[i] || '').toLowerCase().trim()
+        if (!h) continue
+        if (patterns.includes(h)) return i
+      }
+      for (let i = 0; i < headers.length; i++) {
+        if (nameIdxSet.has(i)) continue
+        const h = (headers[i] || '').toLowerCase().trim()
+        if (!h) continue
+        if (patterns.some((p) => h.includes(p))) return i
+      }
+      return -1
+    }
+    const colNidn = findColExcludeNames(KOLOM_PATTERNS.nidn)
+    const colProdi = findColExcludeNames(KOLOM_PATTERNS.prodi)
+    const colEmail = findColExcludeNames(KOLOM_PATTERNS.email)
+    const colNoHp = findColExcludeNames(KOLOM_PATTERNS.noHp)
+    const colFakultas = findColExcludeNames(KOLOM_PATTERNS.fakultas)
+
+    // Fetch master data
+    const [dbProdi, dbFakultas] = await Promise.all([
+      db.programStudi.findMany({ select: { id: true, nama: true } }),
+      db.fakultas.findMany({ select: { id: true, nama: true } }),
+    ])
+
+    // ── Process each row ────────────────────────────────────────────────
+    const errors: { row: number; nama: string; error: string }[] = []
+    let imported = 0
+    let updated = 0
+    let skipped = 0
+
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i] || []
+      // Untuk setiap kolom nama yang terdeteksi
+      for (const nc of nameColumns) {
+        const namaRaw = String(row[nc.index] || '').trim()
+        if (!namaRaw) continue // skip cell kosong
+
+        const nidn = colNidn !== -1 ? String(row[colNidn] || '').trim() || null : null
+        const email = colEmail !== -1 ? String(row[colEmail] || '').trim() || null : null
+        const noHp = colNoHp !== -1 ? String(row[colNoHp] || '').trim() || null : null
+        const prodiName = colProdi !== -1 ? String(row[colProdi] || '').trim() : ''
+        const fakultasName = colFakultas !== -1 ? String(row[colFakultas] || '').trim() : ''
+
+        // Jabatan: prioritas kolom spesifik > override user > default "Dosen Pendamping"
+        let jabatan = nc.jabatan // dari header kolom nama
+        if (jabatanOverride && nameColumns.length === 1) {
+          // Kalau cuma 1 kolom nama dan user set override, pakai override
+          jabatan = jabatanOverride
+        }
+
+        // Resolve prodi
+        let prodiId: string | null = null
+        if (prodiName) {
+          prodiId = prodiMapping[prodiName] || matchProdiByName(prodiName, dbProdi)?.id || null
+        }
+
+        // Resolve fakultas
+        let fakultasId: string | null = null
+        if (fakultasName) {
+          fakultasId = fakultasMapping[fakultasName] || matchFakultasByName(fakultasName, dbFakultas)?.id || null
+        }
+
+        try {
+          const existing = await findExistingDosen({ nidn, nama: namaRaw })
+
+          if (existing) {
+            if (skipDuplicate) {
+              // Update field yang baru (merge — jangan overwrite field kosong dengan null)
+              const updateData: any = {}
+              if (namaRaw && namaRaw !== existing.nama) updateData.nama = namaRaw
+              if (nidn && !existing.nidn) updateData.nidn = nidn
+              if (email && !existing.email) updateData.email = email.toLowerCase()
+              if (noHp && !existing.noHp) updateData.noHp = noHp
+              if (fakultasId && !existing.fakultasId) updateData.fakultasId = fakultasId
+              if (prodiId && !existing.prodiId) updateData.prodiId = prodiId
+              // Update jabatan kalau existing kosong / beda
+              if (jabatan && existing.jabatan !== jabatan) updateData.jabatan = jabatan
+
+              if (Object.keys(updateData).length > 0) {
+                await db.dosen.update({ where: { id: existing.id }, data: updateData })
+                updated++
+              } else {
+                skipped++
+              }
+            } else {
+              errors.push({ row: i + 1, nama: namaRaw, error: `Dosen sudah ada: "${existing.nama}" (NIDN: ${existing.nidn ?? '-'})` })
+            }
+          } else {
+            // Create baru
+            await db.dosen.create({
+              data: {
+                nidn,
+                nama: namaRaw,
+                email: email?.toLowerCase() || null,
+                noHp: noHp || null,
+                fakultasId: fakultasId || null,
+                prodiId: prodiId || null,
+                jabatan,
+                status: 'AKTIF',
+              },
+            })
+            imported++
+          }
+        } catch (e: any) {
+          if (e?.code === 'P2002') {
+            errors.push({ row: i + 1, nama: namaRaw, error: `NIDN/email sudah digunakan dosen lain` })
+          } else {
+            errors.push({ row: i + 1, nama: namaRaw, error: e?.message || 'unknown error' })
+          }
+        }
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      imported,
+      updated,
+      skipped,
+      errors,
+      totalRows: rows.length - 1,
+    })
+  } catch (e: any) {
+    console.error('[POST /api/dosen/import]', e)
+    return NextResponse.json(
+      { error: e?.message || 'Gagal mengimpor file Excel' },
+      { status: 500 },
+    )
+  }
+}

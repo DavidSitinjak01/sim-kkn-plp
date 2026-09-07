@@ -34,15 +34,14 @@ export async function GET(req: Request) {
 }
 
 // POST - create new dosen
+// Field wajib: nama saja. nidn, email, noHp, fakultasId, prodiId, jabatan — opsional.
+// (Sesuai permintaan user: "yang penting ada nama itu sudah mewakili".)
 export async function POST(req: Request) {
   try {
     const body = await req.json()
 
-    const required = ['nidn', 'nama', 'email', 'noHp', 'fakultasId', 'jabatan']
-    for (const f of required) {
-      if (body[f] === undefined || body[f] === null || String(body[f]).trim() === '') {
-        return NextResponse.json({ error: `Field ${f} wajib diisi` }, { status: 400 })
-      }
+    if (!body.nama || String(body.nama).trim() === '') {
+      return NextResponse.json({ error: 'Field nama wajib diisi' }, { status: 400 })
     }
 
     const validStatus = ['AKTIF', 'NONAKTIF']
@@ -51,20 +50,29 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Status tidak valid' }, { status: 400 })
     }
 
-    const exist = await db.dosen.findUnique({ where: { nidn: body.nidn } })
-    if (exist) {
-      return NextResponse.json({ error: 'NIDN sudah terdaftar' }, { status: 400 })
+    // NIDN kalau diisi, harus unik
+    const nidn = body.nidn ? String(body.nidn).trim() : null
+    if (nidn) {
+      const exist = await db.dosen.findUnique({ where: { nidn } })
+      if (exist) {
+        return NextResponse.json({ error: `NIDN "${nidn}" sudah terdaftar di dosen "${exist.nama}"` }, { status: 400 })
+      }
     }
+
+    // Jabatan default kalau kosong
+    const jabatan = body.jabatan && String(body.jabatan).trim() !== ''
+      ? String(body.jabatan).trim()
+      : 'Dosen Pendamping'
 
     const created = await db.dosen.create({
       data: {
-        nidn: body.nidn.trim(),
-        nama: body.nama.trim(),
-        email: body.email.trim().toLowerCase(),
-        noHp: body.noHp.trim(),
-        fakultasId: body.fakultasId,
+        nidn,
+        nama: String(body.nama).trim(),
+        email: body.email ? String(body.email).trim().toLowerCase() : null,
+        noHp: body.noHp ? String(body.noHp).trim() : null,
+        fakultasId: body.fakultasId || null,
         prodiId: body.prodiId || null,
-        jabatan: body.jabatan.trim(),
+        jabatan,
         keahlian: body.keahlian?.trim() || null,
         foto: body.foto?.trim() || null,
         status,

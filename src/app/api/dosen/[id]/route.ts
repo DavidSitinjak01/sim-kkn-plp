@@ -22,6 +22,7 @@ export async function GET(_req: Request, { params }: Params) {
 }
 
 // PUT - update dosen
+// Field wajib: nama (kalau di-set, tidak boleh kosong). Lainnya opsional.
 export async function PUT(req: Request, { params }: Params) {
   try {
     const { id } = await params
@@ -32,28 +33,38 @@ export async function PUT(req: Request, { params }: Params) {
       return NextResponse.json({ error: 'Dosen tidak ditemukan' }, { status: 404 })
     }
 
+    if (body.nama !== undefined && String(body.nama).trim() === '') {
+      return NextResponse.json({ error: 'Nama tidak boleh kosong' }, { status: 400 })
+    }
+
     const validStatus = ['AKTIF', 'NONAKTIF']
     if (body.status && !validStatus.includes(body.status)) {
       return NextResponse.json({ error: 'Status tidak valid' }, { status: 400 })
     }
 
-    if (body.nidn && body.nidn !== existing.nidn) {
-      const dup = await db.dosen.findUnique({ where: { nidn: body.nidn } })
-      if (dup) {
-        return NextResponse.json({ error: 'NIDN sudah digunakan' }, { status: 400 })
+    // NIDN: kalau di-set ke string non-empty, cek duplikasi (kecuali dirinya sendiri)
+    if (body.nidn !== undefined) {
+      const newNidn = String(body.nidn).trim() || null
+      if (newNidn && newNidn !== existing.nidn) {
+        const dup = await db.dosen.findUnique({ where: { nidn: newNidn } })
+        if (dup) {
+          return NextResponse.json({ error: `NIDN "${newNidn}" sudah digunakan di dosen "${dup.nama}"` }, { status: 400 })
+        }
       }
     }
 
     const updated = await db.dosen.update({
       where: { id },
       data: {
-        ...(body.nidn !== undefined && { nidn: body.nidn.trim() }),
+        // nidn bisa di-set ke null (untuk clear) atau string
+        ...(body.nidn !== undefined && { nidn: String(body.nidn).trim() || null }),
         ...(body.nama !== undefined && { nama: body.nama.trim() }),
-        ...(body.email !== undefined && { email: body.email.trim().toLowerCase() }),
-        ...(body.noHp !== undefined && { noHp: body.noHp.trim() }),
-        ...(body.fakultasId !== undefined && { fakultasId: body.fakultasId }),
+        // email, noHp, fakultasId: bisa di-clear ke null
+        ...(body.email !== undefined && { email: body.email.trim() ? body.email.trim().toLowerCase() : null }),
+        ...(body.noHp !== undefined && { noHp: body.noHp.trim() || null }),
+        ...(body.fakultasId !== undefined && { fakultasId: body.fakultasId || null }),
         ...(body.prodiId !== undefined && { prodiId: body.prodiId || null }),
-        ...(body.jabatan !== undefined && { jabatan: body.jabatan.trim() }),
+        ...(body.jabatan !== undefined && { jabatan: body.jabatan.trim() || 'Dosen Pendamping' }),
         ...(body.keahlian !== undefined && { keahlian: body.keahlian?.trim() || null }),
         ...(body.foto !== undefined && { foto: body.foto?.trim() || null }),
         ...(body.status !== undefined && { status: body.status }),
