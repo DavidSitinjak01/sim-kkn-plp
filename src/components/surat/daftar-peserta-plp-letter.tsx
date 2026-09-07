@@ -336,6 +336,14 @@ export function DaftarPesertaPLPLetter({ kelompokId }: Props) {
             <div style={{ fontSize: '13px', fontWeight: 'bold', textTransform: 'uppercase' }}>{judul.line3}</div>
           </div>
 
+          {/* ===== INFO KELOMPOK (sebagai teks biasa, BUKAN tabel) ===== */}
+          <div style={{ fontSize: '12px', marginBottom: '14px', lineHeight: '1.8' }}>
+            <div><strong>Kelompok</strong> : {formatKelompokNama(kelompok.nama)}</div>
+            <div><strong>Sekolah Mitra</strong> : {lokasi.nama}</div>
+            <div><strong>DPL/WA</strong> : {kelompok.dosen ? `${kelompok.dosen.nama}/${kelompok.dosen.noHp}` : '-'}</div>
+            <div><strong>Koordinator Lapangan</strong> : {kelompok.koordinator ? kelompok.koordinator.nama : '-'}</div>
+          </div>
+
           {/* ===== TABEL PESERTA ===== (sesuai PDF: NIM left-aligned, prodi width luas) */}
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', marginBottom: '20px' }}>
             <thead>
@@ -489,6 +497,14 @@ function buildPrintHtml(kelompok: Kelompok, p: Pengaturan, logoBase64: string): 
     <div class="line1">${escapeHtml(judul.line1)}</div>
     <div class="line2">${escapeHtml(judul.line2)}</div>
     <div class="line3">${escapeHtml(judul.line3)}</div>
+  </div>
+
+  <!-- INFO KELOMPOK (teks biasa, BUKAN tabel) -->
+  <div style="font-size:12px;margin-bottom:14px;line-height:1.8;">
+    <div><b>Kelompok</b> : ${escapeHtml(formatKelompokNama(kelompok.nama))}</div>
+    <div><b>Sekolah Mitra</b> : ${escapeHtml(lokasi.nama)}</div>
+    <div><b>DPL/WA</b> : ${kelompok.dosen ? escapeHtml(kelompok.dosen.nama) + '/' + escapeHtml(kelompok.dosen.noHp) : '-'}</div>
+    <div><b>Koordinator Lapangan</b> : ${kelompok.koordinator ? escapeHtml(kelompok.koordinator.nama) : '-'}</div>
   </div>
 
   <!-- TABEL -->
